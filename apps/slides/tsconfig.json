@@ -1,0 +1,26 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    // Pin resolution to this repo's workspace sources (avoids stale types when node_modules links point elsewhere)
+    "baseUrl": ".",
+    "paths": {
+      "@yiioffice/pptx-engine": ["../../packages/pptx-engine/src/index.ts"],
+      "@yiioffice/pptx-engine/table-grid": ["../../packages/pptx-engine/src/table-grid.ts"],
+      "@yiioffice/pptx-engine/identity": ["../../packages/pptx-engine/src/identity.ts"],
+      "@yiioffice/pptx-engine/named-action": ["../../packages/pptx-engine/src/named-action.ts"],
+      "@yiioffice/pptx-engine/background-promote": [
+        "../../packages/pptx-engine/src/background-promote.ts"
+      ],
+      "@yiioffice/pptx-ops": ["../../packages/pptx-ops/src/index.ts"],
+      "@yiioffice/pptx-ops/op-docs": ["../../packages/pptx-ops/src/op-docs.ts"],
+      "@yiioffice/pptx-ops/font-size": ["../../packages/pptx-ops/src/font-size.ts"],
+      "@yiioffice/pptx-render": ["../../packages/pptx-render/src/index.ts"],
+      "@yiioffice/docx-engine/metafile": ["../../packages/docx-engine/src/metafile.ts"],
+      "@yiioffice/docx-engine/math": ["../../packages/docx-engine/src/math.ts"]
+    }
+  },
+  "include": ["src", "tests", "electron.vite.config.ts", "vitest.config.ts"]
+}

@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    // Pin resolution to this repo's workspace sources (avoids stale types when node_modules links point elsewhere)
+    "baseUrl": ".",
+    "paths": {
+      "@yiioffice/pptx-engine": ["../pptx-engine/src/index.ts"],
+      "@yiioffice/pptx-engine/table-grid": ["../pptx-engine/src/table-grid.ts"],
+      "@yiioffice/pptx-engine/identity": ["../pptx-engine/src/identity.ts"],
+      "@yiioffice/pptx-engine/background-promote": ["../pptx-engine/src/background-promote.ts"]
+    }
+  },
+  "include": ["src", "tests"]
+}
