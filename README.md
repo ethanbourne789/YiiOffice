@@ -32,7 +32,7 @@
 
 **关于运行时**：本仓库是 YiiOffice 的 **Electron 版**（Electron 43 + React 19）。同源的 Tauri 3 版本在 `YiiOffice-Tauri3` 仓库，功能面基本一致：Electron 自带 Chromium 与 Node，安装包与内存占用更大，换来的是三平台渲染完全一致、不依赖系统 WebView 版本，以及成熟的调试与打包链路。
 
-**关于 AI**：当前代码树**不含** AI / LLM / MCP 子系统，AI 相关入口已裁掉（残留的 stub 与清理计划见 [`AUDIT-2026-10-22.md`](AUDIT-2026-10-22.md) §A4）。与上游 GenOffice 的功能差异见 [`GENOFFICE-GAP-2026-10-23.md`](GENOFFICE-GAP-2026-10-23.md)。
+**关于 AI**：当前代码树**不含** AI / LLM / MCP 子系统，相关入口已裁掉，仅余少量待清理的 stub。
 
 ---
 
@@ -180,8 +180,6 @@ YiiOffice-Electron/
 ├── e2e/                        # Playwright 端到端测试
 ├── docs/                       # 架构文档、i18n、截图资源
 ├── tools/                      # 许可证、主题色、字体、fixtures 等构建脚本
-├── AUDIT-2026-10-22.md         # 全项目代码审计（安全 / 架构 / 性能 / 供应链）
-├── GENOFFICE-GAP-2026-10-23.md # 与上游 GenOffice 的差异与升级点
 └── CONTRIBUTING.md             # 贡献流程、引擎包说明、docx 往返细节
 ```
 
@@ -202,7 +200,7 @@ YiiOffice-Electron/
 DOCX / PPTX 的保存采用「段落级 / 元素级补丁」：解析原文 → 只改动被编辑的节点 → 回写未变部分；落盘统一走 `atomic-write`（临时文件 + rename）。
 
 **5. 进程隔离与最小权限**
-所有窗口 `contextIsolation: true`、`nodeIntegration: false`、`sandbox: true`，渲染端只能通过 preload 暴露的白名单接口访问文件；`renderer-scheme` 自定义协议、`navigation-guard` 锁定导航与外部链接。审计中已记录的 IPC 信任模型与文件权限缺口见 [`AUDIT-2026-10-22.md`](AUDIT-2026-10-22.md) §2.2。
+所有窗口 `contextIsolation: true`、`nodeIntegration: false`、`sandbox: true`，渲染端只能通过 preload 暴露的白名单接口访问文件；`renderer-scheme` 自定义协议、`navigation-guard` 锁定导航与外部链接。IPC 信任模型（路径授权 + `senderFrame` 校验）与文件权限仍是待收敛的已知缺口。
 
 **6. 本地索引**
 `apps/shell/src/main/file-index` 扫描工作目录、抽取正文（Office / PDF / Markdown / HTML）、写入 `node:sqlite` FTS5 虚表；分词器对 CJK 生成 bigram 流 + unigram 流，兼顾两字词与单字查询。
@@ -239,14 +237,12 @@ npm run test:e2e            # Playwright 端到端（78 个用例，需要先 bu
 |------|------|
 | ✅ 已完成 | monorepo 结构；Shell 主流程（首页、标签、文件增删改移、设置持久化、全文搜索）；6 个编辑器的渲染层与主进程能力；Rust xlsx sidecar；CLI 与控制通道；打包脚本（mac / win / linux） |
 | 🚧 进行中 | AI 子系统裁剪后的残留 stub 清理；IPC 信任模型统一（路径授权 + `senderFrame` 校验）；原子写入保留文件权限；渲染端 `ErrorBoundary` 与主进程崩溃兜底；测试与类型检查门禁转正 |
-| 🗺️ 计划中 | ODF 导入（`.odt/.ods/.odp`）、PDF 数字证书签名、Markdown 双链笔记、更多界面语言；详见 [`GENOFFICE-GAP-2026-10-23.md`](GENOFFICE-GAP-2026-10-23.md) |
+| 🗺️ 计划中 | ODF 导入（`.odt/.ods/.odp`）、PDF 数字证书签名、Markdown 双链笔记、更多界面语言 |
 
-**文档与实现的一致性**：`PRIVACY.md` 目前仍描述一套「匿名使用统计」上报流程，代码树中并未实现；本 README 已按实际代码重写，不再描述已移除的 AI 面板与 MCP 服务。若发现其他出入，以代码与审计报告为准，并欢迎提 PR 修正文档。
+**文档与实现的一致性**：`PRIVACY.md` 目前仍描述一套「匿名使用统计」上报流程，代码树中并未实现；本 README 已按实际代码重写，不再描述已移除的 AI 面板与 MCP 服务。若发现其他出入，以代码为准，并欢迎提 PR 修正文档。
 
-已知问题与整改项的完整清单：
+相关文档：
 
-- [`AUDIT-2026-10-22.md`](AUDIT-2026-10-22.md) — 全项目代码审计（安全、架构、性能、可维护性、依赖）
-- [`GENOFFICE-GAP-2026-10-23.md`](GENOFFICE-GAP-2026-10-23.md) — 与上游 GenOffice 的功能差异与升级优先级
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — 贡献流程、引擎包导览、docx 往返架构
 - [`docs/headless-pdf-export.md`](docs/headless-pdf-export.md) — 无界面导出 PDF 的实现说明
 - [`docs/slides-op-journal.md`](docs/slides-op-journal.md) — Slides 操作日志与撤销/重做设计

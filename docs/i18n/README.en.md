@@ -32,7 +32,7 @@ Four principles follow from that:
 
 **About the runtime:** this repository is the **Electron edition** of YiiOffice (Electron 43 + React 19). The Tauri 3 edition lives in the `YiiOffice-Tauri3` repository and covers the same feature surface. Electron ships Chromium and Node inside the app, so installers and memory use are larger — in exchange, rendering is identical on all three platforms, no system WebView version is involved, and the debugging and packaging toolchain is mature.
 
-**About AI:** this tree **does not** contain an AI / LLM / MCP subsystem; those entry points were removed (the leftover stubs and the cleanup plan are in [`AUDIT-2026-10-22.md`](../../AUDIT-2026-10-22.md) §A4). The feature delta against upstream GenOffice is tracked in [`GENOFFICE-GAP-2026-10-23.md`](../../GENOFFICE-GAP-2026-10-23.md).
+**About AI:** this tree **does not** contain an AI / LLM / MCP subsystem; those entry points were removed, leaving only a few stubs still to be cleaned up.
 
 ---
 
@@ -180,8 +180,6 @@ YiiOffice-Electron/
 ├── e2e/                        # Playwright end-to-end tests
 ├── docs/                       # Architecture notes, i18n, image assets
 ├── tools/                      # Licence, theme, font and fixture build scripts
-├── AUDIT-2026-10-22.md         # Full code audit (security / architecture / performance / supply chain)
-├── GENOFFICE-GAP-2026-10-23.md # Delta against upstream GenOffice
 └── CONTRIBUTING.md             # Contribution flow, engine packages, docx round-trip notes
 ```
 
@@ -202,7 +200,7 @@ Every editor runs standalone for focused debugging, and embedded as a shell tab.
 DOCX / PPTX saves are paragraph- and element-level patches: parse the original, rewrite only the edited nodes, splice them back. Everything hits disk through `atomic-write` (temporary file plus `rename`).
 
 **5. Process isolation and least privilege.**
-Every window runs with `contextIsolation: true`, `nodeIntegration: false` and `sandbox: true`; renderers reach files only through the allow-listed preload API. A custom `renderer-scheme` protocol and `navigation-guard` lock down navigation and external links. Known gaps in the IPC trust model and file permissions are logged in [`AUDIT-2026-10-22.md`](../../AUDIT-2026-10-22.md) §2.2.
+Every window runs with `contextIsolation: true`, `nodeIntegration: false` and `sandbox: true`; renderers reach files only through the allow-listed preload API. A custom `renderer-scheme` protocol and `navigation-guard` lock down navigation and external links. The IPC trust model (path grants plus `senderFrame` checks) and file permissions remain known gaps to be closed.
 
 **6. Local index.**
 `apps/shell/src/main/file-index` scans the working folders, extracts text (Office / PDF / Markdown / HTML) and writes it into a `node:sqlite` FTS5 virtual table. The tokenizer emits a bigram stream and a unigram stream for CJK, which covers both two-character words and single-character queries.
@@ -239,14 +237,12 @@ The app is at `0.11.0` (`@yiioffice/shell`), the root `package.json` still says 
 |-------|---------|
 | ✅ Done | Monorepo structure; shell main flow (home, tabs, file create/rename/move/delete, persisted settings, full-text search); renderer and main-process features of all six editors; Rust xlsx sidecar; CLI and control channel; packaging scripts (mac / win / linux) |
 | 🚧 In progress | Cleaning up the AI stubs left after the subsystem was removed; unifying the IPC trust model (path grants plus `senderFrame` checks); preserving file permissions on atomic writes; `ErrorBoundary` in renderers and a main-process crash handler; promoting the test and typecheck gates |
-| 🗺️ Planned | ODF import (`.odt/.ods/.odp`), PDF certificate signatures, Markdown backlinks, more UI languages — see [`GENOFFICE-GAP-2026-10-23.md`](../../GENOFFICE-GAP-2026-10-23.md) |
+| 🗺️ Planned | ODF import (`.odt/.ods/.odp`), PDF certificate signatures, Markdown backlinks, more UI languages |
 
-**Docs versus code:** `PRIVACY.md` still describes an anonymous-usage-reporting flow that this tree does not implement. This README was rewritten against the actual code and no longer documents the removed AI panel or MCP server. Where anything else disagrees, the code and the audit reports win — PRs that fix the docs are welcome.
+**Docs versus code:** `PRIVACY.md` still describes an anonymous-usage-reporting flow that this tree does not implement. This README was rewritten against the actual code and no longer documents the removed AI panel or MCP server. Where anything else disagrees, the code wins — PRs that fix the docs are welcome.
 
-Full lists of known issues:
+Related documents:
 
-- [`AUDIT-2026-10-22.md`](../../AUDIT-2026-10-22.md) — code audit: security, architecture, performance, maintainability, dependencies
-- [`GENOFFICE-GAP-2026-10-23.md`](../../GENOFFICE-GAP-2026-10-23.md) — feature delta against upstream GenOffice and upgrade priorities
 - [`CONTRIBUTING.md`](../../CONTRIBUTING.md) — contribution flow, engine package tour, docx round-trip design
 - [`docs/headless-pdf-export.md`](../headless-pdf-export.md) — how headless PDF export works
 - [`docs/slides-op-journal.md`](../slides-op-journal.md) — Slides operation journal and undo/redo design
