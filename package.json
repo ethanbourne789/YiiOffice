@@ -10,7 +10,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/genspark-ai/yiioffice.git"
+    "url": "git+https://gitee.com/ethanbourne789/yiioffice.git"
   },
   "workspaces": [
     "apps/*",
