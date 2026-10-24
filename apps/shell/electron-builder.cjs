@@ -1,17 +1,5 @@
 /**
- * electron-builder configuration (moved out of package.json "build" so the
- * auto-update feed URL can be injected at build time instead of living in
- * the repo).
- *
- * YIIOFFICE_UPDATE_URL — public base URL of the update channel (the generic
- * provider prefix that serves latest.yml / latest-mac.yml). Required for
- * release builds; CI provides it as a repository secret. For local release
- * builds put it in apps/shell/electron-builder.env (gitignored) — the
- * electron-builder CLI loads that file automatically.
- *
- * When the variable is unset (forks, PR smoke builds, plain local packaging)
- * the publish config is omitted: electron-builder then bakes no
- * app-update.yml into the app and in-app auto-update stays disabled.
+ * electron-builder configuration.
  *
  * YIIOFFICE_GA4_MEASUREMENT_ID / YIIOFFICE_GA4_API_SECRET — GA4 Measurement
  * Protocol credentials for anonymous usage analytics, injected the same way
@@ -43,7 +31,6 @@ function normalizeHttpsBaseUrl(name, value) {
   }
 }
 
-const updateUrl = process.env.YIIOFFICE_UPDATE_URL
 const ga4MeasurementId = process.env.YIIOFFICE_GA4_MEASUREMENT_ID
 const ga4ApiSecret = process.env.YIIOFFICE_GA4_API_SECRET
 const fontCdnUrl = normalizeHttpsBaseUrl(
@@ -60,28 +47,11 @@ const fontCdnUrl = normalizeHttpsBaseUrl(
 // switch.
 const includeMacX64 = process.env.YIIOFFICE_MAC_X64 === '1'
 
-// YIIOFFICE_WIN_ARM64=1 — package the Windows ARM64 installer instead of x64.
-// CI runs it as a second electron-builder pass (own BUILD_DIR) after the
-// unchanged x64 pass, so the two never share an output dir or a sidecar path:
-// the sidecar comes from the matching cargo target dir and is checked to
-// exist at beforePack because electron-builder exits 0 on a missing
-// extraResources source (Sheets would ship dead on every ARM install).
-const winArm64 = process.env.YIIOFFICE_WIN_ARM64 === '1'
-// 7-Zip packs ARM64 executables with its ARM64 branch filter, which the NSIS
-// install-time extractor (Nsis7z) cannot decode: it silently skips
-// YiiOffice.exe and every dll (electron-builder#9983). BCJ it can decode.
-if (winArm64 && !process.env.ELECTRON_BUILDER_7Z_FILTER) {
-  process.env.ELECTRON_BUILDER_7Z_FILTER = 'BCJ'
-}
-const winArch = winArm64 ? 'arm64' : 'x64'
-const winSidecarTarget = winArm64 ? 'aarch64-pc-windows-msvc' : 'x86_64-pc-windows-msvc'
+// Windows: x64 only
 const WIN_SIDECAR = `../sheets/native/xlsx-engine/target/release/xlsx-sidecar.exe`
 
 function assertExtraResourceSources() {
   for (const rel of [
-    '../../node_modules/@genspark/cli',
-    '../../node_modules/@genspark/cli/node_modules/commander',
-    '../../node_modules/ws',
     '../../node_modules/electron/dist/LICENSES.chromium.html',
     '../../node_modules/@embedpdf/pdfium/dist/pdfium.wasm',
     '../pdf/node_modules/harfbuzzjs/hb-subset.wasm',
@@ -210,63 +180,12 @@ function assertModuleTreesPresent() {
     '../slides/out',
     '../pdf/out',
     '../markdown/out',
-    '../html/out',
-    '../../packages/cli/dist/yiioffice.cjs',
-    '../../packages/cli/dist/node_modules/jsdom',
   ]) {
     if (!existsSync(join(__dirname, rel))) {
       throw new Error(
         `electron-builder extraResources source missing: ${rel} (run npm run build:all first)`,
       )
     }
-  }
-}
-
-const CLI_BUNDLE_REL = '../../packages/cli/dist/yiioffice.cjs'
-const CLI_BUILD_REL = '../../packages/cli/build.mjs'
-const CLI_VERSION_ENV = 'YIIOFFICE_APP_VERSION'
-const CLI_VERSION_BANNER = /^const __cliAppVersion = ("(?:[^"\\]|\\.)*");$/m
-
-/**
- * The version the packaged app reports: CI's -c.extraMetadata.version deep-merges
- * into the block below, and without it electron-builder ships apps/shell/package.json.
- */
-function packagedAppVersion() {
-  const injected = config.extraMetadata && config.extraMetadata.version
-  if (typeof injected === 'string' && injected.trim()) return injected.trim()
-  return require('./package.json').version
-}
-
-function bundledCliVersion(bundlePath) {
-  const baked = CLI_VERSION_BANNER.exec(readFileSync(bundlePath, 'utf-8'))
-  if (!baked) return null
-  try {
-    return JSON.parse(baked[1])
-  } catch {
-    return null
-  }
-}
-
-/**
- * `yiioffice --version` is baked into the CLI bundle, which is built before
- * electron-builder runs and therefore before a release version is known. Rebuild
- * it here with the app version whenever the two disagree, so the packaged
- * command line can never answer with the workspace CLI version.
- */
-function ensureCliBundleCarriesAppVersion() {
-  const bundlePath = join(__dirname, CLI_BUNDLE_REL)
-  const appVersion = packagedAppVersion()
-  if (bundledCliVersion(bundlePath) === appVersion) return
-  execFileSync(process.execPath, [join(__dirname, CLI_BUILD_REL)], {
-    stdio: 'inherit',
-    env: { ...process.env, [CLI_VERSION_ENV]: appVersion },
-  })
-  const baked = bundledCliVersion(bundlePath)
-  if (baked !== appVersion) {
-    throw new Error(
-      `packaged yiioffice CLI reports ${baked ?? 'no version'} but the app ships ${appVersion} ` +
-        `(rebuild it with ${CLI_VERSION_ENV}=${appVersion})`,
-    )
   }
 }
 
@@ -296,6 +215,7 @@ function ensureThirdPartyNotices() {
 
 /** @type {import('electron-builder').Configuration} */
 const config = {
+  publish: null,
   appId: 'com.yiioffice.app',
   productName: 'YiiOffice',
   // Resolved from the installed electron package so dependency bumps can
@@ -335,10 +255,6 @@ const config = {
       from: '../markdown/out',
       to: 'modules/markdown',
     },
-    {
-      from: '../html/out',
-      to: 'modules/html',
-    },
     // PDF text editing engines: the bundled main resolves these under
     // Resources/wasm when node_modules is absent (apps/pdf/src/main/wasm-path.ts)
     {
@@ -360,51 +276,7 @@ const config = {
       from: '../../packages/pdf2docx/ocr-helper/win-ocr.exe',
       to: 'ocr/win-ocr.exe',
     },
-    {
-      from: '../../node_modules/@genspark/cli',
-      to: 'gsk/node_modules/@genspark/cli',
-    },
-    // yiioffice command line: runs on the app binary with ELECTRON_RUN_AS_NODE (as
-    // the gsk CLI above already does), so the RunAsNode fuse must stay enabled.
-    // Layout (Resources/cli next to wasm/, native/, ocr/) is what
-    // packages/cli/src/resources.ts expects.
-    {
-      from: '../../packages/cli/dist/yiioffice.cjs',
-      to: 'cli/yiioffice.cjs',
-    },
-    {
-      from: '../../packages/cli/bin/yiioffice',
-      to: 'cli/yiioffice',
-    },
-    {
-      from: '../../packages/cli/bin/yiioffice.cmd',
-      to: 'cli/yiioffice.cmd',
-    },
-    // the CLI's version (Settings → Integrations shows it) and the agent skill
-    // the same pane installs into Claude Code / Codex / …; bytes identical to the repo file
-    {
-      from: '../../packages/cli/package.json',
-      to: 'cli/package.json',
-    },
-    {
-      from: '../../skills/yiioffice/SKILL.md',
-      to: 'cli/skills/yiioffice/SKILL.md',
-    },
-    // runtime deps the yiioffice bundle leaves external (jsdom for the Word/Markdown
-    // paths); collected by packages/cli/collect-deps.mjs during its build
-    {
-      from: '../../packages/cli/dist/node_modules',
-      to: 'cli/node_modules',
-    },
-    {
-      from: '../../node_modules/@genspark/cli/node_modules/commander',
-      to: 'gsk/node_modules/commander',
-    },
-    {
-      from: '../../node_modules/ws',
-      to: 'gsk/node_modules/ws',
-    },
-  ],
+    ],
   // `mimeType` is read only by the Linux target, where it becomes the
   // desktop entry's MimeType= list; associations without it are dropped
   // there. macOS and Windows ignore the field and key off `ext`.
@@ -491,20 +363,6 @@ const config = {
       icon: 'md',
       mimeType: 'text/markdown',
     },
-    {
-      ext: 'html',
-      name: 'HTML Document',
-      role: 'Editor',
-      icon: 'html',
-      mimeType: 'text/html',
-    },
-    {
-      ext: 'htm',
-      name: 'HTML Document',
-      role: 'Editor',
-      icon: 'html',
-      mimeType: 'text/html',
-    },
   ],
   npmRebuild: false,
   mac: {
@@ -512,8 +370,7 @@ const config = {
     // artifact names and update-feed entries it always had, x64 (opt-in via
     // YIIOFFICE_MAC_X64=1, see includeMacX64 above) adds Intel support with
     // electron-builder's default arch-less names (YiiOffice-<v>.dmg /
-    // YiiOffice-<v>-mac.zip). Both zips land in one latest-mac.yml and
-    // electron-updater picks by process.arch. Dual-arch packs ship the same
+    // YiiOffice-<v>-mac.zip). Dual-arch packs ship the same
     // lipo fat xlsx-sidecar (see assertUniversalSidecar above).
     target: [
       { target: 'dmg', arch: includeMacX64 ? ['arm64', 'x64'] : ['arm64'] },
@@ -536,7 +393,7 @@ const config = {
     target: [
       {
         target: 'zip',
-        arch: [winArch],
+        arch: ['x64'],
       },
     ],
     extraResources: [
@@ -573,14 +430,14 @@ const config = {
     // so apt sees the new packages as the same lineage. Homepage comes from
     // package.json "homepage"; the Package field is pinned in the deb block
     // below (packageName is a per-target option, rejected here by the schema).
-    maintainer: 'Mainfunc, Inc. <team@genspark.ai>',
-    vendor: 'Mainfunc, Inc. <team@genspark.ai>',
+    maintainer: 'YiiOffice',
+    vendor: 'YiiOffice',
     category: 'Office',
     // Icon SET directory, not the single 1024px png: electron-builder does
     // not resize a lone png, so deb/rpm would install only
     // hicolor/1024x1024/apps/yiioffice.png — a size absent from the hicolor
-    // theme index, leaving GNOME/KDE launchers on the generic fallback icon
-    // (genspark-ai/yiioffice#90). The set ships every standard raster size.
+    // theme index, leaving GNOME/KDE launchers on the generic fallback icon.
+    // The set ships every standard raster size.
     icon: 'build/icons',
     // mac and win name the binary from productName; linux instead derives it
     // from package.json "name", and "@yiioffice/shell" sanitizes to the
@@ -614,9 +471,6 @@ const config = {
   deb: {
     artifactName: 'yiioffice_${version}_${arch}.deb',
     packageName: 'yiioffice',
-    // expose the yiioffice command line shipped inside the app
-    afterInstall: 'build/linux-after-install.sh',
-    afterRemove: 'build/linux-after-remove.sh',
   },
   // Same "@yiioffice/shell" naming problem as deb: spell the artifact name
   // out (${arch} expands to the rpm arch string, x86_64) and pin the rpm
@@ -625,16 +479,11 @@ const config = {
   // upgrade with `dnf install ./<new>.rpm`. Packaging needs rpmbuild on the
   // build host (the `rpm` apt package on Ubuntu; CI installs it).
   //
-  // publish: null (explicit) keeps the rpm out of the electron-updater feed
-  // and off the CDN entirely: the rpm is a GitHub-Release download only, so
-  // latest-linux.yml keeps listing exactly what the CDN pipeline uploads
-  // (AppImage + deb) and the promote workflow needs no rpm alias.
+  // publish: null (explicit) keeps the rpm off the CDN entirely:
+  // the rpm is a GitHub-Release download only.
   rpm: {
     artifactName: 'yiioffice-${version}.${arch}.rpm',
     packageName: 'yiioffice',
-    publish: null,
-    afterInstall: 'build/linux-after-install.sh',
-    afterRemove: 'build/linux-after-remove.sh',
     // rpmbuild links every packaged ELF file into /usr/lib/.build-id/<hash>.
     // Two Electron apps built on the same Electron release ship identical
     // binaries, so the links are identical too and dnf refuses the install
@@ -652,7 +501,6 @@ const config = {
     assertExtraResourceSources()
     ensureThirdPartyNotices()
     assertModuleTreesPresent()
-    ensureCliBundleCarriesAppVersion()
     if (context.electronPlatformName === 'darwin' && includeMacX64) {
       assertUniversalSidecar()
       assertUniversalVisionOcr()
@@ -700,16 +548,6 @@ if (winSignMode) {
       return Promise.resolve()
     },
   }
-}
-
-if (updateUrl) {
-  config.publish = [
-    {
-      provider: 'generic',
-      url: updateUrl.replace(/\/+$/, ''),
-      channel: 'latest',
-    },
-  ]
 }
 
 // CI's "-c.extraMetadata.version=..." CLI override deep-merges with this block,

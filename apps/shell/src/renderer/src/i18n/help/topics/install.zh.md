@@ -1,6 +1,6 @@
 # 安装 YiiOffice
 
-每个构建都发布在 [Releases 页面](https://github.com/genspark-ai/yiioffice/releases/latest)。它们全部出自 `main`；macOS 与 Windows 的安装包已签名。
+每个构建都发布在 [Releases 页面](https://gitee.com/ethanbourne789/yiioffice/releases/latest)。它们全部出自 `main`；macOS 与 Windows 的安装包已签名。
 
 ## 选择适合你机器的文件
 
@@ -9,7 +9,6 @@
 | **macOS** — Apple Silicon            | macOS 11+                                              | `.dmg` (arm64)      |
 | **macOS** — Intel                    | macOS 11+                                              | `.dmg` (x64)        |
 | **Windows** — 大多数 PC              | Windows 10+、Intel/AMD                                 | `-x64.exe` 安装包   |
-| **Windows** on Arm                   | Arm 版 Windows 11（Snapdragon X 等）                   | `-arm64.exe` 安装包 |
 | **Linux** — Debian / Ubuntu          | x86_64、glibc 2.34+（Ubuntu 22.04 或更新）             | `.deb`              |
 | **Linux** — Fedora / RHEL / openSUSE | x86_64、glibc 2.34+（Fedora 35+、RHEL 9+、Leap 15.6+） | `.rpm`              |
 | **Linux** — 其他                     | x86_64、glibc 2.34+、FUSE 2                            | `.AppImage`         |
@@ -50,17 +49,9 @@ chmod +x YiiOffice-<version>.AppImage
 
 ## 你正在运行的构建
 
-**设置 ▸ 关于** 是应用报告你所用的构建、它跟随的更新渠道以及项目所在地的地方。当该渠道上发布了更新的构建时，同一个面板会提示更新；Flatpak、Nix 或 Docker 安装则不会，因为这些安装会被当初装上它们的工具替换掉。
+**设置 ▸ 关于** 显示当前安装的版本信息和项目所在地。
 
 ![设置 ▸ 关于，其中显示已安装的版本、应用跟随的更新渠道，以及项目的 GitHub 链接](img/install.png)
-
-## 另外三条路
-
-这三种方式都只是包装已发布的构建产物，而不是重新编译应用，所以跟的是官方二进制。
-
-- **Flatpak** — 通过 Flatpak 的 `extra-data` 机制安装 `.deb`，并在 Zypak 沙箱下运行，由 Zypak 适配 Electron 自带的沙箱。`/app` 目录是只读的，所以更新要走 Flatpak，而不是应用内的更新对话框。
-- **Nix** — 一个包表达式，用 `nix-build packaging/nix` 从源码检出构建；详见 `packaging/nix`。
-- **Docker** — 一个无头批量转换镜像（`packaging/docker`）。它通过应用自己的导出流程，把整棵目录树里的 Office、Markdown 和 HTML 文档转成 PDF，产出的结果与 文件 ▸ 导出 相同。它是一个命令行工具，不是服务器。
 
 ## 命令行随包附带
 

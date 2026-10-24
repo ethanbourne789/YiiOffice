@@ -99,10 +99,13 @@ test.describe('docs web-HTML paste fonts', () => {
 
       const paste = async (html: string, text: string): Promise<void> => {
         await app.evaluate(
-          ({ clipboard }, payload) => {
-            clipboard.write({ html: payload.html, text: payload.text })
+          async ({ clipboard, ClipboardItem }, payload) => {
+            await clipboard.write([
+              new ClipboardItem({ 'text/html': payload.html }),
+              new ClipboardItem({ 'text/plain': payload.text }),
+            ])
           },
-          { html, text },
+          { html: payload.html, text: payload.text },
         )
         await editorPage.keyboard.press('Control+v')
         await editorPage.waitForTimeout(400)

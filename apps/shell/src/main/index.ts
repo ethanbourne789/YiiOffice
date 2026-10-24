@@ -37,8 +37,6 @@ import menuPdfIcon1x from './assets/menu-pdf.png?asset'
 import menuPdfIcon2x from './assets/menu-pdf@2x.png?asset'
 import menuMdIcon1x from './assets/menu-md.png?asset'
 import menuMdIcon2x from './assets/menu-md@2x.png?asset'
-import menuHtmlIcon1x from './assets/menu-html.png?asset'
-import menuHtmlIcon2x from './assets/menu-html@2x.png?asset'
 import menuHomeIcon1x from './assets/menu-home.png?asset'
 import menuHomeIcon2x from './assets/menu-home@2x.png?asset'
 import { createI18n, isLang, normalizeLang, setUiLang, type Lang } from '@yiioffice/i18n'
@@ -72,9 +70,6 @@ import {
   writeAppSettingThen,
 } from './app-settings'
 import { OPEN_DOCUMENTS_FILE, clearOpenDocuments, publishOpenDocuments } from './open-documents'
-import { startControlServer, type ControlServer } from './control-server'
-import { controlHandler } from './control-handlers'
-import { installCliLinkBestEffort } from './cli-link'
 import { createDefaultAppService, execFileRunner } from './default-app'
 
 
@@ -175,23 +170,7 @@ import {
   setMarkdownDocxExportedHook,
   setMarkdownFileSavedHook,
 } from '../../../markdown/src/main/markdown-main'
-import {
-  configureHtmlRuntime,
-  exportHtmlHeadless,
-  htmlDiscardPendingAssets,
-  htmlFileRenamed,
-  htmlReadText,
-  htmlSaveToPath,
-  registerPrivilegedSchemes,
-  requestHtmlSave,
-  sendHtmlExportRequest,
-  sendHtmlPrintRequest,
-  setHtmlDocxExportPrepareHook,
-  setHtmlDocxExportedHook,
-  setHtmlFileSavedHook,
-  setHtmlPresentHooks,
-  setHtmlProvisionalTitleHook,
-} from '../../../html/src/main/html-main'
+
 import type {
   AutoSaveDefault,
   FolderListing,
@@ -225,7 +204,6 @@ import {
 import { isMoveSource, isUserVisibleFile, type FileTargetSources } from './file-targets'
 import {
   DOCX_RE,
-  HTML_RE,
   PDF_RE,
   PPTX_RE,
   TEXT_RE,
@@ -348,9 +326,6 @@ const PDF_OUT = app.isPackaged
 const MARKDOWN_OUT = app.isPackaged
   ? join(process.resourcesPath, 'modules', 'markdown')
   : join(APPS_ROOT, 'markdown', 'out')
-const HTML_OUT = app.isPackaged
-  ? join(process.resourcesPath, 'modules', 'html')
-  : join(APPS_ROOT, 'html', 'out')
 const SIDECAR_BIN = app.isPackaged
   ? join(process.resourcesPath, 'native', SIDECAR_EXE)
   : join(APPS_ROOT, 'sheets', 'native', 'xlsx-engine', 'target', 'release', SIDECAR_EXE)
@@ -385,15 +360,6 @@ configureMarkdownRuntime({
   rendererFile: join(MARKDOWN_OUT, 'renderer', 'index.html'),
   openGeneratedPath: (path) => openGeneratedDocument(path),
 })
-configureHtmlRuntime({
-  preloadPath: join(HTML_OUT, 'preload', 'index.js'),
-  rendererUrl: process.env.HTML_RENDERER_URL,
-  rendererFile: join(HTML_OUT, 'renderer', 'index.html'),
-  openGeneratedPath: (path) => openGeneratedDocument(path),
-})
-// privileged-scheme registration is only legal before app ready
-registerPrivilegedSchemes()
-
 // ---- UI language ----
 // Persisted in userData/app-settings.json so the editor modules can read the
 // same file when they pick up i18n later. YIIOFFICE_LANG overrides for tests.
@@ -497,15 +463,12 @@ const tMain = createI18n({
     untitledDoc: '未命名文档',
     untitledDeck: '未命名演示文稿',
     untitledMarkdown: '未命名 Markdown',
-    untitledHtml: '未命名 HTML',
     untitledPdf: '未命名 PDF',
     menuNewSlide: 'Slides',
     menuNewMarkdown: 'Markdown',
-    menuNewHtml: 'HTML',
     menuNewPdf: 'PDF',
     menuExportPdf: '导出为 PDF…',
     menuExportImages: '导出为图片…',
-    menuExportHtml: '导出为单文件 HTML…',
     menuOpenInDocs: '转换为 Docs 文档并打开',
     menuPrint: '打印…',
     menuOpen: '打开…',
@@ -522,7 +485,6 @@ const tMain = createI18n({
     filterExcel: 'Excel 工作簿',
     filterPpt: 'PowerPoint 演示文稿',
     filterMarkdown: '文本文件 (Markdown, TXT, JSON)',
-    filterHtml: 'HTML 文档',
     filterPdf: 'PDF 文档',
     errBadArgs: '参数无效',
     errBadName: '文件名不合法',
@@ -591,15 +553,12 @@ const tMain = createI18n({
     untitledDoc: 'Untitled Document',
     untitledDeck: 'Untitled Presentation',
     untitledMarkdown: 'Untitled Markdown',
-    untitledHtml: 'Untitled HTML',
     untitledPdf: 'Untitled PDF',
     menuNewSlide: 'Slides',
     menuNewMarkdown: 'Markdown',
-    menuNewHtml: 'HTML',
     menuNewPdf: 'PDF',
     menuExportPdf: 'Export as PDF…',
     menuExportImages: 'Export as Images…',
-    menuExportHtml: 'Export as Single-File HTML…',
     menuOpenInDocs: 'Convert and Open in Docs',
     menuPrint: 'Print…',
     menuOpen: 'Open…',
@@ -616,7 +575,6 @@ const tMain = createI18n({
     filterExcel: 'Excel Workbooks',
     filterPpt: 'PowerPoint Presentations',
     filterMarkdown: 'Text Files (Markdown, TXT, JSON)',
-    filterHtml: 'HTML Documents',
     filterPdf: 'PDF Documents',
     errBadArgs: 'Invalid arguments',
     errBadName: 'Invalid file name',
@@ -690,9 +648,9 @@ let tabManager: TabManager | null = null
  * New file from a folder view: the click remembers the folder per kind, the
  * new-tab code consumes it right away. Sheets / PDF write their blank file
  * straight into that folder; the editors that save untitled files themselves
- * (docs, slides, markdown, html) get the folder bound to the tab that was just
+ * (docs, slides, markdown) get the folder bound to the tab that was just
  * created, and the tab's first save moves the fresh file there.
- * key: 'doc' | 'sheet' | 'slide' | 'markdown' | 'html' | 'pdf'
+ * key: 'doc' | 'sheet' | 'slide' | 'markdown' | 'pdf'
  */
 /** folders the user added to the home tree beside the default save folder */
 function extraFolderRoots(): string[] {
@@ -799,7 +757,6 @@ function afterFileMoved(oldPath: string, newPath: string): void {
     else if (t.kind === 'docs') docsFileRenamed(t.webContents, oldPath, newPath)
     else if (t.kind === 'sheets') sheetsFileRenamed(t.webContents, oldPath, newPath)
     else if (t.kind === 'markdown') markdownFileRenamed(t.webContents, oldPath, newPath)
-    else if (t.kind === 'html') htmlFileRenamed(t.webContents, oldPath, newPath)
     else if (t.kind === 'pdf') pdfFileRenamed(t.webContents, oldPath, newPath)
   }
 }
@@ -871,7 +828,6 @@ const SEARCH_EXT_FAMILY: Record<string, readonly string[]> = {
   xlsx: ['xlsx', 'xlsm', 'xls', 'csv', 'tsv'],
   pptx: ['pptx', 'ppt'],
   md: ['md', 'markdown', 'txt', 'json'],
-  html: ['html', 'htm'],
 }
 
 /** one recursive watcher per tree root; follows the save-folder setting and the added folders */
@@ -960,9 +916,6 @@ function applyMenuFor(kind: TabKind): void {
     case 'markdown':
       buildMarkdownMenu()
       break
-    case 'html':
-      buildHtmlMenu()
-      break
     default:
       buildHomeMenu()
   }
@@ -1033,9 +986,7 @@ function createShellWindow(): void {
             ? tm('untitledDeck')
             : kind === 'markdown'
               ? tm('untitledMarkdown')
-              : kind === 'html'
-                ? tm('untitledHtml')
-                : tm('untitledSheet'),
+              : tm('untitledSheet'),
   )
   tabManager = manager
 
@@ -1073,19 +1024,6 @@ function createShellWindow(): void {
   setSlidesShellWindow(win)
   setSlidesHostWindowHook((wc) => detachedWindowForWebContents(wc.id))
   setSlidesShowBleed((wc, on) => manager.setContentBleed(wc, on))
-  setHtmlPresentHooks({
-    setBleed: (wc, on) => manager.setContentBleed(wc, on),
-    hostWindow: (wc) => detachedWindowForWebContents(wc.id) ?? win,
-    openTab: (owner, title) => {
-      manager.openHtmlPresentTab(owner, title)
-      return true
-    },
-    closeTab: (wc) => {
-      const id = manager.tabIdForWebContents(wc.id)
-      if (id) void manager.closeTab(id)
-      return !!id
-    },
-  })
   // A detached docs/sheets window can outlive the shell window; its hooks must
   // then reach the live tab manager (recreating the shell), never this closure's.
   setDocsShellHooks({
@@ -1151,16 +1089,6 @@ function createShellWindow(): void {
     recordRecentFile(path)
     applyPendingDir(wc.id, path)
   })
-  setHtmlFileSavedHook((wc, path) => {
-    manager.setTabFileFor(wc.id, path)
-    detachedSetFileFor(wc.id, path)
-    recordRecentFile(path)
-    applyPendingDir(wc.id, path)
-  })
-  setHtmlProvisionalTitleHook((wc, title) => {
-    manager.setTabTitleFor(wc.id, title)
-    detachedSetTitleFor(wc.id, title)
-  })
   // A redacted copy becomes this tab's document; the source still exists.
   setPdfRedactionSavedHook((wc, path) => {
     manager.setTabFileFor(wc.id, path)
@@ -1176,20 +1104,6 @@ function createShellWindow(): void {
   })
   // markdown "convert & open in Docs" → route the fresh .docx to a docs tab
   setMarkdownDocxExportedHook((path) => {
-    openDocumentPath(path)
-  })
-  // Word export to a path already open in a docs tab: close that tab before the file is
-  // written (its unsaved-changes prompt applies, and a later save of the stale document
-  // could otherwise overwrite the export); a cancelled close aborts the export.
-  setHtmlDocxExportPrepareHook(async (path) => {
-    const stale = manager.findDocsTabByPath(path)
-    if (!stale) return true
-    const active = manager.list().find((t) => t.active)?.id
-    await manager.closeTab(stale)
-    if (active && active !== stale) manager.activateTab(active)
-    return !manager.findDocsTabByPath(path)
-  })
-  setHtmlDocxExportedHook((path) => {
     openDocumentPath(path)
   })
 
@@ -1236,8 +1150,6 @@ const OPEN_DIALOG_EXTENSIONS = [
   'markdown',
   'txt',
   'json',
-  'html',
-  'htm',
 ]
 
 function notifyUnsupportedFile(filePath: string): void {
@@ -1349,13 +1261,6 @@ function routeDocumentPath(filePath: string): boolean {
     else tabManager.openMarkdownTab(filePath)
     return true
   }
-  if (HTML_RE.test(filePath)) {
-    recordRecentFile(filePath)
-    const existing = tabManager.findHtmlTabByPath(filePath)
-    if (existing) tabManager.activateTab(existing)
-    else tabManager.openHtmlTab(filePath)
-    return true
-  }
   notifyUnsupportedFile(filePath)
   return false
 }
@@ -1449,14 +1354,6 @@ function newSlideTab(): void {
 function newMarkdownTab(): void {
   try {
     bindPendingDir('markdown', tabManager?.openMarkdownTab())
-  } catch (err) {
-    surfaceNewTabError(err)
-  }
-}
-
-function newHtmlTab(): void {
-  try {
-    bindPendingDir('html', tabManager?.openHtmlTab())
   } catch (err) {
     surfaceNewTabError(err)
   }
@@ -1639,7 +1536,6 @@ function registerHomeIpc(): void {
         { name: tm('filterPpt'), extensions: ['pptx', 'ppt'] },
         { name: tm('filterPdf'), extensions: ['pdf'] },
         { name: tm('filterMarkdown'), extensions: ['md', 'markdown', 'txt', 'json'] },
-        { name: tm('filterHtml'), extensions: ['html', 'htm'] },
       ],
       properties: ['openFile', 'multiSelections'],
     })
@@ -1664,11 +1560,6 @@ function registerHomeIpc(): void {
   ipcMain.handle(HOME_CHANNELS.newMarkdown, (_event, opts?: NewFileOpts) => {
     rememberPendingDir('markdown', opts)
     newMarkdownTab()
-  })
-
-  ipcMain.handle(HOME_CHANNELS.newHtml, (_event, opts?: NewFileOpts) => {
-    rememberPendingDir('html', opts)
-    newHtmlTab()
   })
 
   ipcMain.handle(HOME_CHANNELS.newPdf, (_event, opts?: NewFileOpts) => {
@@ -2050,7 +1941,6 @@ interface MenuIconSet {
   pptx: NativeImage
   pdf: NativeImage
   md: NativeImage
-  html: NativeImage
   home: NativeImage
 }
 let menuIconCache: MenuIconSet | null = null
@@ -2061,7 +1951,6 @@ function menuIcons(): MenuIconSet {
     pptx: loadMenuIcon(menuPptxIcon1x, menuPptxIcon2x),
     pdf: loadMenuIcon(menuPdfIcon1x, menuPdfIcon2x),
     md: loadMenuIcon(menuMdIcon1x, menuMdIcon2x),
-    html: loadMenuIcon(menuHtmlIcon1x, menuHtmlIcon2x),
     home: loadMenuIcon(menuHomeIcon1x, menuHomeIcon2x),
   }
   return menuIconCache
@@ -2074,7 +1963,6 @@ const TAB_MENU_ICON: Record<TabKind, keyof MenuIconSet> = {
   slides: 'pptx',
   pdf: 'pdf',
   markdown: 'md',
-  html: 'html',
   help: 'home',
 }
 
@@ -2122,7 +2010,7 @@ function tearOffTabToWindow(id: string, x: number, y: number): boolean {
 let lastDockIndex: number | undefined
 
 /** Menu-command target for the editors whose menus resolve through the shell
- *  (pdf / markdown / html): the focused detached window of that kind first,
+ *  (pdf / markdown): the focused detached window of that kind first,
  *  else the shell's active tab of that kind. */
 function activeEditorTarget(
   kind: TabKind,
@@ -2153,9 +2041,6 @@ function pdfHostWindow(tab: { webContents: WebContents } | undefined): BrowserWi
 }
 function activeMarkdownTarget() {
   return activeEditorTarget('markdown', () => tabManager?.activeMarkdownTab())
-}
-function activeHtmlTarget() {
-  return activeEditorTarget('html', () => tabManager?.activeHtmlTab())
 }
 
 function registerTabsIpc(): void {
@@ -2279,11 +2164,6 @@ function registerTabsIpc(): void {
         click: () => newMarkdownTab(),
       },
       {
-        label: tm('menuNewHtml'),
-        icon: menuIcons().html,
-        click: () => newHtmlTab(),
-      },
-      {
         label: tm('menuNewPdf'),
         icon: menuIcons().pdf,
         click: () => void newPdfTab(),
@@ -2331,7 +2211,6 @@ function buildHomeMenu(): void {
         },
         { label: tm('menuNewSlide'), click: () => newSlideTab() },
         { label: tm('menuNewMarkdown'), click: () => newMarkdownTab() },
-        { label: tm('menuNewHtml'), click: () => newHtmlTab() },
         { label: tm('menuNewPdf'), click: () => void newPdfTab() },
         { type: 'separator' },
         {
@@ -2517,98 +2396,6 @@ function buildMarkdownMenu(): void {
           click: () => {
             const tab = activeMarkdownTarget()
             if (tab) sendMarkdownPrintRequest(tab.webContents)
-          },
-        },
-        { type: 'separator' },
-        {
-          label: tm('menuClose'),
-          accelerator: 'CmdOrCtrl+W',
-          click: () => closeFocusedEditor(),
-        },
-      ],
-    },
-    editMenuTemplate(process.platform, appMenuLabels(currentLang())),
-    windowMenuTemplate(process.platform, appMenuLabels(currentLang())),
-    {
-      role: 'help',
-      label: tm('menuHelp'),
-      submenu: [
-        { label: tm('thirdPartyNotices'), click: () => void openThirdPartyNotices() },
-        { type: 'separator' },
-        checkUpdatesMenuItem(appMenuLabels(currentLang())),
-        aboutMenuItem(appMenuLabels(currentLang())),
-      ],
-    },
-  ]
-  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
-}
-
-// ---- html menu (html-main has no menu of its own; the shell owns html tabs) ----
-
-function buildHtmlMenu(): void {
-  const isMac = process.platform === 'darwin'
-  const template: MenuItemConstructorOptions[] = [
-    ...(isMac ? [{ role: 'appMenu' as const }] : []),
-    {
-      label: tm('menuFile'),
-      submenu: [
-        {
-          label: tm('menuOpen'),
-          accelerator: 'CmdOrCtrl+O',
-          click: () => void openFileViaDialog(),
-        },
-        { type: 'separator' },
-        {
-          label: tm('backToHome'),
-          accelerator: 'Shift+CmdOrCtrl+H',
-          click: () => tabManager?.openHomeTab(),
-        },
-        { type: 'separator' },
-        {
-          label: tm('menuSave'),
-          accelerator: 'CmdOrCtrl+S',
-          click: () => {
-            const tab = activeHtmlTarget()
-            if (tab) void requestHtmlSave(tab.webContents, 'save')
-          },
-        },
-        {
-          label: tm('menuSaveAs'),
-          accelerator: 'CmdOrCtrl+Shift+S',
-          click: () => {
-            const tab = activeHtmlTarget()
-            if (tab) void requestHtmlSave(tab.webContents, 'saveAs')
-          },
-        },
-        { type: 'separator' },
-        {
-          label: tm('menuExportDocx'),
-          click: () => {
-            const tab = activeHtmlTarget()
-            if (tab) sendHtmlExportRequest(tab.webContents, 'docx')
-          },
-        },
-        {
-          label: tm('menuExportPdf'),
-          click: () => {
-            const tab = activeHtmlTarget()
-            if (tab) sendHtmlExportRequest(tab.webContents, 'pdf')
-          },
-        },
-        {
-          label: tm('menuExportHtml'),
-          click: () => {
-            const tab = activeHtmlTarget()
-            if (tab) sendHtmlExportRequest(tab.webContents, 'html')
-          },
-        },
-        { type: 'separator' },
-        {
-          label: tm('menuPrint'),
-          accelerator: 'CmdOrCtrl+P',
-          click: () => {
-            const tab = activeHtmlTarget()
-            if (tab) sendHtmlPrintRequest(tab.webContents)
           },
         },
         { type: 'separator' },
@@ -3135,7 +2922,6 @@ async function installMainProcessProxy(): Promise<void> {
 // ---- lifecycle (the shell is the only owner) ----
 
 let pendingLaunchPaths = collectLaunchPaths(process.argv)
-let controlServer: ControlServer | null = null
 
 // show() does not un-minimize, and on macOS ⌘W destroys the shell window while the
 // app keeps running — either way a file opened from Finder would land out of sight.
@@ -3189,7 +2975,6 @@ const headlessExporters: HeadlessExporters = {
   sheets: (input, outPath) => exportSheetsPdfHeadless(input, outPath),
   slides: (input, outPath) => exportSlidesPdfHeadless(input, outPath),
   markdown: (input, outPath) => exportMarkdownPdfHeadless(input, outPath),
-  html: exportHtmlHeadless,
 }
 
 /**
@@ -3231,7 +3016,6 @@ app.whenReady().then(async () => {
     slides: join(SLIDES_OUT, 'renderer'),
     pdf: join(PDF_OUT, 'renderer'),
     markdown: join(MARKDOWN_OUT, 'renderer'),
-    html: join(HTML_OUT, 'renderer'),
     // the manual shares the shell's own renderer bundle (help mode)
     help: join(__dirname, '../renderer'),
   })
@@ -3292,7 +3076,6 @@ app.whenReady().then(async () => {
   // native menus/dialogs/scrollbars follow the persisted theme from first paint
   nativeTheme.themeSource = currentTheme()
     // off the startup path: a symlink / registry write nobody is waiting for
-  setTimeout(() => installCliLinkBestEffort(APP_SETTINGS_PATH()), 3000)
   startSheetsCaptureServer()
   createShellWindow()
   // deferred to ready: labels need currentLang(), which reads app.getLocale()
@@ -3320,23 +3103,6 @@ app.whenReady().then(async () => {
   pendingLaunchPaths = []
   for (const recoverAs of pendingUnsavedNewRecoveries()) void newSheetTab(recoverAs)
 
-  startControlServer(
-    app.getPath('userData'),
-    controlHandler({
-      reveal: revealShellWindow,
-      openDocument: openDocumentPath,
-      activateTab: (id) => {
-        if (!activateDetached(id)) tabManager?.activateTab(id)
-      },
-      findTab: (path) => tabManager?.findTabByPath(path) ?? findDetachedTabByPath(path),
-    }),
-  ).then(
-    (server) => {
-      controlServer = server
-    },
-    (err: unknown) => console.warn('[control] not listening:', err),
-  )
-
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createShellWindow()
   })
@@ -3360,7 +3126,6 @@ app.on('will-quit', () => {
   fileIndexer?.stop()
   fileIndexStore?.close()
   for (const watcher of folderWatchers.values()) watcher.close()
-  controlServer?.close()
   // a second instance that lost the lock quits too; it must not delete the running editor's list
   if (ownsOpenDocumentsRegistry) clearOpenDocuments(OPEN_DOCUMENTS_PATH())
 })

@@ -225,8 +225,6 @@ export const zh = {
   appSplitPaneLabel: '拆分窗格(只读预览,可独立滚动)',
   appRemoveSplit: '取消拆分',
   appExitReadMode: '退出阅读视图 (Esc)',
-  appExpandAiPanel: '展开编辑面板',
-  appAiRail: '',
   // Status bar / word count
   appPageOf: '第 {current} 页,共 {total} 页',
   appWordCountTitle: '字数统计',
@@ -307,13 +305,13 @@ export const zh = {
   appTabClear: '清除',
   // AI settings
   appAiSettings: '设置',
-  appGensparkAccount: 'Genspark 账号',
+  appAccount: '账号',
   appChecking: '检测中…',
   appLoggedIn: '已登录',
   appLoggedInEmail: '已登录：{email}',
-  appNotLoggedIn: '未登录（功能需要登录 Genspark 账号）',
+  appNotLoggedIn: '未登录（部分功能需要登录）',
   appWaitingBrowserLogin: '等待浏览器登录…',
-  appLoginGenspark: '登录 Genspark',
+  appLogin: '登录',
   appModel: '模型',
   // Context menu
   appCut: '剪切',
@@ -343,8 +341,6 @@ export const zh = {
   appSpellIgnoreAll: '全部忽略',
   appSpellLanguage: '语言',
   appSynonyms: '同义词',
-  appSynonymsPrompt:
-    '“{text}”有哪些更好的同义词或近义表达?请列出 3-5 个并简要说明差别,不要修改文档。',
   appTranslateSelectionPrompt:
     '将文中当前选中的这段文字翻译成{lang},用译文替换原文,保持格式不变:“{text}”',
   appAiBadgeTip: '将调用',

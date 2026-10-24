@@ -158,11 +158,11 @@ describe('docx export', () => {
   })
 
   it('links survive as hyperlink runs', async () => {
-    const parsed = await exportAndParse('Visit [Genspark](https://genspark.ai) now.')
+    const parsed = await exportAndParse('Visit [YiiOffice](https://yiioffice.com) now.')
     const para = parsed.blocks.find((b) => b.type === 'paragraph')
     const link = para?.runs?.find((r) => r.link)
-    expect(link?.text).toBe('Genspark')
-    expect(link?.link?.href).toBe('https://genspark.ai')
+    expect(link?.text).toBe('YiiOffice')
+    expect(link?.link?.href).toBe('https://yiioffice.com')
   })
 
   it('unresolvable images fall back to alt text', async () => {

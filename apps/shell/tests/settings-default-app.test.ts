@@ -41,8 +41,6 @@ async function openGeneral(api: Partial<HomeApi>): Promise<void> {
     getDefaultSaveDir: async () => '',
     getAnalyticsEnabled: async () => true,
     setAnalyticsEnabled: async () => true,
-    getAiPanelPrefs: async () => ({ fontSize: 'default', spellcheck: true }),
-    setAiPanelPrefs: async (patch) => ({ fontSize: 'default', spellcheck: true, ...patch }),
     getAppVersion: async () => '1.0.0',
     ...api,
   } as unknown as HomeApi

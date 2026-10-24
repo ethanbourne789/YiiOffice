@@ -6,8 +6,8 @@ import iconXlsx from './assets/file-xlsx.svg'
 import iconPptx from './assets/file-pptx.svg'
 import iconPdf from './assets/file-pdf.svg'
 import iconMd from './assets/file-md.svg'
-import iconHtml from './assets/file-html.svg'
 import type {
+  FileEntry,
   FolderEntry,
   FolderListing,
   FolderRoot,
@@ -54,15 +54,13 @@ const FILE_ICONS: Record<string, string> = {
   pdf: iconPdf,
   md: iconMd,
   markdown: iconMd,
-  html: iconHtml,
-  htm: iconHtml,
 }
 
 /* Formats the open-local card advertises. Too long for the card at any window
    width, so it ellipsizes and a hover ScreenTip carries the full list. Keep in
    sync with the main-process open-dialog filter (OPEN_DIALOG_EXTENSIONS). */
 const OPEN_LOCAL_EXTENSIONS =
-  '.docx / .xlsx / .xlsm / .xls / .csv / .tsv / .pptx / .pdf / .md / .html'
+  '.docx / .xlsx / .xlsm / .xls / .csv / .tsv / .pptx / .pdf / .md'
 
 /** drag payload of home file/folder rows (JSON array of absolute paths) */
 const DRAG_PATHS_MIME = 'application/x-yiioffice-paths'
@@ -230,7 +228,6 @@ const FILTERS: { key: string; label: StringKey }[] = [
   { key: 'pptx', label: 'filterSlides' },
   { key: 'pdf', label: 'filterPdf' },
   { key: 'md', label: 'filterMd' },
-  { key: 'html', label: 'filterHtml' },
 ]
 
 /** sidebar filter keys that stand for a family of extensions (mirrors recent-files.ts) */
@@ -239,7 +236,6 @@ const FILTER_FAMILY: Record<string, readonly string[]> = {
   xlsx: ['xlsx', 'xlsm', 'xls', 'csv', 'tsv'],
   pptx: ['pptx', 'ppt'],
   md: ['md', 'markdown', 'txt', 'json'],
-  html: ['html', 'htm'],
 }
 
 function matchesFilter(entry: RecentEntry, filter: string): boolean {
@@ -1599,12 +1595,6 @@ export function Home() {
       action: () => window.aiOffice.newMarkdown(newFileOpts),
     },
     {
-      ext: 'html',
-      title: t('newHtml'),
-      sub: '.html',
-      action: () => window.aiOffice.newHtml(newFileOpts),
-    },
-    {
       ext: 'pdf',
       title: t('newPdf'),
       sub: '.pdf',
@@ -1801,6 +1791,38 @@ export function Home() {
     </li>
   )
 
+  function renderFileTreeNode(file: FileEntry, depth: number): ReactElement {
+    return (
+      <li key={file.path} className="tree-item">
+        <div
+          className="tree-row tree-file-row"
+          style={{ paddingLeft: 8 + depth * 14 }}
+          role="treeitem"
+          tabIndex={0}
+          title={file.name}
+          onClick={() => void window.aiOffice.openPath(file.path)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void window.aiOffice.openPath(file.path)
+          }}
+        >
+          <button
+            className="tree-chevron"
+            tabIndex={-1}
+            aria-hidden="true"
+            style={{ visibility: 'hidden' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Chevron open={false} />
+          </button>
+          <span className="tree-icon" aria-hidden="true">
+            <FileBadge ext={file.ext} size={20} />
+          </span>
+          <span className="tree-name">{file.name}</span>
+        </div>
+      </li>
+    )
+  }
+
   function renderTreeNode(
     entry: { path: string; name: string; hasSubfolders: boolean },
     depth: number,
@@ -1809,10 +1831,12 @@ export function Home() {
     const isRoot = rootEntry !== undefined
     const unavailable = rootEntry !== undefined && !rootEntry.readable
     const isOpen = expanded.has(entry.path) && !unavailable
-    const children = listings.get(entry.path)?.folders ?? []
+    const listing = listings.get(entry.path)
+    const children = listing?.folders ?? []
+    const listingFiles = listing?.files ?? []
     const isActive = selectedFolder === entry.path
     const isRenaming = folderRenaming?.where === 'tree' && folderRenaming.path === entry.path
-    const showChevron = !unavailable && (isRoot || entry.hasSubfolders || children.length > 0)
+    const showChevron = !unavailable && (isRoot || entry.hasSubfolders || children.length > 0 || listingFiles.length > 0)
     return (
       <li key={entry.path} className="tree-item">
         <div
@@ -1883,10 +1907,11 @@ export function Home() {
           {unavailable && <span className="tree-hint">{t('rootUnavailable')}</span>}
           {renderFolderMenu(entry, rootEntry)}
         </div>
-        {isOpen && (children.length > 0 || creating?.parent === entry.path) && (
+        {isOpen && (children.length > 0 || listingFiles.length > 0 || creating?.parent === entry.path) && (
           <ul className="tree-children" role="group">
             {creating?.parent === entry.path && renderNewFolderInput(depth + 1)}
             {children.map((child) => renderTreeNode(child, depth + 1))}
+            {listingFiles.map((file) => renderFileTreeNode(file, depth + 1))}
           </ul>
         )}
       </li>

@@ -2,14 +2,13 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Dropdown } from '@yiioffice/ui'
 import type { DefaultAppStatus } from '../../shared/home-api'
-import type { UpdateUiState } from '../../shared/update-api'
 import { useI18n } from './locale'
 import type { StringKey } from './locale'
 import type { DocTheme, UiTheme } from '../../shared/home-api'
 import './settings.css'
 
 // ── Settings modal ─────────
-// Genspark-style two-pane dialog: section nav on the left, fields on the right.
+// Two-pane dialog: section nav on the left, fields on the right.
 // All values go through the existing home IPC; nothing is stored locally.
 
 const LANG_OPTIONS = [
@@ -118,7 +117,6 @@ export function SettingsModal({
   const [defaultAppBusy, setDefaultAppBusy] = useState(false)
   const [defaultAppFailed, setDefaultAppFailed] = useState(false)
   const [appVersion, setAppVersion] = useState('')
-  const [updateState, setUpdateState] = useState<UpdateUiState | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -141,24 +139,9 @@ export function SettingsModal({
     void window.aiOffice.getAppVersion?.().then((v) => {
       if (alive && v) setAppVersion(v)
     })
-    // a rejected invoke (main process not ready, a shell whose preload does
-    // not expose the channel) must not surface as an unhandled rejection;
-    // without a known state the About row simply stays hidden
-    void window.aiOffice
-      .getUpdateState?.()
-      .then((s) => {
-        if (alive) setUpdateState(s)
-      })
-      .catch(() => undefined)
     return () => {
       alive = false
     }
-  }, [])
-
-  // live update state: the About row offers the update as soon as one is known
-  useEffect(() => {
-    const off = window.aiOffice.onUpdateStateChanged?.((s) => setUpdateState(s))
-    return () => off?.()
   }, [])
 
   useEffect(() => {
@@ -355,26 +338,6 @@ export function SettingsModal({
               <>
                 <h3 className="set-pane-title">{t('setSecAbout')}</h3>
                 <Field label={t('versionLabel')} value={appVersion || '—'} />
-                {updateState && (
-                  <div className="set-field">
-                    <div className="set-field-text">
-                      <label className="set-field-label">{t('setUpdateAvailableLabel')}</label>
-                    </div>
-                    <button
-                      type="button"
-                      className="set-update-btn"
-                      onClick={() => void window.aiOffice.openUpdateDialog?.()}
-                    >
-                      {updateState.phase === 'downloading'
-                        ? t('setUpdateDownloading', {
-                            percent: Math.round(updateState.percent),
-                          })
-                        : updateState.phase === 'downloaded'
-                          ? t('setUpdateRestart')
-                          : t('setUpdateTo', { version: updateState.version })}
-                    </button>
-                  </div>
-                )}
               </>
             )}
           </div>

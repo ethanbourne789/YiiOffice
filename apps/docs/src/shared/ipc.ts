@@ -153,7 +153,6 @@ export type MenuCommand =
   | 'table-repeat-header'
   | 'table-gridlines'
   | 'table-properties'
-  | 'ai-proofread'
   | 'shortcuts'
 
 export type UiTheme = 'light' | 'dark' | 'system'
@@ -453,7 +452,7 @@ export interface DesktopApi {
   onCloseSaveRequest(handler: () => void): () => void
   reportCloseSaveResult(ok: boolean): void
   /** keep the native View menu's checkbox items in sync with renderer state */
-  reportViewMenuState(state: { aiSidebar: boolean; darkCanvas: boolean }): void
+  reportViewMenuState(state: { darkCanvas: boolean }): void
 }
 
 /** mirrors VIEW_IMAGE_CHANNEL in @yiioffice/electron-utils (kept literal so the preload stays free of main-only deps) */

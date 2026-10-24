@@ -5,7 +5,6 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["node"],
     // Pin resolution to this repo's workspace sources (avoids stale types when node_modules links point elsewhere)
-    "baseUrl": ".",
     "paths": {
       "@yiioffice/pptx-engine": ["../../packages/pptx-engine/src/index.ts"],
       "@yiioffice/pptx-engine/table-grid": ["../../packages/pptx-engine/src/table-grid.ts"],

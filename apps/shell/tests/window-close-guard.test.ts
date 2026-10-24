@@ -15,7 +15,6 @@ const resetSheetsShuttingDown = vi.fn()
 const requestSlidesClose = vi.fn(() => Promise.resolve(true))
 const requestPdfClose = vi.fn(() => Promise.resolve(true))
 const requestMarkdownClose = vi.fn(() => Promise.resolve(true))
-const requestHtmlClose = vi.fn(() => Promise.resolve(true))
 
 vi.mock('../../docs/src/main/docs-main', () => ({
   docsQueryDirty: (...args: unknown[]) => docsQueryDirty(...(args as [])),
@@ -37,10 +36,6 @@ vi.mock('../../pdf/src/main/pdf-main', () => ({
 
 vi.mock('../../markdown/src/main/markdown-main', () => ({
   requestMarkdownClose: (...args: unknown[]) => requestMarkdownClose(...(args as [])),
-}))
-
-vi.mock('../../html/src/main/html-main', () => ({
-  requestHtmlClose: (...args: unknown[]) => requestHtmlClose(...(args as [])),
 }))
 
 interface TabStub {
@@ -87,7 +82,7 @@ class FakeWindow {
   }
 }
 
-type DirtyKinds = 'sheets' | 'pdf' | 'markdown' | 'html' | 'slides' | 'docs'
+type DirtyKinds = 'sheets' | 'pdf' | 'markdown' | 'slides' | 'docs'
 
 function fakeManager(dirty: Partial<Record<DirtyKinds, TabStub[]>> = {}) {
   return {
@@ -95,7 +90,6 @@ function fakeManager(dirty: Partial<Record<DirtyKinds, TabStub[]>> = {}) {
     dirtySheetsTabs: () => dirty.sheets ?? [],
     dirtyPdfTabs: () => dirty.pdf ?? [],
     dirtyMarkdownTabs: () => dirty.markdown ?? [],
-    dirtyHtmlTabs: () => dirty.html ?? [],
     dirtySlidesTabs: () => dirty.slides ?? [],
     docsTabs: () => dirty.docs ?? [],
   }
@@ -117,7 +111,6 @@ beforeEach(async () => {
     requestSlidesClose,
     requestPdfClose,
     requestMarkdownClose,
-    requestHtmlClose,
   ]) {
     ask.mockImplementation(() => Promise.resolve(true))
   }
@@ -175,7 +168,6 @@ describe('dirty close', () => {
     const manager = fakeManager({
       pdf: [{ id: 'p', webContents: { id: 1 } }],
       markdown: [{ id: 'm', webContents: { id: 2 } }],
-      html: [{ id: 'h', webContents: { id: 3 } }],
       slides: [{ id: 's', webContents: { id: 4 } }],
     })
     install(win as never, manager as never)
@@ -184,7 +176,6 @@ describe('dirty close', () => {
     for (const ask of [
       requestPdfClose,
       requestMarkdownClose,
-      requestHtmlClose,
       requestSlidesClose,
     ]) {
       expect(ask).toHaveBeenCalledWith(expect.anything(), win)

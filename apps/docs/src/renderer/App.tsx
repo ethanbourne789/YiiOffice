@@ -1793,7 +1793,7 @@ export function App() {
 
   // keep the native View menu's checkmarks (Dark Mode) in sync
   useEffect(() => {
-    window.desktop.reportViewMenuState?.({ aiSidebar: false, darkCanvas: darkPage })
+    window.desktop.reportViewMenuState?.({ darkCanvas: darkPage })
   }, [darkPage])
 
   // Crash-recovery copy: while the document is dirty, push a serialized
@@ -2054,7 +2054,7 @@ export function App() {
         bootHandledRef.current = true
         // A failed open (corrupt file etc.) falls back to a blank document —
         // otherwise the tab shows "Opening…" forever with only a status-bar
-        // line explaining why (github.com/genspark-ai/yiioffice issue #102).
+        // line explaining why.
         // 'password': the prompt is up; its cancel path lands on blank instead.
         const outcome = pending ? await loadFile(pending) : 'canceled'
         if (outcome === 'canceled') await resetFile()
@@ -5055,9 +5055,6 @@ export function App() {
     })
   }, [editor, zoom, pageInfo.total])
 
-  // AI proofread stub (AI panel removed)
-  const runAiProofread = () => {}
-
   // "has unsaved changes" check shared by the close guard and autosave; refreshed on every
   // render (all edit paths forceRender), so the guard's query reads the latest value
   const anyDirtyRef = useRef(false)
@@ -5363,11 +5360,6 @@ export function App() {
           insertField(instr)
         }
       }
-      // Proofread F7 (Word's spelling & grammar check)
-      if (e.key === 'F7' && !e.shiftKey && doc) {
-        e.preventDefault()
-        runAiProofread()
-      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -5381,7 +5373,6 @@ export function App() {
     startNewComment,
     insertNote,
     insertField,
-    runAiProofread,
     trackChangesForced,
   ])
 
@@ -5478,9 +5469,6 @@ export function App() {
           break
         case 'word-count':
           if (doc) openStats()
-          break
-        case 'ai-proofread':
-          if (doc) runAiProofread()
           break
         case 'shortcuts':
           setShowShortcuts(true)
@@ -5599,7 +5587,6 @@ export function App() {
     zoomFit,
     openStats,
     startNewComment,
-    runAiProofread,
     toggleTableGridlines,
     tableSectionWidthPx,
     updateDarkPage,
@@ -6626,7 +6613,6 @@ export function App() {
         docDefaults={doc?.parsed.docDefaults}
         documentListPresets={documentLists}
         recentListPresets={recentLists}
-        onAiPreset={() => {}}
         section={sections[activeSection]?.settings ?? section}
         tableGridlines={tableGridlines}
         activeSection={sections.length > 1 ? activeSection : null}
@@ -7168,7 +7154,6 @@ export function App() {
           onNewComment={startNewComment}
           onViewImage={setViewImage}
           onSaveImageAs={saveImageAs}
-          onAiPreset={() => {}}
           onRestartNumbering={restartNumbering}
           onContinueNumbering={continueNumbering}
           onSetNumberingValue={() => setListDialog('value')}

@@ -1081,38 +1081,7 @@ export function IconDoc(props: IconProps) {
   )
 }
 
-/* ---------- AI panel ---------- */
-
-export function IconSend(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M 4.52 12 19.48 5.03 15.87 18.97 11.48 14.06 z" />
-      <path d="M 11.48 14.06 19.48 5.03" />
-    </Svg>
-  )
-}
-
-export function IconStop(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <rect x="5" y="5" width="14" height="14" rx="2.625" fill="currentColor" stroke="none" />
-    </Svg>
-  )
-}
-
-export function IconGear(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <circle cx="12" cy="12" r="2.67" />
-      <path d="M 12 4.47 v 2.43 M 12 17.1 v 2.43 M 19.53 12 h -2.43 M 6.9 12 h -2.43 M 17.35 6.65 l -1.7 1.7 M 8.36 15.65 l -1.7 1.7 M 17.35 17.35 15.65 15.65 M 8.36 8.36 6.65 6.65" />
-    </Svg>
-  )
-}
-
-/** collapse the right sidebar: panel outline + arrow pushing into it */
-/** Collapse glyph for RIGHT-docked panes (Format/Animation/Comments) — exact mirror of
- *  IconSidebarCollapseLeft so both sides share the Sheets-parity look (16-canvas,
- *  1.2/1.3 stroke), self-contained for the same pinned-stroke reason. */
+/** Collapse glyph for RIGHT-docked panes (Format/Animation/Comments). */
 export function IconSidebarCollapse({ size = 24 }: IconProps) {
   return (
     <svg
@@ -1129,54 +1098,6 @@ export function IconSidebarCollapse({ size = 24 }: IconProps) {
       <path d="M10.5 2.5v11" />
       <path d="M3.5 8h4.4M6.2 5.9 8.3 8l-2.1 2.1" strokeWidth="1.3" strokeLinejoin="round" />
     </svg>
-  )
-}
-
-/** Mirror of IconSidebarCollapse for the LEFT-docked AI panel.
- *  Sheets-parity glyph (16-canvas, 1.2/1.3 stroke), self-contained so the shared
- *  Svg wrapper's 24-canvas pinned stroke doesn't alter its weight. */
-export function IconSidebarCollapseLeft({ size = 24 }: IconProps) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.2"
-      strokeLinecap="round"
-      aria-hidden
-    >
-      <rect x="1.5" y="2.5" width="13" height="11" rx="1" />
-      <path d="M5.5 2.5v11" />
-      <path d="M12.5 8H8.1M9.8 5.9 7.7 8l2.1 2.1" strokeWidth="1.3" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-export function IconClock(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <circle cx="12" cy="12" r="7.47" />
-      <path d="M 12 8.02 V 12 l 2.86 1.99" />
-    </Svg>
-  )
-}
-
-export function IconPaperclip(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M 18.75 10.92 12.27 17.4 a 4.59 4.59 0 0 1 -6.48 -6.48 l 6.75 -6.75 a 3.11 3.11 0 0 1 4.32 4.32 l -6.75 6.75 a 1.49 1.49 0 0 1 -2.16 -2.16 l 6.21 -6.21" />
-    </Svg>
-  )
-}
-
-export function IconNewChat(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M 19.01 10.98 v -3.82 A 2.17 2.17 0 0 0 16.85 4.99 H 7.15 a 2.17 2.17 0 0 0 -2.17 2.17 v 7.78 a 2.17 2.17 0 0 0 2.17 2.17 h 1.4 v 2.55 l 3.32 -2.55 h 1.66" />
-      <path d="M 17.36 13.79 v 5.1 M 14.81 16.34 h 5.1" />
-    </Svg>
   )
 }
 
@@ -2073,27 +1994,6 @@ export function IconNoneX(props: IconProps) {
     <Svg {...props}>
       <path d="m6.5 6.5 11 11M17.5 6.5l-11 11" />
     </Svg>
-  )
-}
-
-/** Genspark brand mark (rounded-square sparkle badge), inline so it renders
- * crisply at device resolution instead of going through <img> rasterization */
-export function GensparkMark({ size = 30 }: { size?: number }) {
-  return (
-    <svg
-      className="genspark-mark"
-      width={size}
-      height={size}
-      viewBox="0 0 130 130.025"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden
-    >
-      <path
-        d="M105.115 0H24.6428C11.0443 0 0 11.0686 0 24.6915V105.334C0 118.981 11.0199 130.025 24.6428 130.025H105.115C118.714 130.025 129.758 118.957 129.758 105.334V24.6915C129.758 11.0443 118.714 0 105.115 0ZM71.5201 35.2735C85.5078 33.1571 86.7729 31.9164 88.865 17.88C88.938 17.4421 89.3028 17.1259 89.7407 17.1259C90.1786 17.1259 90.5435 17.4421 90.6164 17.88C92.7328 31.8921 93.9735 33.1571 107.961 35.2735C108.399 35.3465 108.715 35.7114 108.715 36.1493C108.715 36.5871 108.399 36.952 107.961 37.025C93.9249 39.1414 92.7085 40.4064 90.5677 54.6131C90.5191 54.9537 90.2516 55.197 89.911 55.197C89.5704 55.197 89.3028 54.9537 89.2542 54.6131C87.1134 40.4064 85.5565 39.1658 71.4958 37.025C71.0579 36.952 70.7417 36.5871 70.7417 36.1493C70.7417 35.7114 71.0579 35.3465 71.4958 35.2735H71.5201ZM101.758 78.5261C101.758 78.8181 101.563 79.037 101.271 79.0856C92.3193 80.4236 91.5652 81.2264 90.2029 90.2759C90.1786 90.4948 89.9839 90.6408 89.7893 90.6408C89.5703 90.6408 89.4001 90.4948 89.3758 90.2759C88.0135 81.2507 87.0161 80.4479 78.0883 79.0856C77.7964 79.037 77.6017 78.7937 77.6017 78.5261C77.6017 78.2342 77.7964 78.0153 78.0883 77.9666C86.9918 76.6287 87.7703 75.8259 89.1326 66.898C89.1812 66.6061 89.4244 66.4115 89.692 66.4115C89.9839 66.4115 90.2028 66.6061 90.2515 66.898C91.5894 75.8259 92.3923 76.6043 101.296 77.9666C101.588 78.0153 101.782 78.2585 101.782 78.5261H101.758ZM16.5178 54.8077C16.5178 54.1023 17.0286 53.4941 17.7341 53.3968C40.1388 50.0154 42.1093 47.9963 45.4907 25.5672C45.588 24.8861 46.1961 24.3509 46.9016 24.3509C47.6071 24.3509 48.191 24.8617 48.3126 25.5672C51.694 47.9963 53.6887 50.0154 76.0691 53.3968C76.7503 53.4941 77.2855 54.1023 77.2855 54.8077C77.2855 55.5132 76.7746 56.1214 76.0691 56.2187C53.5914 59.6244 51.6696 61.6192 48.2639 84.3645C48.1909 84.8754 47.7287 85.2889 47.2179 85.2889C46.707 85.2889 46.2448 84.8997 46.1718 84.3645C42.7418 61.6435 40.2604 59.6244 17.7584 56.2187C17.0772 56.1214 16.542 55.5132 16.542 54.8077H16.5178ZM112.097 109.591C112.097 111.416 110.613 112.9 108.813 112.9H21.2614C19.4369 112.9 17.9774 111.416 17.9774 109.591V102.658C17.9774 100.834 19.4612 99.3497 21.2614 99.3497H108.813C110.637 99.3497 112.097 100.834 112.097 102.658V109.591Z"
-        fill="currentColor"
-      />
-    </svg>
   )
 }
 

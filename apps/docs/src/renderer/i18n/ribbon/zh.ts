@@ -1,8 +1,5 @@
 /** ribbon strings, zh: defines the key set every other locale shard must match. */
 export const zh = {
-  ribbonAiCreditNote: '将调用并消耗额度',
-  ribbonAiRewriteConfirm:
-    '此操作将调用：会消耗额度，并可能改写整篇内容。是否继续？（确认后不再提示）',
   // Tabs
   ribbonTabFile: '文件',
   ribbonTabHome: '开始',
@@ -227,9 +224,6 @@ export const zh = {
   ribbonReplaceTip: '查找并替换文字',
   ribbonSelectAll: '全选',
   ribbonSelectAllTip: '选择整个文档',
-  // Home · AI
-  ribbonAiAssistant: '助手',
-  ribbonAiAssistantTip: '打开助手',
   // Table Design
   ribbonRemoveTableStyleTip: '移除表格样式',
   ribbonNoStyle: '无样式',
@@ -709,15 +703,11 @@ export const zh = {
   // Review
   ribbonEditorBtn: '编辑器',
   ribbonEditorTip: '检查拼写、语法和标点',
-  ribbonEditorPrompt: '校对全文:修正错别字、标点和语法错误,保持原意和段落结构不变。',
   ribbonGroupProofing: '校对',
   ribbonSpellcheckBtn: '拼写检查',
   ribbonSpellcheckTip: '键入时检查拼写——用红色波浪线标出可能拼错的单词',
   ribbonTranslate: '翻译',
   ribbonTranslateTip: '翻译文档',
-  ribbonTranslatePrompt: '把全文翻译成{lang},保持段落结构和标题层级不变。',
-  ribbonTranslateSelectionPrompt: '把选中的内容翻译成{lang},保持段落结构不变。',
-  ribbonEditorSelectionPrompt: '校对选中的内容:修正错别字、标点和语法错误,保持原意和段落结构不变。',
   ribbonTranslateTo: '翻译为{lang}',
   ribbonLangEnglish: '英文',
   ribbonLangSimplifiedChinese: '简体中文',
@@ -753,14 +743,6 @@ export const zh = {
   ribbonPrevCommentTip: '跳到上一条批注',
   ribbonNextComment: '下一条',
   ribbonNextCommentTip: '跳到下一条批注',
-  ribbonAiComments: '处理批注',
-  ribbonAiRevisions: '总结修订',
-  ribbonAiRevisionsTip: '通读 {count} 条待处理修订,按章节总结改动并提示风险',
-  ribbonAiRevisionsPrompt:
-    '总结文档中所有待处理的修订:先给出总体统计(插入/删除数量、作者、日期范围),再按章节逐条说明改了什么(标注 block 索引),最后列出需要注意的风险点(如删除了义务或限定语、改动了数字/日期/金额)。只做总结,不要修改文档,也不要接受或拒绝任何修订。',
-  ribbonAiCommentsTip: '逐条处理 {count} 条未解决的批注:按批注修改、回复说明并标记解决',
-  ribbonAiCommentsPrompt:
-    '处理文档中所有未解决的批注:逐条按批注要求修改,回复说明改动,然后标记解决;若批注是提问或有歧义,只回复不修改。',
   ribbonShowCommentsTip: '显示批注({count} 条)',
   ribbonTrackChanges: '修订',
   ribbonTrackChangesTip: '修订:记录此后的所有更改(插入带下划线,删除带删除线)',

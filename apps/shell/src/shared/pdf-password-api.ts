@@ -1,6 +1,6 @@
 // Contract between the PDF password prompt window (pdf-password.html) and the
 // shell main process (P23). IPC surface: get-state / submit / cancel + a
-// state-changed push event, mirroring update-api.ts.
+// state-changed push event.
 
 export const PDF_PASSWORD_CHANNELS = {
   getState: 'pdf-password:get-state',

@@ -81,7 +81,6 @@ export const EXT_FAMILY: Record<string, readonly string[]> = {
   // to page them in the same way Home's FILTER_FAMILY already does — otherwise
   // the two views disagree about which files the filter means.
   md: ['md', 'markdown', 'txt', 'json'],
-  html: ['html', 'htm'],
 }
 
 /** Family-aware extension match for sidebar filters (recents and starred share it). */

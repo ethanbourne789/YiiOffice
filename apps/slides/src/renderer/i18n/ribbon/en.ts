@@ -1,9 +1,6 @@
 import type { zh } from './zh'
 
 export const en = {
-  ribbonAiCreditNote: 'Uses and consumes credits',
-  ribbonAiRewriteConfirm:
-    'This action calls the assistant: it consumes credits and may rewrite the entire content. Continue? (You will not be asked again.)',
   ribbonTabFile: 'File',
   ribbonTabHome: 'Home',
   ribbonTabInsert: 'Insert',
@@ -380,13 +377,9 @@ export const en = {
   ribbonSpellCheck: 'Spelling',
   ribbonSpellCheckTip:
     'Checks each slide for typos, grammar, and punctuation and fixes them directly',
-  ribbonSpellCheckPrompt:
-    'Check this presentation slide by slide for typos, grammar, and punctuation: fix issues directly with tools while keeping the layout and meaning unchanged; then briefly report the changes per slide, skipping slides with no issues.',
   ribbonTranslate: 'Translate',
   ribbonTranslateTip:
     "Translates the current slide's text into the chosen language (replaces the original)",
-  ribbonTranslatePrompt:
-    'Translate all text on the current slide into {lang}: replace the original with tools, keeping the layout, font sizes, and colors unchanged.',
   ribbonLangEnglish: 'English',
   ribbonLangSimplifiedChinese: 'Simplified Chinese',
   ribbonLangTraditionalChinese: 'Traditional Chinese',

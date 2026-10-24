@@ -41,13 +41,11 @@ export const TREE_FILE_EXTENSIONS: ReadonlySet<string> = new Set([
   'markdown',
   'txt',
   'json',
-  'html',
-  'htm',
 ])
 
 const HIDDEN_DIR_NAMES = new Set(['node_modules', '__macosx'])
 const HIDDEN_FILE_NAMES = new Set(['thumbs.db', 'desktop.ini'])
-/** the Markdown / HTML apps' image folder is app-owned when it holds this manifest */
+/** the Markdown app's image folder is app-owned when it holds this manifest */
 const MD_ASSET_MANIFEST = '.yiioffice-assets.json'
 
 export function isSupportedTreeFile(name: string): boolean {

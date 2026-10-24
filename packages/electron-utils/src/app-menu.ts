@@ -22,7 +22,6 @@ export interface AppMenuLabels extends ContextMenuLabels {
   fullscreen: string
   help: string
   about: string
-  checkUpdates: string
   version: string
 }
 
@@ -46,7 +45,6 @@ const EN: Labels = {
   fullscreen: 'Full Screen',
   help: 'Help',
   about: 'About YiiOffice',
-  checkUpdates: 'Check for Updates…',
   version: 'Version',
 }
 
@@ -71,7 +69,6 @@ const LABELS: Record<string, Labels> = {
     fullscreen: '全屏',
     help: '帮助',
     about: '关于 YiiOffice',
-    checkUpdates: '检查更新…',
     version: '版本',
   },
   en: EN,
@@ -191,24 +188,26 @@ export function viewMenuTemplate(
   }
 }
 
-/** The manual update check lives in the shell (electron-updater and its
- * result dialogs), while the menus that expose it are built here — the shell
- * injects the check at startup. Read at click time, so registration order
- * relative to menu construction doesn't matter; until registered the menu
- * entry no-ops and the About dialog doesn't offer the button. */
-let updateCheckInvoker: (() => void) | null = null
 
-export function setUpdateCheckInvoker(invoke: (() => void) | null): void {
-  updateCheckInvoker = invoke
+
+/** Callback installed by the shell to trigger a manual update check. */
+let _updateCheckInvoker: (() => void) | undefined
+
+/**
+ * Allow the owning shell to wire a "Check for Updates…" menu item to the
+ * actual auto-updater backend (which lives outside this package).
+ */
+export function setUpdateCheckInvoker(fn: (() => void) | undefined): void {
+  _updateCheckInvoker = fn
 }
 
-/** Help > Check for Updates…: user-triggered update check (sits right above
- * About, like Word). The shell-injected check owns all feedback: the update
- * window when newer exists, "you're up to date (version x)" otherwise. */
+/** Help > Check for Updates… menu item (no-op when no invoker is wired). */
 export function checkUpdatesMenuItem(labels: AppMenuLabels): MenuItemConstructorOptions {
   return {
-    label: labels.checkUpdates,
-    click: () => updateCheckInvoker?.(),
+    label: 'Check for Updates…',
+    click: () => {
+      _updateCheckInvoker?.()
+    },
   }
 }
 
@@ -220,18 +219,16 @@ export function aboutMenuItem(labels: AppMenuLabels): MenuItemConstructorOptions
     click: async () => {
       const { app, dialog, clipboard } = await import('electron')
       const version = app.getVersion()
-      const canCheck = updateCheckInvoker !== null
       const { response } = await dialog.showMessageBox({
         type: 'info',
         title: 'YiiOffice',
         message: 'YiiOffice',
         detail: `${labels.version} ${version}`,
-        buttons: ['OK', labels.copy, ...(canCheck ? [labels.checkUpdates] : [])],
+        buttons: ['OK', labels.copy],
         defaultId: 0,
         cancelId: 0,
       })
       if (response === 1) clipboard.writeText(`YiiOffice ${version}`)
-      if (response === 2) updateCheckInvoker?.()
     },
   }
 }
@@ -248,7 +245,6 @@ export function helpMenuTemplate(
     submenu: [
       ...extraItems,
       ...(extraItems.length > 0 ? [{ type: 'separator' } as const] : []),
-      checkUpdatesMenuItem(labels),
       aboutMenuItem(labels),
     ],
   }

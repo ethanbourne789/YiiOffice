@@ -115,7 +115,6 @@ export interface RibbonProps {
   docDefaults: import('@yiioffice/docx-engine').DocDefaults | undefined
   documentListPresets: unknown
   recentListPresets: unknown
-  onAiPreset: (instruction: string) => void
   section: SectionSettings | null
   tableGridlines: boolean
   activeSection: number | null
@@ -287,7 +286,6 @@ export function Ribbon({
   docDefaults,
   documentListPresets,
   recentListPresets,
-  onAiPreset,
   section,
   tableGridlines,
   activeSection,
@@ -1100,7 +1098,6 @@ export function Ribbon({
             hasDoc={hasDoc}
             dropdown={dropdown}
             setDropdown={setDrop}
-            onAiPreset={onAiPreset}
             commentCount={commentCount}
             openCommentCount={openCommentCount}
             resolvedCommentCount={resolvedCommentCount}

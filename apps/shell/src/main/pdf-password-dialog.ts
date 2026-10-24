@@ -5,7 +5,7 @@ import { PDF_PASSWORD_CHANNELS } from '../shared/pdf-password-api'
 
 /**
  * Password prompt for encrypted PDFs (P23): a frameless modal card centered
- * over the shell window, same lifecycle pattern as update-window.ts. One
+ * over the shell window, same lifecycle pattern (modal BrowserWindow). One
  * promptPdfPassword() call resolves with one attempt (the entered password,
  * or null when the user cancels / closes the window). The window survives
  * across attempts — a rejected password re-prompts in place via pushed state

@@ -21,7 +21,6 @@ import {
 } from '../../../slides/src/main/slides-main'
 import { pdfIsDirty, requestPdfClose } from '../../../pdf/src/main/pdf-main'
 import { markdownIsDirty, requestMarkdownClose } from '../../../markdown/src/main/markdown-main'
-import { htmlIsDirty, requestHtmlClose } from '../../../html/src/main/html-main'
 import { canonicalPath } from './tab-manager'
 import type { DetachedTab } from './tab-manager'
 import type { OpenDocumentTab, TabKind } from '../shared/tabs-api'
@@ -111,7 +110,6 @@ const DEFAULT_SIZE: Record<string, { width: number; height: number }> = {
   slides: { width: 1440, height: 900 },
   pdf: { width: 1200, height: 900 },
   markdown: { width: 1200, height: 850 },
-  html: { width: 1200, height: 850 },
 }
 
 /** where the pointer sits inside a freshly torn-off window's title bar */
@@ -222,8 +220,6 @@ async function detachedIsDirty(rec: DetachedRecord): Promise<boolean> {
       return pdfIsDirty(wc.id)
     case 'markdown':
       return markdownIsDirty(wc.id)
-    case 'html':
-      return htmlIsDirty(wc.id)
     default:
       return false
   }
@@ -246,8 +242,6 @@ async function confirmDetachedClose(rec: DetachedRecord): Promise<boolean> {
       return requestPdfClose(wc, win)
     case 'markdown':
       return requestMarkdownClose(wc, win)
-    case 'html':
-      return requestHtmlClose(wc, win)
     default:
       return true
   }
@@ -283,7 +277,7 @@ export function detachedSetFileFor(webContentsId: number, filePath: string): voi
   onChanged()
 }
 
-/** an untitled document named itself before its first save (html: from the first AI request) */
+/** an untitled document named itself before its first save */
 export function detachedSetTitleFor(webContentsId: number, title: string): void {
   const rec = detached.get(webContentsId)
   if (!rec || rec.filePath || rec.window.isDestroyed()) return

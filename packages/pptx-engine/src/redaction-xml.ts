@@ -47,7 +47,7 @@ import { asXmlNode, escapeXmlAttr, xmlArray, type XmlNode } from './xml-utils'
  * GUID identifying the extension's schema, so it must be stable: a deck that
  * round-trips through this engine has to land on the same value.
  */
-export const REDACT_NS = 'https://genspark.ai/yiioffice/redact'
+export const REDACT_NS = 'https://yiioffice.com/redact'
 export const REDACT_PREFIX = 'go'
 const REDACT_EL = `${REDACT_PREFIX}:redact`
 

@@ -1,8 +1,5 @@
 /** ribbon strings, zh: defines the key set every other locale shard must match. */
 export const zh = {
-  ribbonAiCreditNote: '将调用并消耗额度',
-  ribbonAiRewriteConfirm:
-    '此操作将调用：会消耗额度，并可能改写整篇内容。是否继续？（确认后不再提示）',
   // tabs
   ribbonTabFile: '文件',
   ribbonTabHome: '开始',
@@ -376,12 +373,8 @@ export const zh = {
   ribbonGroupProofing: '校对',
   ribbonSpellCheck: '拼写检查',
   ribbonSpellCheckTip: '逐页检查错别字、语法和标点并直接修正',
-  ribbonSpellCheckPrompt:
-    '逐页检查这份演示文稿的错别字、语法和标点：有问题的用工具直接修正，保持版式与原意不变；最后按页简要汇报修改点，没有问题的页跳过。',
   ribbonTranslate: '翻译',
   ribbonTranslateTip: '把当前页文本翻译成所选语言（直接替换原文）',
-  ribbonTranslatePrompt:
-    '把当前页的所有文本翻译成{lang}：用工具直接替换原文，保持版式、字号和配色不变。',
   ribbonLangEnglish: '英语',
   ribbonLangSimplifiedChinese: '简体中文',
   ribbonLangTraditionalChinese: '繁体中文',

@@ -1,9 +1,6 @@
 import type { zh } from './zh'
 
 export const en = {
-  ribbonAiCreditNote: 'Uses and consumes credits',
-  ribbonAiRewriteConfirm:
-    'This action calls the assistant: it consumes credits and may rewrite the entire content. Continue? (You will not be asked again.)',
   ribbonTabFile: 'File',
   ribbonTabHome: 'Home',
   ribbonTabInsert: 'Insert',
@@ -223,8 +220,6 @@ export const en = {
   ribbonReplaceTip: 'Find and replace text',
   ribbonSelectAll: 'Select All',
   ribbonSelectAllTip: 'Select the whole document',
-  ribbonAiAssistant: 'Assistant',
-  ribbonAiAssistantTip: 'Open the assistant',
   ribbonRemoveTableStyleTip: 'Remove table style',
   ribbonNoStyle: 'No Style',
   ribbonApplyTableStyleTip: 'Apply table style {name}',
@@ -698,19 +693,11 @@ export const en = {
   ribbonSourcePublisher: 'Publisher',
   ribbonEditorBtn: 'Editor',
   ribbonEditorTip: 'Checks spelling, grammar and punctuation',
-  ribbonEditorPrompt:
-    'Proofread the entire document: fix typos, punctuation and grammar errors while keeping the original meaning and paragraph structure unchanged.',
   ribbonGroupProofing: 'Proofing',
   ribbonSpellcheckBtn: 'Spelling',
   ribbonSpellcheckTip: 'Check spelling as you type — underlines possible misspellings in red',
   ribbonTranslate: 'Translate',
   ribbonTranslateTip: 'Translates the document',
-  ribbonTranslatePrompt:
-    'Translate the entire document into {lang}, keeping the paragraph structure and heading levels unchanged.',
-  ribbonTranslateSelectionPrompt:
-    'Translate the selected content into {lang}, keeping the paragraph structure unchanged.',
-  ribbonEditorSelectionPrompt:
-    'Proofread the selected content: fix typos, punctuation and grammar errors while keeping the original meaning and paragraph structure unchanged.',
   ribbonTranslateTo: 'Translate to {lang}',
   ribbonLangEnglish: 'English',
   ribbonLangSimplifiedChinese: 'Simplified Chinese',
@@ -746,16 +733,6 @@ export const en = {
   ribbonPrevCommentTip: 'Go to the previous comment',
   ribbonNextComment: 'Next',
   ribbonNextCommentTip: 'Go to the next comment',
-  ribbonAiComments: 'Resolve Comments',
-  ribbonAiRevisions: 'Revision Summary',
-  ribbonAiRevisionsTip:
-    'Reads the {count} pending revisions, summarizes the changes by section and flags risks',
-  ribbonAiRevisionsPrompt:
-    'Summarize all pending tracked revisions in the document: start with overall stats (insertion/deletion counts, authors, date range), then describe the changes section by section (cite block indexes), and end with a list of potential concerns (e.g. deleted obligations or qualifiers, changed numbers/dates/amounts). Summarize only — do not modify the document or accept/reject any revision.',
-  ribbonAiCommentsTip:
-    'Works through the {count} unresolved comments: edits per comment, replies with what changed, then resolves',
-  ribbonAiCommentsPrompt:
-    'Address every unresolved comment in the document: for each one, apply the requested change, reply describing what changed, then resolve it; if a comment is a question or ambiguous, reply without modifying the document.',
   ribbonShowCommentsTip: 'Show comments ({count})',
   ribbonTrackChanges: 'Track Changes',
   ribbonTrackChangesTip:

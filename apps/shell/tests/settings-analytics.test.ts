@@ -46,8 +46,6 @@ describe('Settings analytics consent', () => {
       getDefaultSaveDir: async () => '',
       getAnalyticsEnabled: async () => true,
       setAnalyticsEnabled: persist,
-      getAiPanelPrefs: async () => ({ fontSize: 'default', spellcheck: true }),
-      setAiPanelPrefs: async (patch) => ({ fontSize: 'default', spellcheck: true, ...patch }),
       getAppVersion: async () => '1.0.0',
     } as unknown as HomeApi
 

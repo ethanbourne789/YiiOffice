@@ -26,7 +26,7 @@ Four principles follow from that:
 | Principle | How it is done |
 |-----------|----------------|
 | **Local-first** | Open, edit, save and convert on your machine. No account system, no forced cloud sync; the only network call is the update check. |
-| **Actually usable** | Not a viewer. All six editors open, edit and save native Office formats, and **MS Office / WPS can still open what they save**. |
+| **Actually usable** | Not a viewer. All five editors open, edit and save native Office formats, and **MS Office / WPS can still open what they save**. |
 | **Clean** | No login wall, no ads, no telemetry, no paid entry points hidden in the UI. |
 | **Format first** | Reads and writes standard `.docx` / `.xlsx` / `.pptx` / `.pdf` directly. No private formats, no "import, then edit". |
 
@@ -43,14 +43,14 @@ Four principles follow from that:
 One window hosting every editor as a tab — the first thing you see when the app opens:
 
 - **Home**: recent files, starred files (with custom groups), folder tree (multiple roots, expandable subfolders, drag to move, create/rename/delete), filter by file type
-- **Create and open**: one click for Docs / Sheets / Slides / PDF / Markdown / HTML; the system open dialog; double-click through file associations; drop a file onto the window
+- **Create and open**: one click for Docs / Sheets / Slides / PDF / Markdown; the system open dialog; double-click through file associations; drop a file onto the window
 - **Full-text search**: a local `node:sqlite` FTS5 index over names, paths and extracted text; CJK goes through bigram + unigram streams, so two-character Chinese words match inside longer runs
 - **Tabs**: a permanent Home tab; create, switch, drag to reorder, close (with an unsaved-changes guard); drag a tab out into its own window and dock it back; MRU fallback after closing
 - **State preservation**: every tab is its own `WebContentsView`, shown and hidden rather than destroyed — scroll position, caret, undo stack and unsaved content survive a tab switch
 - **Settings that stick**: UI language (English / Chinese), UI and document theme, default save behaviour, update channel; recent files, stars and window size are persisted locally
 - **Help centre**: 15 topics in both languages, shortcuts and walkthroughs follow the UI language
 
-### Six editors
+### Five editors
 
 | Editor | Formats | Engine | Highlights |
 |--------|---------|--------|------------|
@@ -59,7 +59,6 @@ One window hosting every editor as a tab — the first thing you see when the ap
 | **Slides** | `.pptx` | Konva 9 + `pptx-engine` / `pptx-render` | Masters and layouts, text/shape/picture/chart editing, animations and transitions (Morph included), slideshow with presenter view, notes and comments, custom shows, non-destructive cropping, ink, SVG and image export |
 | **PDF** | `.pdf` | pdf.js 6 + PDFium WASM + pdf-lib | In-place text and image editing, comments and markup, form design and filling, redaction, signatures and stamps, outline navigation, page operations, password protection, on-device PDF → Word/PPT/Excel |
 | **Markdown** | `.md` `.markdown` `.txt` `.json` | Tiptap + CodeMirror 6 | WYSIWYG and source views, tables/code blocks/images, Mermaid diagrams, KaTeX math, export to DOCX / PDF / image, print |
-| **HTML** | `.html` `.htm` | CodeMirror 6 | Source editing with live preview, element picking and text editing, fullscreen presentation, export to HTML / PDF / DOCX, image and attachment handling |
 
 ### Shared capabilities
 
@@ -77,15 +76,13 @@ Packaged builds install a `yiioffice` command (running on the app's own Node, so
 
 ```bash
 yiioffice info report.docx                         # structure: headings, blocks, sheets, slides, pages
-yiioffice convert report.docx --to pdf             # docx/xlsx/pptx/md/html ↔ pdf and back
+yiioffice convert report.docx --to pdf             # docx/xlsx/pptx/md ↔ pdf and back
 yiioffice create --type xlsx --from data.csv --out data.xlsx
 yiioffice sheet read book.xlsx --range A1:D20 --json
 yiioffice slides read deck.pptx --json             # element ids and geometry for later apply calls
 yiioffice render deck.pptx --out shots/            # one PNG per slide, to look at what you made
 yiioffice open report.docx                         # hand the file to the editor
 ```
-
-`--json` prints a single JSON object for programs; the full command surface is in [`packages/cli/README.md`](../../packages/cli/README.md). A running app also opens a local control channel (Unix socket or a Windows named pipe, guarded by a random token) for requests such as "open this slide" or "read the current selection".
 
 ---
 
@@ -128,14 +125,14 @@ npm install
 # 2. Generate the .docx test fixtures
 npm run fixtures
 
-# 3. Start development: six editor dev servers (:5173–:5178) plus the Electron main process
+# 3. Start development: five editor dev servers (:5173–:5177) plus the Electron main process
 npm run dev
 
 #    Debug a single editor on its own
 npm run dev:docs
 ```
 
-> `npm run dev` first rebuilds stale preloads (`tools/build-stale-preloads.mjs`), then starts the six renderers and the shell in parallel — the editor windows load their own dev server, so all of them are needed.
+> `npm run dev` first rebuilds stale preloads (`tools/build-stale-preloads.mjs`), then starts the five renderers and the shell in parallel — the editor windows load their own dev server, so all of them are needed.
 
 ### Build and package
 
@@ -168,19 +165,16 @@ YiiOffice-Electron/
 │   │   └── native/xlsx-engine/ # Rust xlsx sidecar (calamine + IronCalc)
 │   ├── slides/                 # Presentation editor (Konva + pptx-engine)
 │   ├── pdf/                    # PDF editor (pdf.js + PDFium WASM)
-│   ├── markdown/               # Markdown editor
-│   └── html/                   # HTML editor
+│   └── markdown/               # Markdown editor
 ├── packages/                   # 14 shared packages
 │   ├── docx-engine/            # DOCX parsing, generation, byte-level patching
 │   ├── pptx-engine/ pptx-ops/ pptx-render/
 │   ├── xlsx-gateway/ zip-gate/
 │   ├── pdf2docx/ html2docx/ file-parse/
 │   ├── font-metrics/ i18n/ ui/ electron-utils/
-│   └── cli/                    # @yiioffice/cli: command line and control protocol
 ├── e2e/                        # Playwright end-to-end tests
 ├── docs/                       # Architecture notes, i18n, image assets
-├── tools/                      # Licence, theme, font and fixture build scripts
-└── CONTRIBUTING.md             # Contribution flow, engine packages, docx round-trip notes
+└── tools/                      # Licence, theme, font and fixture build scripts
 ```
 
 ---
@@ -235,15 +229,12 @@ The app is at `0.11.0` (`@yiioffice/shell`), the root `package.json` still says 
 
 | State | Content |
 |-------|---------|
-| ✅ Done | Monorepo structure; shell main flow (home, tabs, file create/rename/move/delete, persisted settings, full-text search); renderer and main-process features of all six editors; Rust xlsx sidecar; CLI and control channel; packaging scripts (mac / win / linux) |
+| ✅ Done | Monorepo structure; shell main flow (home, tabs, file create/rename/move/delete, persisted settings, full-text search); renderer and main-process features of all five editors; Rust xlsx sidecar; CLI and control channel; packaging scripts (mac / win / linux) |
 | 🚧 In progress | Cleaning up the AI stubs left after the subsystem was removed; unifying the IPC trust model (path grants plus `senderFrame` checks); preserving file permissions on atomic writes; `ErrorBoundary` in renderers and a main-process crash handler; promoting the test and typecheck gates |
 | 🗺️ Planned | ODF import (`.odt/.ods/.odp`), PDF certificate signatures, Markdown backlinks, more UI languages |
 
-**Docs versus code:** `PRIVACY.md` still describes an anonymous-usage-reporting flow that this tree does not implement. This README was rewritten against the actual code and no longer documents the removed AI panel or MCP server. Where anything else disagrees, the code wins — PRs that fix the docs are welcome.
-
 Related documents:
 
-- [`CONTRIBUTING.md`](../../CONTRIBUTING.md) — contribution flow, engine package tour, docx round-trip design
 - [`docs/headless-pdf-export.md`](../headless-pdf-export.md) — how headless PDF export works
 - [`docs/slides-op-journal.md`](../slides-op-journal.md) — Slides operation journal and undo/redo design
 
@@ -267,7 +258,7 @@ The `electron-builder` win target currently lists `zip` (portable) only. The NSI
 Yes. The index emits bigram and unigram streams for CJK, working around the fact that FTS5 `unicode61` does not segment continuous CJK text.
 
 **`npm run dev` started, but editor tabs are blank?**
-Check that all six renderer dev servers are alive (:5173–:5178) — each editor tab loads its own dev server, so a busy port or a crashed renderer leaves that tab blank. To debug one editor alone, use a standalone mode such as `npm run dev:docs`, which opens its own window without the shell.
+Check that all five renderer dev servers are alive (:5173–:5177) — each editor tab loads its own dev server, so a busy port or a crashed renderer leaves that tab blank. To debug one editor alone, use a standalone mode such as `npm run dev:docs`, which opens its own window without the shell.
 
 ---
 
@@ -279,7 +270,7 @@ Check that all six renderer dev servers are alive (:5173–:5178) — each edito
 4. User-visible behaviour changes should update the matching help topic (both languages) and the relevant docs
 5. Open a PR describing the motivation and how you verified it
 
-Conventions: TypeScript strict mode, comments and log messages in English, UI strings through `@yiioffice/i18n` (English and Chinese), colours only via theme CSS variables. The full guide is in [`CONTRIBUTING.md`](../../CONTRIBUTING.md).
+Conventions: TypeScript strict mode, comments and log messages in English, UI strings through `@yiioffice/i18n` (English and Chinese), colours only via theme CSS variables.
 
 ---
 

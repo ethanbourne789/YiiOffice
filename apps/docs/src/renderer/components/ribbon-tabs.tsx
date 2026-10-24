@@ -758,13 +758,9 @@ export interface InsertTabProps extends TabProps {
   onTableInserted: () => void
 }
 
-/** One-time "AI rewrites the whole document" acknowledgement */
-export const AI_REWRITE_ACK_KEY = 'docs-ai-rewrite-ack'
-
 export type { RevisionDisplayMode }
 
 interface ReviewTabProps extends TabProps {
-  onAiPreset: (instruction: string) => void
   commentCount: number
   /** unresolved root comments; 0 disables the AI resolve-comments action */
   openCommentCount: number
@@ -806,7 +802,6 @@ export function ReviewTab({
   hasDoc,
   dropdown,
   setDropdown,
-  onAiPreset,
   commentCount,
   openCommentCount,
   resolvedCommentCount,
@@ -835,17 +830,6 @@ export function ReviewTab({
   onCompare,
 }: ReviewTabProps) {
   const { t } = useI18n()
-  // One-time acknowledgement before whole-document AI rewrites:
-  // Editor / Translate send the full document to the agent, consume credits and
-  // may rewrite everything — say so once before the first run.
-  const confirmAiRewrite = () => {
-    if (localStorage.getItem(AI_REWRITE_ACK_KEY) === '1') return true
-    if (!window.confirm(t('ribbonAiRewriteConfirm'))) return false
-    localStorage.setItem(AI_REWRITE_ACK_KEY, '1')
-    return true
-  }
-  // With a range selection the rewrite scopes to the selection (no whole-document ack needed)
-  const hasRangeSelection = () => !editor.state.selection.empty
   return (
     <>
       {/* Word: Proofing (Editor) sits leftmost */}
@@ -854,11 +838,8 @@ export function ReviewTab({
           <button
             className="rb-big"
             disabled={!hasDoc}
-            data-tip={`${t('ribbonEditorTip')} — ${t('ribbonAiCreditNote')}`}
-            onClick={() => {
-              if (hasRangeSelection()) onAiPreset(t('ribbonEditorSelectionPrompt'))
-              else if (confirmAiRewrite()) onAiPreset(t('ribbonEditorPrompt'))
-            }}
+            data-tip={t('ribbonEditorTip')}
+            onClick={() => {}}
           >
             <span className="rb-big-icon">
               <span className="ai-feature-icon" aria-hidden="true">
@@ -890,7 +871,7 @@ export function ReviewTab({
             <button
               className="rb-big"
               disabled={!hasDoc}
-              data-tip={`${t('ribbonTranslateTip')} — ${t('ribbonAiCreditNote')}`}
+              data-tip={t('ribbonTranslateTip')}
               onClick={() => toggleDropdown(setDropdown, 'translate')}
             >
               <span className="rb-big-icon">
@@ -908,13 +889,6 @@ export function ReviewTab({
                     key={code}
                     onClick={() => {
                       setDropdown(() => null)
-                      if (hasRangeSelection()) {
-                        onAiPreset(
-                          t('ribbonTranslateSelectionPrompt', { lang: t(ribbonLangKey(code)) }),
-                        )
-                      } else if (confirmAiRewrite()) {
-                        onAiPreset(t('ribbonTranslatePrompt', { lang: t(ribbonLangKey(code)) }))
-                      }
                     }}
                   >
                     {t('ribbonTranslateTo', { lang: t(ribbonLangKey(code)) })}
@@ -1022,8 +996,8 @@ export function ReviewTab({
           <button
             className="rb-big"
             disabled={!hasDoc || openCommentCount === 0}
-            data-tip={`${t('ribbonAiCommentsTip', { count: openCommentCount })} — ${t('ribbonAiCreditNote')}`}
-            onClick={() => onAiPreset(t('ribbonAiCommentsPrompt'))}
+            data-tip={t('ribbonAiCommentsTip', { count: openCommentCount })}
+            onClick={() => {}}
           >
             <span className="rb-big-icon">
               <span className="ai-feature-icon" aria-hidden="true">
@@ -1194,8 +1168,8 @@ export function ReviewTab({
           <button
             className="rb-big"
             disabled={!hasDoc || revisionCount === 0}
-            data-tip={`${t('ribbonAiRevisionsTip', { count: revisionCount })} — ${t('ribbonAiCreditNote')}`}
-            onClick={() => onAiPreset(t('ribbonAiRevisionsPrompt'))}
+            data-tip={t('ribbonAiRevisionsTip', { count: revisionCount })}
+            onClick={() => {}}
           >
             <span className="rb-big-icon">
               <span className="ai-feature-icon" aria-hidden="true">

@@ -1,2 +1,2 @@
 /** the public open-source repository; also the target of every in-app star CTA */
-export const GITHUB_REPO_URL = 'https://github.com/genspark-ai/yiioffice'
+export const GITHUB_REPO_URL = 'https://gitee.com/ethanbourne789/yiioffice'

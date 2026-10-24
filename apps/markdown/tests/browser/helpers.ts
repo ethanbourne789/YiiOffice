@@ -83,7 +83,6 @@ export async function openSource(
           error: 'not used in renderer coverage',
         }),
         fetchImage: async () => null,
-        aiGenerateImage: async () => ({ error: 'not used in renderer coverage' }),
       }
     },
     { text: rebase ? rebaseSource : text, enabled, rebase },

@@ -1,5 +1,3 @@
-import type { UpdateUiState } from './update-api'
-
 export type UiLanguage = 'zh' | 'en'
 
 /** UI theme preference */
@@ -167,8 +165,6 @@ export interface HomeApi {
   newSlide(opts?: NewFileOpts): Promise<void>
   /** open a blank markdown editor tab */
   newMarkdown(opts?: NewFileOpts): Promise<void>
-  /** open a blank html editor tab */
-  newHtml(opts?: NewFileOpts): Promise<void>
   /** create a blank single-page PDF in the default save folder and open it */
   newPdf(opts?: NewFileOpts): Promise<void>
   /** drop entries from the recent list (does not touch the files) */
@@ -215,11 +211,6 @@ export interface HomeApi {
   onOpenSettings(handler: (target: { section: string }) => void): () => void
   /** app version (from package.json / electron app.getVersion) */
   getAppVersion(): Promise<string>
-  /** live updater state (null until an update was first seen); Settings → About */
-  getUpdateState(): Promise<UpdateUiState | null>
-  /** re-open the (minimized) update dialog; a not-yet-started download also starts */
-  openUpdateDialog(): Promise<boolean>
-  onUpdateStateChanged(handler: (state: UpdateUiState) => void): () => void
   /** current UI theme preference (persisted in userData/app-settings.json) */
   getTheme(): Promise<UiTheme>
   /** switch + persist the UI theme; broadcasts 'app:theme-changed' to all web contents */
@@ -335,7 +326,6 @@ export const HOME_CHANNELS = {
   newSheet: 'home:new-sheet',
   newSlide: 'home:new-slide',
   newMarkdown: 'home:new-markdown',
-  newHtml: 'home:new-html',
   newPdf: 'home:new-pdf',
   removeRecent: 'home:remove-recent',
   revealPath: 'home:reveal-path',

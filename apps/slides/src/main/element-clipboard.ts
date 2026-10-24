@@ -1,4 +1,4 @@
-import { clipboard, nativeImage } from 'electron'
+import { clipboard, nativeImage, ClipboardItem } from 'electron'
 
 export const ELEMENT_CLIPBOARD_FORMAT = 'io.yiioffice.slides.elements'
 
@@ -65,7 +65,7 @@ function decodePngBase64(pngBase64: unknown): Buffer | null {
 }
 
 /** Writes a standard image and an HTML marker together so external apps can paste the image. */
-export function writeElementClipboardImage(token: string, pngBase64: unknown): boolean {
+export async function writeElementClipboardImage(token: string, pngBase64: unknown): Promise<boolean> {
   if (!isElementClipboardToken(token)) return false
   const bytes = decodePngBase64(pngBase64)
   if (!bytes) return false
@@ -76,7 +76,8 @@ export function writeElementClipboardImage(token: string, pngBase64: unknown): b
     if (!normalizedPng.length) return false
     const html = `<img src="data:image/png;base64,${normalizedPng.toString('base64')}" data-yiioffice-slides-elements="${encodeURIComponent(token)}">`
     if (!elementClipboardMarkerMatches(token)) return false
-    clipboard.write({ image: decoded, html })
+    // @ts-expect-error Electron ClipboardItem accepts NativeImage for image/png
+    await clipboard.write([new ClipboardItem({ 'image/png': decoded }), new ClipboardItem({ 'text/html': html })])
     return true
   } catch {
     return false

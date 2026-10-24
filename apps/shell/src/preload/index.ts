@@ -1,7 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { IpcRendererEvent } from 'electron'
 import { installDropOpenBridge } from '@yiioffice/electron-utils/drop-open'
-import type { UpdateUiState } from '../shared/update-api'
 import type {
   DefaultAppStatus,
   FolderListing,
@@ -129,9 +128,6 @@ const homeApi: HomeApi = {
   async newMarkdown(opts) {
     await ipcRenderer.invoke(HOME_CHANNELS.newMarkdown, opts)
   },
-  async newHtml(opts) {
-    await ipcRenderer.invoke(HOME_CHANNELS.newHtml, opts)
-  },
   async newPdf(opts) {
     await ipcRenderer.invoke(HOME_CHANNELS.newPdf, opts)
   },
@@ -218,19 +214,6 @@ const homeApi: HomeApi = {
   async getAppVersion() {
     const result: unknown = await ipcRenderer.invoke(HOME_CHANNELS.getAppVersion)
     return typeof result === 'string' ? result : ''
-  },
-  async getUpdateState() {
-    const result: unknown = await ipcRenderer.invoke('update:get-state')
-    return (result as UpdateUiState | null) ?? null
-  },
-  async openUpdateDialog() {
-    const result: unknown = await ipcRenderer.invoke('update:open-for-update')
-    return result === true
-  },
-  onUpdateStateChanged(handler: (state: UpdateUiState) => void) {
-    const listener = (_e: IpcRendererEvent, state: UpdateUiState) => handler(state)
-    ipcRenderer.on('update:state-changed', listener)
-    return () => ipcRenderer.removeListener('update:state-changed', listener)
   },
   async getTheme() {
     const result: unknown = await ipcRenderer.invoke(HOME_CHANNELS.getTheme)

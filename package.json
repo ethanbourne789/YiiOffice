@@ -2,7 +2,7 @@
   "name": "yiioffice",
   "version": "0.1.0",
   "private": true,
-  "description": "Office suite (docs, sheets, slides, pdf, markdown, html)",
+  "description": "Office suite (docs, sheets, slides, pdf, markdown)",
   "license": "Apache-2.0",
   "engines": {
     "node": ">=22.12.0",
@@ -17,7 +17,7 @@
     "packages/*"
   ],
   "scripts": {
-    "postinstall": "install-electron",
+    "postinstall": "cross-env ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ install-electron",
     "format": "node tools/format-changed.mjs --write",
     "format:check": "node tools/format-changed.mjs --check",
     "check:theme-colors": "node tools/check-theme-colors.mjs",
@@ -25,31 +25,35 @@
     "check:help-langs": "node tools/check-help-langs.mjs",
     "lint": "eslint .",
     "fixtures": "npm run fixtures -w @yiioffice/docx-engine",
-    "test": "npm run test -w @yiioffice/i18n && npm run test -w @yiioffice/electron-utils && npm run test -w @yiioffice/font-metrics && npm run test -w @yiioffice/zip-gate && npm run test -w @yiioffice/docx-engine && npm run test -w @yiioffice/pdf2docx && npm run test -w @yiioffice/html2docx && npm run test -w @yiioffice/file-parse && npm run test -w @yiioffice/pptx-engine && npm run test -w @yiioffice/xlsx-gateway && npm run test -w @yiioffice/pptx-ops && npm run test -w @yiioffice/pptx-render && npm run test -w @yiioffice/cli && npm run test -w @yiioffice/ui && npm run test -w @yiioffice/docs && npm run test -w @yiioffice/sheets && npm run test -w @yiioffice/shell && npm run test -w @yiioffice/slides && npm run test -w @yiioffice/pdf && npm run test -w @yiioffice/markdown && npm run test -w @yiioffice/html",
-    "typecheck": "npm run typecheck -w @yiioffice/i18n && npm run typecheck -w @yiioffice/electron-utils && npm run typecheck -w @yiioffice/font-metrics && npm run typecheck -w @yiioffice/zip-gate && npm run typecheck -w @yiioffice/docx-engine && npm run typecheck -w @yiioffice/pdf2docx && npm run typecheck -w @yiioffice/html2docx && npm run typecheck -w @yiioffice/file-parse && npm run typecheck -w @yiioffice/pptx-engine && npm run typecheck -w @yiioffice/xlsx-gateway && npm run typecheck -w @yiioffice/pptx-ops && npm run typecheck -w @yiioffice/pptx-render && npm run typecheck -w @yiioffice/cli && npm run typecheck -w @yiioffice/ui && npm run typecheck -w @yiioffice/docs && npm run typecheck -w @yiioffice/sheets && npm run typecheck -w @yiioffice/shell && npm run typecheck -w @yiioffice/slides && npm run typecheck -w @yiioffice/pdf && npm run typecheck -w @yiioffice/markdown && npm run typecheck -w @yiioffice/html",
+    "test": "npm run test -w @yiioffice/i18n && npm run test -w @yiioffice/electron-utils && npm run test -w @yiioffice/font-metrics && npm run test -w @yiioffice/zip-gate && npm run test -w @yiioffice/docx-engine && npm run test -w @yiioffice/pdf2docx && npm run test -w @yiioffice/html2docx && npm run test -w @yiioffice/file-parse && npm run test -w @yiioffice/pptx-engine && npm run test -w @yiioffice/xlsx-gateway && npm run test -w @yiioffice/pptx-ops && npm run test -w @yiioffice/pptx-render && npm run test -w @yiioffice/ui && npm run test -w @yiioffice/docs && npm run test -w @yiioffice/sheets && npm run test -w @yiioffice/shell && npm run test -w @yiioffice/slides && npm run test -w @yiioffice/pdf && npm run test -w @yiioffice/markdown",
+    "typecheck": "npm run typecheck -w @yiioffice/i18n && npm run typecheck -w @yiioffice/electron-utils && npm run typecheck -w @yiioffice/font-metrics && npm run typecheck -w @yiioffice/zip-gate && npm run typecheck -w @yiioffice/docx-engine && npm run typecheck -w @yiioffice/pdf2docx && npm run typecheck -w @yiioffice/html2docx && npm run typecheck -w @yiioffice/file-parse && npm run typecheck -w @yiioffice/pptx-engine && npm run typecheck -w @yiioffice/xlsx-gateway && npm run typecheck -w @yiioffice/pptx-ops && npm run typecheck -w @yiioffice/pptx-render && npm run typecheck -w @yiioffice/ui && npm run typecheck -w @yiioffice/docs && npm run typecheck -w @yiioffice/sheets && npm run typecheck -w @yiioffice/shell && npm run typecheck -w @yiioffice/slides && npm run typecheck -w @yiioffice/pdf && npm run typecheck -w @yiioffice/markdown",
     "predev": "node tools/build-stale-preloads.mjs",
-    "dev": "concurrently -k -n docs,sheets,slides,pdf,markdown,html,shell -c blue,green,yellow,red,cyan,white,magenta \"npm run dev:renderer -w @yiioffice/docs\" \"npm run dev:renderer -w @yiioffice/sheets\" \"npm run dev:renderer -w @yiioffice/slides\" \"npm run dev:renderer -w @yiioffice/pdf\" \"npm run dev:renderer -w @yiioffice/markdown\" \"npm run dev:renderer -w @yiioffice/html\" \"cross-env DOCS_RENDERER_URL=http://localhost:5173 SHEETS_RENDERER_URL=http://localhost:5174 SLIDES_RENDERER_URL=http://localhost:5175 PDF_RENDERER_URL=http://localhost:5176 MARKDOWN_RENDERER_URL=http://localhost:5177 HTML_RENDERER_URL=http://localhost:5178 npm run dev -w @yiioffice/shell\"",
+    "dev": "concurrently -k -n docs,sheets,slides,pdf,markdown,shell -c blue,green,yellow,red,cyan,magenta \"npm run dev:renderer -w @yiioffice/docs\" \"npm run dev:renderer -w @yiioffice/sheets\" \"npm run dev:renderer -w @yiioffice/slides\" \"npm run dev:renderer -w @yiioffice/pdf\" \"npm run dev:renderer -w @yiioffice/markdown\" \"cross-env DOCS_RENDERER_URL=http://localhost:5173 SHEETS_RENDERER_URL=http://localhost:5174 SLIDES_RENDERER_URL=http://localhost:5175 PDF_RENDERER_URL=http://localhost:5176 MARKDOWN_RENDERER_URL=http://localhost:5177 npm run dev -w @yiioffice/shell\"",
     "dev:docs": "npm run dev -w @yiioffice/docs",
     "build": "npm run build -w @yiioffice/docs",
-    "build:all": "npm run build -w @yiioffice/docs && npm run build -w @yiioffice/sheets && npm run build -w @yiioffice/slides && npm run build -w @yiioffice/pdf && npm run build -w @yiioffice/markdown && npm run build -w @yiioffice/html && npm run build -w @yiioffice/cli && npm run build -w @yiioffice/shell",
+    "build:all": "npm run build -w @yiioffice/docs && npm run build -w @yiioffice/sheets && npm run build -w @yiioffice/slides && npm run build -w @yiioffice/pdf && npm run build -w @yiioffice/markdown && npm run build -w @yiioffice/shell",
     "shell": "npm run build:all && electron apps/shell",
     "test:e2e": "playwright test --config e2e/playwright.config.ts",
     "notices": "node tools/gen-third-party-notices.mjs",
     "licenses": "node tools/check-licenses.mjs",
     "dist:mac": "npm run notices && npm run build:all && npm run native:build:universal -w @yiioffice/sheets && npm run dist:mac -w @yiioffice/shell",
-    "dist:win": "npm run notices && npm run build:all && npm run dist:win -w @yiioffice/shell",
+    "dist:win": "npm run notices && npm run build:all && npm run native:build -w @yiioffice/sheets && npm run dist:win -w @yiioffice/shell",
     "dist:linux": "npm run notices && npm run build:all && npm run dist:linux -w @yiioffice/shell"
   },
-  "dependencies": {
-    "@genspark/cli": "^1.15.0",
-    "ws": "^8.21.1"
-  },
+  "dependencies": {},
   "overrides": {
     "nanoid@3": "^3.3.17",
     "nanoid@5": "^5.1.16",
-    "katex": "^0.18.2"
+    "katex": "^0.18.2",
+    "vite": "^8.3.5",
+    "@tiptap/core": "3.31.0",
+    "@tiptap/pm": "3.31.0",
+    "@tiptap/extension-mention": "3.31.0",
+    "@tiptap/extension-bubble-menu": "3.31.0",
+    "@tiptap/extension-floating-menu": "3.31.0"
   },
   "devDependencies": {
+    "@typescript/typescript-win32-x64": "7.0.2",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.61.1",
     "concurrently": "^9.2.5",

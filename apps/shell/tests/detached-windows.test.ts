@@ -111,11 +111,6 @@ vi.mock('../../markdown/src/main/markdown-main', () => ({
   requestMarkdownClose: vi.fn(() => Promise.resolve(true)),
 }))
 
-vi.mock('../../html/src/main/html-main', () => ({
-  htmlIsDirty: vi.fn(() => false),
-  requestHtmlClose: vi.fn(() => Promise.resolve(true)),
-}))
-
 vi.mock('../src/main/tab-manager', () => ({
   canonicalPath: (p: string) => p.toLowerCase(),
 }))
@@ -228,24 +223,24 @@ describe('close guard', () => {
   })
 
   it('asks the owning family when the document is dirty and keeps the window on cancel', async () => {
-    const { htmlIsDirty, requestHtmlClose } = await import('../../html/src/main/html-main')
-    vi.mocked(htmlIsDirty).mockReturnValue(true)
-    vi.mocked(requestHtmlClose).mockResolvedValueOnce(false)
+    const { markdownIsDirty, requestMarkdownClose } = await import('../../markdown/src/main/markdown-main')
+    vi.mocked(markdownIsDirty).mockReturnValue(true)
+    vi.mocked(requestMarkdownClose).mockResolvedValueOnce(false)
     const view = fakeView(6)
     detached.createDetachedEditorWindow({
       view: view as never,
-      kind: 'html',
-      title: 'page.html',
+      kind: 'markdown',
+      title: 'note.md',
       applyMenuFor: () => {},
     })
     const win = instances[0]!
     win.emit('close', { preventDefault: vi.fn() })
     await flush()
-    expect(requestHtmlClose).toHaveBeenCalledWith(view.webContents, win)
+    expect(requestMarkdownClose).toHaveBeenCalledWith(view.webContents, win)
     expect(win.destroyed).toBe(false)
     expect(view.webContents.close).not.toHaveBeenCalled()
 
-    vi.mocked(requestHtmlClose).mockResolvedValueOnce(true)
+    vi.mocked(requestMarkdownClose).mockResolvedValueOnce(true)
     win.emit('close', { preventDefault: vi.fn() })
     await flush()
     expect(win.destroyed).toBe(true)

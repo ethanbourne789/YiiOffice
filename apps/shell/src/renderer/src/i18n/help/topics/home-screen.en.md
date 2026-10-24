@@ -9,7 +9,7 @@ Home is YiiOffice's start page: a navigation sidebar on the left, file lists and
 - **Recent**: files you opened recently. Each row is stamped with when — today, yesterday, or the date.
 - **Starred**: files you starred. Hover a file row and click the star to add or remove it.
 - **User Guide**: opens this manual.
-- **Genspark Projects**: after signing in to your Genspark account, shows the projects you created on the web; click one to continue editing in the browser. Search, sort by time, refresh and load-more are supported.
+- **Cloud projects**: after signing in, shows the projects you created on the web; click one to continue editing in the browser. Search, sort by time, refresh and load-more are supported.
 - **Folders**: directories you add to the sidebar with **Add folder…**, or drag in from the file manager. Each becomes a root you can open, create subfolders in, rename and remove; one that goes offline shows as unavailable and can be taken off the list. **New folder** makes another one.
 
 There is no Trash entry here. Deleted files go to the system trash, and restoring one is the OS's business.
@@ -56,8 +56,8 @@ What each card does:
 
 > Tip: File ▸ New in the menu bar creates the same document types (⌘N/Ctrl+N defaults to a text document); dragging a file into the window opens it.
 
-## Cloud projects (Genspark Projects)
+## Cloud projects
 
-- First use requires signing in to your Genspark account (device-code flow: YiiOffice shows a code, you finish logging in in the browser).
+- First use requires signing in (device-code flow: YiiOffice shows a code, you finish logging in in the browser).
 - The project list syncs with the web; Open in browser jumps there to continue.
 - Not signing in affects none of the local features.

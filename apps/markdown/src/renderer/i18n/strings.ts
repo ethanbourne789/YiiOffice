@@ -177,7 +177,7 @@ export const strings = {
     aiTimeoutError: '响应超时',
     aiOverloadedError: '服务当前繁忙，请稍后重试',
     aiNetworkError: '网络有问题，无法连接服务。请检查网络后重试',
-    aiCreditsExhausted: '积分不足，请前往 genspark.ai 充值',
+    aiCreditsExhausted: '积分不足，请充值后重试',
     aiNewChat: '新对话',
     aiCollapsePanel: '收起面板',
     aiEmptyTitle: '问问这篇文档',
@@ -400,7 +400,7 @@ export const strings = {
     aiOverloadedError: 'The service is busy right now — please try again in a moment',
     aiNetworkError:
       'Network problem: could not reach the service. Check your connection and try again',
-    aiCreditsExhausted: 'Out of credits — top up at genspark.ai',
+    aiCreditsExhausted: 'Out of credits — top up, then try again',
     aiNewChat: 'New chat',
     aiCollapsePanel: 'Collapse panel',
     aiEmptyTitle: 'Ask about this document',

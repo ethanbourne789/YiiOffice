@@ -12,14 +12,14 @@
  * ## Why HOME and not just YIIOFFICE_USER_DATA
  *
  * The account name is not in userData at all. Auth state reads
- * from `~/.genspark-tool-cli/config.json` through `homedir()`, and YIIOFFICE_USER_DATA
+ * from a config file through `homedir()`, and YIIOFFICE_USER_DATA
  * says nothing about that — so a run that only overrides userData may still
  * pick up developer credentials. HOME is the one lever that covers both it and
  * the `~/.yiioffice/bin` shim. `YIIOFFICE_AUTH_DIR` is not enough on its own: it
  * redirects YiiOffice's own key and leaves the shared CLI config in place.
  *
  * With no auth, the app reads as signed out, and the greeting, the account row
- * and the Genspark Projects entry all disappear — which is also the state every
+ * and the cloud projects entry all disappear — which is also the state every
  * CI run and every user without cloud auth is in. Nothing of the developer's own
  * session is read or written.
  */

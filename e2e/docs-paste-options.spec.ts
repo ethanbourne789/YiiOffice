@@ -87,8 +87,11 @@ test.describe('docs paste options chip', () => {
 
       const paste = async () => {
         await app.evaluate(
-          ({ clipboard }, payload) => {
-            clipboard.write({ html: payload.html, text: payload.text })
+          async ({ clipboard, ClipboardItem }, payload) => {
+            await clipboard.write([
+              new ClipboardItem({ 'text/html': payload.html }),
+              new ClipboardItem({ 'text/plain': payload.text }),
+            ])
           },
           { html: WEB_TWO_PARAS, text: WEB_TEXT },
         )

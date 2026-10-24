@@ -1,7 +1,7 @@
 /* Shared chrome/AI-panel tokens come from @yiioffice/ui/tokens.css (imported
  * before this file in main.tsx); only shell-specific tokens live here. */
 :root {
-  /* Genspark DS v4.1: guide/onboarding accent is the brand blue */
+  /* Onboarding accent: brand blue */
   --accent: #0f7fff;
   --accent-hover: #0e72e5;
   /* selected-option tint for the shared dropdown (gs-dd) */
@@ -1168,6 +1168,11 @@ body.vib .home {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.tree-file-row .tree-icon img {
+  width: 20px;
+  height: 20px;
 }
 
 /* the "..." button only shows on hover / while its menu is open */

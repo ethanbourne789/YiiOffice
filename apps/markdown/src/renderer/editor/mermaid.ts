@@ -25,7 +25,6 @@ export function loadMermaid(): Promise<Mermaid> {
       // SVG text labels instead of <foreignObject> so the diagram can be drawn
       // onto a canvas (docx export) without tainting it
       htmlLabels: false,
-      flowchart: { htmlLabels: false },
       suppressErrorRendering: true,
     })
     return mermaid

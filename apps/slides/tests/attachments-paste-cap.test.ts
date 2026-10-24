@@ -16,8 +16,6 @@ vi.mock('electron', () => ({
 vi.mock('@yiioffice/file-parse', () => ({
   parseFileToText: vi.fn(async () => ({ ok: false, error: 'mocked' })),
 }))
-vi.mock('@yiioffice/cli/agent-skills', () => ({}))
-vi.mock('@yiioffice/cli/install', () => ({}))
 vi.mock('@yiioffice/electron-utils', () => ({ showOpenDialogWithMemory: vi.fn() }))
 // session-state pulls the font/shaping chain (harfbuzz wasm) which cannot
 // load in the unit-test env; the paste handler under test never reaches it.

@@ -700,10 +700,6 @@ export const zh = {
   appFormatPaneDetail: '坐标轴、分类间距、分离',
   appGroupChartActions: '图表操作',
   appRemoveFromSheet: '从工作表中删除',
-  // AI Tab
-  appAiOpenPanelDetail: '侧栏对话',
-  appGroupAiStarters: '快速开始',
-  appAiStarterDetail: '发送到面板',
   // Insert tab
   appGroupTables: '表格',
   appFromSelection: '基于当前选区',

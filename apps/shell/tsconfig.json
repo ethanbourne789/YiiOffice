@@ -16,9 +16,7 @@
       "@yiioffice/electron-utils": ["../../packages/electron-utils/src/index.ts"],
       "@yiioffice/i18n": ["../../packages/i18n/src/index.ts"],
       "@yiioffice/ui": ["../../packages/ui/src/index.ts"],
-      "@yiioffice/pptx-engine": ["../../packages/pptx-engine/src/index.ts"],
-      "@yiioffice/cli/install": ["../../packages/cli/src/install.ts"],
-      "@yiioffice/cli/control-protocol": ["../../packages/cli/src/control-protocol.ts"]
+      "@yiioffice/pptx-engine": ["../../packages/pptx-engine/src/index.ts"]
     }
   },
   "include": [

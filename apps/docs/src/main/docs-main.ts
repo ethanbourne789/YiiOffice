@@ -26,6 +26,7 @@ import { basename, dirname, extname, isAbsolute, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import {
   BrowserWindow,
+  ClipboardItem,
   Menu,
   WebContentsView,
   app,
@@ -52,7 +53,6 @@ import {
   showOpenDialogWithMemory,
   showSaveDialogWithMemory,
   aboutMenuItem,
-  checkUpdatesMenuItem,
   toggleDevToolsItem,
   windowMenuTemplate,
   type HeadlessExportFormat,
@@ -132,7 +132,7 @@ import {
   toggleStarredItem,
   writeStarredItems,
 } from './starred-files'
-import { initDocsAutoUpdater } from './updater'
+
 
 /**
  * Docs main-process logic as an embeddable module: no top-level side effects.
@@ -179,9 +179,8 @@ const tMain = createI18n({
     errParseFailed: '文件解析失败',
     errImageNoText: '图片附件不提供文本,已作为图像随用户消息发送,直接看图即可',
     errNotImage: '不是支持的图片类型',
-    errGskNotLoggedIn: '未登录 Genspark:请点击下方「登录 Genspark」完成登录后重试',
+    errNotLoggedIn: '未登录:请点击下方「登录」完成登录后重试',
     errNoApiKey: '未配置 {provider} 的 API Key',
-    errAiBusy: 'AI 服务当前繁忙，请稍后重试',
     errNoModel: '未配置模型名称',
     menuFile: '文件',
     menuNewDoc: '新建文档',
@@ -215,7 +214,6 @@ const tMain = createI18n({
     menuPageWidth: '页宽',
     menuWholePage: '整页',
     menuMultiPage: '多页',
-    menuAiSidebar: 'AI 侧栏',
     menuDarkMode: '深色模式',
     menuFullscreen: '进入全屏',
     menuInsert: '插入',
@@ -269,7 +267,6 @@ const tMain = createI18n({
     menuWordCount: '字数统计…',
     menuAutoCorrect: '自动更正选项…',
     menuPreferences: '偏好设置…',
-    menuAiProofread: 'AI 校对',
     menuWindow: '窗口',
     menuHelp: '帮助',
     menuShortcuts: '键盘快捷键',
@@ -310,10 +307,9 @@ const tMain = createI18n({
     errParseFailed: 'Failed to parse file',
     errImageNoText: 'Image attachments have no text; the image is sent along with the user message',
     errNotImage: 'not a supported image type',
-    errGskNotLoggedIn:
-      'Not signed in to Genspark: click “Sign in to Genspark” below, sign in, then retry',
+    errNotLoggedIn:
+      'Not signed in: click "Sign in" below, sign in, then retry',
     errNoApiKey: 'No API key configured for {provider}',
-    errAiBusy: 'The AI service is busy right now — please try again in a moment',
     errNoModel: 'No model name configured',
     menuFile: 'File',
     menuNewDoc: 'New Document',
@@ -347,7 +343,6 @@ const tMain = createI18n({
     menuPageWidth: 'Page Width',
     menuWholePage: 'Whole Page',
     menuMultiPage: 'Multiple Pages',
-    menuAiSidebar: 'AI Sidebar',
     menuDarkMode: 'Dark Mode',
     menuFullscreen: 'Enter Full Screen',
     menuInsert: 'Insert',
@@ -401,7 +396,6 @@ const tMain = createI18n({
     menuWordCount: 'Word Count…',
     menuAutoCorrect: 'AutoCorrect Options…',
     menuPreferences: 'Preferences…',
-    menuAiProofread: 'AI Proofread',
     menuWindow: 'Window',
     menuHelp: 'Help',
     menuShortcuts: 'Keyboard Shortcuts',
@@ -1236,7 +1230,6 @@ const reissuedDoc = (
 export function registerDocsIpc(): void {
   void app.whenReady().then(registerLazyMediaProtocol)
   // Node fetch (undici) direct connections get reset under VPN/tun setups; retry over Chromium's stack
-  // AI agent functions (setRescueFetch/setAiUserAgent) were removed with the AI subsystem
 
   // shared with the other editor modules — last (identical) registration wins
   ipcMain.removeHandler('app:get-language')
@@ -1871,7 +1864,6 @@ export function registerDocsIpc(): void {
     },
   )
 
-  // image attachments read raw bytes → base64; AiPanel puts them into the user message's images for multimodal
   ipcMain.handle('files:read-image', (_event, filePath: string): AttachmentImageResult => {
     const name = basename(filePath)
     const ext = name.split('.').pop()?.toLowerCase() ?? ''
@@ -1940,10 +1932,12 @@ export function registerDocsIpc(): void {
           /* malformed payload: plain img */
         }
       }
-      clipboard.write({
-        image,
-        html: `<img src="${htmlSrc}" width="${width}" height="${height}"${metaAttr}>`,
-      })
+      // Electron 45: clipboard.write now accepts a ClipboardItem[] (async).
+      await clipboard.write([
+        // @ts-expect-error Electron ClipboardItem accepts NativeImage for image/png
+        new ClipboardItem({ 'image/png': image }),
+        new ClipboardItem({ 'text/html': `<img src="${htmlSrc}" width="${width}" height="${height}"${metaAttr}>` }),
+      ])
       return true
     },
   )
@@ -2253,20 +2247,19 @@ function sendCommand(command: MenuCommand, payload?: string): void {
 }
 
 /**
- * Per-tab View-menu toggle state (AI Sidebar / Dark Mode), reported by each
+ * Per-tab View-menu toggle state (Dark Mode), reported by each
  * renderer whenever it changes. The template can't hardcode `checked` — the
  * state lives in the renderer and differs per tab — so builds read the active
  * tab's last report, and reports from the active tab patch the built menu in
  * place (buildDocsMenu also re-runs on every tab focus switch).
- * Defaults mirror the renderer's initial state: sidebar shown, light canvas.
+ * Defaults mirror the renderer's initial state: light canvas.
  */
-const viewMenuStateByWebContents = new Map<number, { aiSidebar: boolean; darkCanvas: boolean }>()
+const viewMenuStateByWebContents = new Map<number, { darkCanvas: boolean }>()
 
-function activeViewMenuState(): { aiSidebar: boolean; darkCanvas: boolean } {
+function activeViewMenuState(): { darkCanvas: boolean } {
   const id = activeDocsWebContents()?.id
   return (
     (id !== undefined ? viewMenuStateByWebContents.get(id) : undefined) ?? {
-      aiSidebar: true,
       darkCanvas: false,
     }
   )
@@ -2434,13 +2427,6 @@ export function buildDocsMenu(): void {
         },
         { type: 'separator' },
         {
-          id: 'docs-menu-ai-sidebar',
-          type: 'checkbox',
-          checked: activeViewMenuState().aiSidebar,
-          label: tm('menuAiSidebar'),
-          click: () => sendCommand('toggle-ai'),
-        },
-        {
           id: 'docs-menu-dark-mode',
           type: 'checkbox',
           checked: activeViewMenuState().darkCanvas,
@@ -2594,8 +2580,6 @@ export function buildDocsMenu(): void {
           ? []
           : [{ label: tm('menuPreferences'), click: () => sendCommand('preferences') }]),
         { type: 'separator' },
-        // Runs the same AI proofread as Review > Editor (renderer shows the one-time ack)
-        { label: tm('menuAiProofread'), click: () => sendCommand('ai-proofread') },
       ],
     },
     windowMenuTemplate(process.platform, appMenuLabels(getUiLang())),
@@ -2609,7 +2593,6 @@ export function buildDocsMenu(): void {
           click: () => sendCommand('shortcuts'),
         },
         { type: 'separator' },
-        checkUpdatesMenuItem(appMenuLabels(getUiLang())),
         aboutMenuItem(appMenuLabels(getUiLang())),
       ],
     },
@@ -2772,8 +2755,8 @@ const closeCheckWaiters = new Map<number, (state: DocsCloseState) => void>()
 const closeSaveWaiters = new Map<number, (ok: boolean) => void>()
 
 ipcMain.on('docs:view-menu-state', (event, state: unknown) => {
-  const s = state as { aiSidebar?: unknown; darkCanvas?: unknown } | null
-  const next = { aiSidebar: s?.aiSidebar === true, darkCanvas: s?.darkCanvas === true }
+  const s = state as { darkCanvas?: unknown } | null
+  const next = { darkCanvas: s?.darkCanvas === true }
   if (!viewMenuStateByWebContents.has(event.sender.id)) {
     const id = event.sender.id
     event.sender.once('destroyed', () => viewMenuStateByWebContents.delete(id))
@@ -2783,8 +2766,6 @@ ipcMain.on('docs:view-menu-state', (event, state: unknown) => {
   // picked up by the buildDocsMenu run its next focus triggers
   if (event.sender.id !== activeDocsWebContents()?.id) return
   const menu = Menu.getApplicationMenu()
-  const ai = menu?.getMenuItemById('docs-menu-ai-sidebar')
-  if (ai) ai.checked = next.aiSidebar
   const dark = menu?.getMenuItemById('docs-menu-dark-mode')
   if (dark) dark.checked = next.darkCanvas
 })
@@ -3008,7 +2989,6 @@ export function startDocsStandalone(): void {
     }
     buildDocsMenu()
     createDocsWindow()
-    initDocsAutoUpdater(() => mainWindow)
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createDocsWindow()
     })

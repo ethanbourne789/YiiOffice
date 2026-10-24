@@ -10,7 +10,7 @@ export const MAX_BODY_CHARS = 1_000_000
 export type Extracted =
   { kind: 'text'; text: string } | { kind: 'name-only' } | { kind: 'error'; error: string }
 
-const MARKUP_EXTS = new Set(['html', 'htm'])
+const MARKUP_EXTS = new Set([])
 
 function stripMarkup(html: string): string {
   return html

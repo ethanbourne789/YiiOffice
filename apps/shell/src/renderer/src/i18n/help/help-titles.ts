@@ -74,18 +74,6 @@ const TOPIC_TITLES: Record<string, Record<HelpTitleLang, string>> = {
     zh: 'Markdown 编辑器',
     en: 'The Markdown editor',
   },
-  html: {
-    zh: 'HTML 编辑器',
-    en: 'The HTML editor',
-  },
-  'ai-panel': {
-    zh: '助手面板',
-    en: 'The assistant panel',
-  },
-  'ai-models': {
-    zh: '模型与设置',
-    en: 'Models and settings',
-  },
   fonts: {
     zh: '字体：系统字体与可下载字体',
     en: 'Fonts: system faces and downloadable families',
@@ -101,10 +89,6 @@ const TOPIC_TITLES: Record<string, Record<HelpTitleLang, string>> = {
   install: {
     zh: '安装 YiiOffice',
     en: 'Installing YiiOffice',
-  },
-  cli: {
-    zh: '命令行与智能体',
-    en: 'Command line and agents',
   },
 }
 
