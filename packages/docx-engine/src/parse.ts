@@ -5664,7 +5664,10 @@ async function hfGroupPictures(
   readAnchorPos(body, anchor)
   if (anchor.posXPx == null || anchor.posYPx == null) return null
   const attrNum = (tag: string, key: string): number | null => {
-    const v = new RegExp(`${key}="(-?\\d+)"`).exec(tag)?.[1]
+    // Either quote style and whitespace around `=` are legal XML; a
+    // double-quote-only pattern silently drops the whole shape on single-quoted
+    // attributes (the same document Word writes when it round-trips VML).
+    const v = new RegExp(`${key}\\s*=\\s*["'](-?\\d+)["']`).exec(tag)?.[1]
     return v == null ? null : parseInt(v, 10)
   }
   const grpXfrm = /<wpg:grpSpPr[^>]*>[\s\S]*?<a:xfrm[^>]*>([\s\S]*?)<\/a:xfrm>/.exec(body)?.[1]
@@ -5732,7 +5735,10 @@ function hfShapeDrawingSvg(frag: string): string | null {
   // Word pairs DrawingML shapes with a VML twin in mc:Fallback
   const body = frag.replace(/<mc:Fallback[^>]*>[\s\S]*?<\/mc:Fallback>/g, '')
   const attrNum = (tag: string, key: string): number | null => {
-    const v = new RegExp(`${key}="(-?\\d+)"`).exec(tag)?.[1]
+    // Either quote style and whitespace around `=` are legal XML; a
+    // double-quote-only pattern silently drops the whole shape on single-quoted
+    // attributes (the same document Word writes when it round-trips VML).
+    const v = new RegExp(`${key}\\s*=\\s*["'](-?\\d+)["']`).exec(tag)?.[1]
     return v == null ? null : parseInt(v, 10)
   }
   const extent = /<wp:extent[^>]*\/?>/.exec(body)?.[0] ?? ''
@@ -6998,7 +7004,7 @@ function blipEffectsOf(xml: string): ImageEffects | undefined {
 
 /** a:srcRect / a:fillRect attribute (1000ths of a percent; some writers emit decimals) → fraction */
 function rectFrac(tag: string, name: string): number {
-  const v = parseFloat(new RegExp(`\\b${name}="(-?[\\d.]+)"`).exec(tag)?.[1] ?? '')
+  const v = parseFloat(new RegExp(`\\b${name}\\s*=\\s*["'](-?[\\d.]+)["']`).exec(tag)?.[1] ?? '')
   return Number.isFinite(v) ? v / 100000 : 0
 }
 
@@ -7070,7 +7076,7 @@ function imageMeta(xml: string): ImageMeta {
     if (implicitSpaceCount > 0) meta.imageLeadingImplicitSpaceCount = implicitSpaceCount
     const ind = pPr ? /<w:ind\b[^>]*\/?>/.exec(pPr)?.[0] : undefined
     const twips = (name: string): number | undefined => {
-      const value = Number(new RegExp(`\\bw:${name}="(-?\\d+)"`).exec(ind ?? '')?.[1] ?? NaN)
+      const value = Number(new RegExp(`\\bw:${name}\\s*=\\s*["'](-?\\d+)["']`).exec(ind ?? '')?.[1] ?? NaN)
       return Number.isFinite(value) ? value : undefined
     }
     meta.imageParagraphIndentLeft = twips('left')
@@ -7082,7 +7088,7 @@ function imageMeta(xml: string): ImageMeta {
     }
     const spacing = pPr ? /<w:spacing\b[^>]*\/?>/.exec(pPr)?.[0] : undefined
     const spacingTwips = (name: string): number | undefined => {
-      const value = Number(new RegExp(`\\bw:${name}="(-?\\d+)"`).exec(spacing ?? '')?.[1] ?? NaN)
+      const value = Number(new RegExp(`\\bw:${name}\\s*=\\s*["'](-?\\d+)["']`).exec(spacing ?? '')?.[1] ?? NaN)
       return Number.isFinite(value) ? value : undefined
     }
     meta.imageParagraphSpaceBefore = spacingTwips('before')
@@ -7114,7 +7120,7 @@ function imageMeta(xml: string): ImageMeta {
   const effect = /<wp:inline\b[^>]*>[\s\S]*?<wp:effectExtent\b([^>]*)\/?>/.exec(xml)?.[1]
   if (effect) {
     const px = (name: string): number => {
-      const v = parseInt(new RegExp(`\\b${name}="(\\d+)"`).exec(effect)?.[1] ?? '', 10)
+      const v = parseInt(new RegExp(`\\b${name}\\s*=\\s*["'](\\d+)["']`).exec(effect)?.[1] ?? '', 10)
       return Number.isFinite(v) && v > 0 ? Math.round((v / EMU_PER_PX) * 100) / 100 : 0
     }
     const t = px('t')

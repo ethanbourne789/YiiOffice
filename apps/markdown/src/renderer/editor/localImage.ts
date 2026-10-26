@@ -5,7 +5,7 @@ import { Paragraph } from '@tiptap/extension-paragraph'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { MAX_PASTED_IMAGE_BYTES } from '../../shared/ipc'
 import { t } from '../i18n/locale'
-import { showToast } from '../components/toast-bus'
+import { showToast } from '@yiioffice/ui'
 import { getImageHostConfig } from '../imageHostCache'
 
 /** Directory of the open .md file; relative image paths resolve against it for display */

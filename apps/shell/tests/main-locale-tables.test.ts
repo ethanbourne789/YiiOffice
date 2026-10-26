@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 /**
- * The main-process locale table (src/main/index.ts) is an inline object handed
+ * The main-process locale table (src/main/shell-i18n.ts) is an inline object handed
  * to createI18n, so it cannot be imported to assert on it — the values are read
  * out of the source instead, the same way home-duplicate-atomic.test.ts does.
  *
@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest'
  * Portuguese users saw a Spanish dialog filter. The two words differ by one
  * letter, which is why a check that only compares key sets never caught it.
  */
-const source = readFileSync(join(__dirname, '../src/main/index.ts'), 'utf8')
+const source = readFileSync(join(__dirname, '../src/main/shell-i18n.ts'), 'utf8')
 
 /** One locale's slice of the table, from its `xx: {` header to the next one. */
 function localeBlock(locale: string): string {

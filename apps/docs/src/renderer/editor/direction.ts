@@ -32,7 +32,7 @@ export function effectiveBidi(attrs: Record<string, unknown>): boolean {
 }
 
 /** UI languages whose users get the paragraph direction buttons by default */
-export function isRtlUiLang(lang: Lang): boolean {
+export function isRtlUiLang(_lang: Lang): boolean {
   // No RTL languages in the current Lang set (zh/en)
   return false
 }

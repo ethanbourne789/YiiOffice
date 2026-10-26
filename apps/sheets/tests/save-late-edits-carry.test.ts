@@ -9,6 +9,8 @@ import {
   carryLateJournalCells,
   createEditJournal,
   recordSetRangeValues,
+  recordSheetInsert,
+  recordSheetRemove,
   recordStructuralOp,
   snapshotJournalCells,
   type EditJournal,
@@ -48,7 +50,7 @@ describe('carryLateJournalCells', () => {
     recordSetRangeValues(journal, 'sheet-1', { 1: { 0: { v: 'late' } } })
     recordSetRangeValues(journal, 'sheet-2', { 0: { 0: { v: 'late too' } } })
     const into = createEditJournal()
-    expect(carryLateJournalCells(journal, snapshot, into)).toBe(2)
+    expect(carryLateJournalCells(journal, snapshot, into)).toEqual({ carried: 2, dropped: 0 })
     expect(into.cells.get('sheet-1')?.get('0:0')).toBeUndefined()
     expect(into.cells.get('sheet-1')?.get('1:0')?.value).toBe('late')
     expect(into.cells.get('sheet-2')?.get('0:0')?.value).toBe('late too')
@@ -60,11 +62,11 @@ describe('carryLateJournalCells', () => {
     const snapshot = snapshotJournalCells(journal)
     recordSetRangeValues(journal, 'sheet-1', { 0: { 0: { v: 'changed again' } } })
     const into = createEditJournal()
-    expect(carryLateJournalCells(journal, snapshot, into)).toBe(1)
+    expect(carryLateJournalCells(journal, snapshot, into)).toEqual({ carried: 1, dropped: 0 })
     expect(into.cells.get('sheet-1')?.get('0:0')?.value).toBe('changed again')
   })
 
-  it('skips a sheet whose rows shifted after the snapshot', () => {
+  it('carries the shift with the re-keyed cells instead of dropping them', () => {
     const journal = createEditJournal()
     recordSetRangeValues(journal, 'sheet-1', { 5: { 0: { v: 'saved' } } })
     recordSetRangeValues(journal, 'sheet-2', { 0: { 0: { v: 'saved' } } })
@@ -72,16 +74,48 @@ describe('carryLateJournalCells', () => {
     recordStructuralOp(journal, 'sheet-1', { kind: 'insert-rows', index: 0, count: 2 })
     recordSetRangeValues(journal, 'sheet-2', { 1: { 0: { v: 'late' } } })
     const into = createEditJournal()
-    expect(carryLateJournalCells(journal, snapshot, into)).toBe(1)
+    expect(carryLateJournalCells(journal, snapshot, into)).toEqual({ carried: 1, dropped: 0 })
+    // the shift itself travels, so the late coordinates make sense on the reopened file
+    expect(into.structuralOps.get('sheet-1')).toEqual([
+      { kind: 'insert-rows', index: 0, count: 2 },
+    ])
+    // the re-keyed saved entry keeps its identity and is not carried twice
     expect(into.cells.has('sheet-1')).toBe(false)
     expect(into.cells.get('sheet-2')?.get('1:0')?.value).toBe('late')
+  })
+
+  it('carries a sheet created after the snapshot along with its cells', () => {
+    const journal = createEditJournal()
+    recordSetRangeValues(journal, 'sheet-1', { 0: { 0: { v: 'saved' } } })
+    const snapshot = snapshotJournalCells(journal)
+    recordSheetInsert(journal, 'sheet-new', 'Sheet2')
+    recordSetRangeValues(journal, 'sheet-new', { 0: { 0: { v: 'on the new sheet' } } })
+    const into = createEditJournal()
+    expect(carryLateJournalCells(journal, snapshot, into)).toEqual({ carried: 1, dropped: 0 })
+    expect(into.sheets.added.get('sheet-new')?.name).toBe('Sheet2')
+    expect(into.cells.get('sheet-new')?.get('0:0')?.value).toBe('on the new sheet')
+    expect(into.cells.has('sheet-1')).toBe(false)
+  })
+
+  it('counts entries on a sheet removed after the snapshot instead of dropping them in silence', () => {
+    const journal = createEditJournal()
+    recordSetRangeValues(journal, 'sheet-1', { 0: { 0: { v: 'saved' } } })
+    const snapshot = snapshotJournalCells(journal)
+    recordSetRangeValues(journal, 'sheet-1', { 1: { 0: { v: 'doomed' } } })
+    recordSheetRemove(journal, 'sheet-1')
+    const into = createEditJournal()
+    expect(carryLateJournalCells(journal, snapshot, into)).toEqual({ carried: 0, dropped: 1 })
+    expect(into.cells.size).toBe(0)
   })
 
   it('carries nothing when the journal did not change', () => {
     const journal = createEditJournal()
     recordSetRangeValues(journal, 'sheet-1', { 0: { 0: { v: 'saved' } } })
     const into = createEditJournal()
-    expect(carryLateJournalCells(journal, snapshotJournalCells(journal), into)).toBe(0)
+    expect(carryLateJournalCells(journal, snapshotJournalCells(journal), into)).toEqual({
+      carried: 0,
+      dropped: 0,
+    })
     expect(into.cells.size).toBe(0)
   })
 })

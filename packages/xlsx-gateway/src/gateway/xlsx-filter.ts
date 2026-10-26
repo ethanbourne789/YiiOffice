@@ -2,6 +2,8 @@
 /// `<autoFilter>` element (with per-column value / custom criteria) plus row
 /// visibility inside the filter's row span. Unsupported criteria fail closed.
 
+import { columnToLetters, escapeXmlAttribute } from '../shared/xml'
+
 export class FilterEditError extends Error {}
 
 interface CellArea {
@@ -181,24 +183,4 @@ function toRef(range: CellArea): string {
     `${columnToLetters(range.startColumn)}${range.startRow + 1}` +
     `:${columnToLetters(range.endColumn)}${range.endRow + 1}`
   )
-}
-
-function columnToLetters(column: number): string {
-  let letters = ''
-  let remaining = column + 1
-  while (remaining > 0) {
-    remaining -= 1
-    letters = String.fromCharCode(65 + (remaining % 26)) + letters
-    remaining = Math.floor(remaining / 26)
-  }
-  return letters
-}
-
-function escapeXmlAttribute(input: string): string {
-  return input
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&apos;')
 }

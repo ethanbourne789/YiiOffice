@@ -27,11 +27,7 @@ test.describe('docs font and size combos', () => {
         undefined,
         { timeout: 30_000 },
       )
-      const attrs = () =>
-        editorPage.evaluate(() =>
-          (window as unknown as AidocsWindow).__aidocs!.editor!.getAttributes('docTextStyle'),
-        )
-      await editorPage.locator('.doc-page').click()
+            await editorPage.locator('.doc-page').click()
       await editorPage.keyboard.type('combo text', { delay: 10 })
       await editorPage.keyboard.press('ControlOrMeta+a')
 

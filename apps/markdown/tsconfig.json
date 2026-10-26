@@ -1,9 +1,22 @@
 {
-  "extends": "../../tsconfig.base.json",
+  // Editor + `tsc` entry point: typechecks every file of the app against the
+  // widest lib. The gate (`npm run typecheck`) runs the two split projects
+  // instead — tsconfig.main.json is stricter (no DOM lib), so code that relies
+  // on a browser global in the main process only fails there.
+
+  "extends": "./tsconfig.shared.json",
   "compilerOptions": {
     "jsx": "react-jsx",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["node"]
   },
-  "include": ["src", "electron.vite.config.ts", "vite.renderer.config.ts"]
+  "include": [
+    "src/main",
+    "src/preload",
+    "src/shared",
+    "electron.vite.config.ts",
+    "vite.renderer.config.ts",
+    "src/renderer",
+    "tests"
+  ]
 }

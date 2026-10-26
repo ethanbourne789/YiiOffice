@@ -268,6 +268,10 @@ export const en = {
     'Inserted {count} sparkline(s) in the column right of the selection — ⌘S saves to the file.',
   appSaveHeldStranded:
     'PivotTables/tables cannot be saved together with new sheets plus row/column changes — save the structure first, then add the PivotTables/tables.',
+  appSaveDroppedLateEdits:
+    'Some edits made while saving could not be kept — please redo them and save again.',
+  appSaveReopenFailed:
+    'Saved, but the workbook could not be reopened in this window — close and open the file again.',
   appSaveSecondCanceled:
     'The second save phase was canceled — the structure is saved; PivotTables/tables/defined names are not written yet.',
   appSavedTwoPhase: 'Saved.',

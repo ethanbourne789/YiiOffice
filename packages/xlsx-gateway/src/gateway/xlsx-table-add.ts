@@ -1,5 +1,6 @@
 import { columnLabel } from '../domain/cell-address'
 import { MAX_GRID_COLUMNS, MAX_GRID_ROWS } from '../shared/grid-bounds'
+import { escapeXmlAttribute } from '../shared/xml'
 import { isValidDefinedName } from './xlsx-defined-names'
 import {
   allocatePartPath,
@@ -217,17 +218,17 @@ export function assertNoSheetConflicts(
 
 export function buildTableXml(id: number, addition: TableAddition): string {
   const ref = areaToRef(addition.area)
-  const name = escapeAttribute(addition.name)
+  const name = escapeXmlAttribute(addition.name)
   const options = addition.options ?? {}
   const headerRows = options.headerRow === false ? 0 : 1
   const totalsRows = options.totalsRow ? 1 : 0
   const columns = addition.columnNames
     .map(
       (columnName, index) =>
-        `<tableColumn id="${index + 1}" name="${escapeAttribute(columnName)}"/>`,
+        `<tableColumn id="${index + 1}" name="${escapeXmlAttribute(columnName)}"/>`,
     )
     .join('')
-  const style = escapeAttribute(addition.style ?? DEFAULT_TABLE_STYLE)
+  const style = escapeXmlAttribute(addition.style ?? DEFAULT_TABLE_STYLE)
   const flag = (on: boolean | undefined): string => (on ? '1' : '0')
   return (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
@@ -323,10 +324,3 @@ export function areasOverlap(a: TableArea, b: TableArea): boolean {
   )
 }
 
-export function escapeAttribute(input: string): string {
-  return input
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}

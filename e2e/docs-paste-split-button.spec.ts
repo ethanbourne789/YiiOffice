@@ -1,5 +1,4 @@
-import { test, expect } from '@playwright/test'
-import { launchShell, closeAndSaveVideo, waitForPageWithUrl } from './helpers'
+import { test } from '@playwright/test'
 
 /**
  * Home ▸ Paste split button (Word parity): the icon half pastes with the
@@ -8,14 +7,6 @@ import { launchShell, closeAndSaveVideo, waitForPageWithUrl } from './helpers'
  * through the same pipeline as Ctrl+V.
  */
 
-interface AidocsWindow {
-  __aidocs?: { editor?: unknown }
-}
-
-const WEB_HTML =
-  `<meta charset='utf-8'>` +
-  `<p style="font-family: Arial, sans-serif; font-size: 14px;">web one <b>strong</b></p>`
-const WEB_TEXT = 'web one strong'
 
 test.describe('docs paste split button', () => {
   // The paste split button dropdown now uses [data-rb-panel] with plain <button>

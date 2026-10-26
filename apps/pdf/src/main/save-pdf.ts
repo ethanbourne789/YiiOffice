@@ -34,7 +34,7 @@ import type {
   TextEditFailure,
   TextInsertFailure,
 } from '../shared/ipc'
-import { writePdfAtomically } from './atomic-write'
+import { atomicWriteFile } from '@yiioffice/electron-utils/atomic-write'
 import { redactPdf } from './redaction'
 
 const num = (v: number) => Math.round(v * 100) / 100
@@ -765,6 +765,12 @@ export async function insertBlankPageBytes(
 ): Promise<Uint8Array> {
   const doc = await PDFDocument.load(bytes, { updateMetadata: false })
   const at = Math.min(Math.max(afterPageIndex + 1, 0), doc.getPageCount())
+  // A 0-page document has no neighbor to size from; getPage(-1) would throw.
+  // Fall back to A4 portrait — the same size blankPdfBuffer() creates.
+  if (doc.getPageCount() === 0) {
+    doc.insertPage(at, [595.28, 841.89])
+    return doc.save({ useObjectStreams: false })
+  }
   const ref = doc.getPage(Math.min(Math.max(afterPageIndex, 0), doc.getPageCount() - 1))
   const page = doc.insertPage(at, [ref.getWidth(), ref.getHeight()])
   // Match the neighbor's /Rotate too, or the blank page displays sideways next to it
@@ -821,6 +827,11 @@ export async function mergePagesBytes(
   const src = await PDFDocument.load(bytes, { updateMetadata: false })
   const out = await PDFDocument.create()
   const total = src.getPageCount()
+  if (total === 0) {
+    // getPage(0) would throw a cryptic RangeError; merging an empty PDF has
+    // no pages to lay out, so fail with a message the UI can surface.
+    throw new Error('mergePages: the source PDF has no pages')
+  }
   const first = src.getPage(0)
   const { cols, rows } = mergeGrid(perSheet)
   const normalizeRotation = (angle: number): number =>
@@ -1177,7 +1188,7 @@ export async function savePdfToPath(
     request,
   )
   await verifyContentEdits(bytes, request, skips)
-  await writePdfAtomically(targetPath, bytes)
+  await atomicWriteFile(targetPath, bytes)
   return skips
 }
 

@@ -3,7 +3,6 @@
  * Shared by SlideCanvas and SlideThumb; coordinates are already relative to the chart box
  * top-left, the outer Group handles positioning.
  */
-import React from 'react'
 import { Rect, Text, Line, Circle, Arc, Path } from 'react-konva'
 import type { ChartRenderNode } from '@yiioffice/pptx-render'
 

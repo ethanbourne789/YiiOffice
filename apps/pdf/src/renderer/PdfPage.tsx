@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, RefObject } from 'react'
 import { AnnotationMode, TextLayer } from 'pdfjs-dist/legacy/build/pdf.mjs'
-import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist'
+import type { PDFDocumentProxy, PDFPageProxy, RenderTask } from 'pdfjs-dist'
 import { pdfRectToCss, quadToRect } from './annotations'
 import type { LocalMarkup, PageGeom } from './annotations'
 import { MAX_PAGE_RENDER_PIXELS } from './view-config'
@@ -62,6 +62,16 @@ export function PdfPage({
   onRenderState: (doc: PDFDocumentProxy, pageNo: number, pending: boolean) => void
 }) {
   const holderRef = useRef<HTMLDivElement>(null)
+  // Last page proxy this component rendered: needed for cleanup() when the page
+  // scrolls out. pdf.js 6 removed proxy.destroy(); page.cleanup() is what
+  // frees the parsed content, and the proxy stays usable (re-parses on demand).
+  const pageRef = useRef<PDFPageProxy | null>(null)
+  useEffect(() => {
+    return () => {
+      pageRef.current?.cleanup()
+      pageRef.current = null
+    }
+  }, [doc])
   useEffect(() => {
     const holder = holderRef.current
     if (!holder) return
@@ -74,6 +84,10 @@ export function PdfPage({
       // renders. Its overlays are no longer mounted, so treat the cleared offscreen page
       // as settled instead of making the whole document wait for the timeout.
       onRenderState(doc, pageNo, false)
+      // Release the page's parsed content too: an offscreen page is exactly
+      // when keeping it is pure cost (the bitmap is already gone).
+      pageRef.current?.cleanup()
+      pageRef.current = null
       return
     }
     // Visibility may change while a save reload is running. Register newly visible
@@ -84,6 +98,7 @@ export function PdfPage({
     void (async () => {
       const page = await doc.getPage(pageNo)
       if (cancelled) return
+      pageRef.current = page
       const viewport = page.getViewport({ scale, rotation: (page.rotate + rotationDelta) % 360 })
       // Cap at 2x: on hi-dpi screens a 3x-dpr full-page bitmap doubles memory with no visible gain.
       // Deep zoom trades dpr for the pixel budget instead — the page is already magnified.

@@ -3,6 +3,7 @@
 /// the legacy comments part only mirrors it behind a "[Threaded comment]"
 /// notice. Rewriting the mirror alone leaves Excel showing the stale thread.
 
+import { escapeXmlAttribute, escapeXmlText, unescapeXml } from '../shared/xml'
 import { decodeXlsxEscapes } from './xlsx-escapes'
 import { resolveRelTarget } from './xlsx-drawing-add'
 import { nextFreeRelationshipId } from './xlsx-sheets'
@@ -70,25 +71,6 @@ interface ThreadEntry {
   readonly done: boolean
   readonly parentId: string | null
   readonly text: string
-}
-
-function unescapeXml(value: string): string {
-  return value
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, code: string) => String.fromCodePoint(parseInt(code, 16)))
-    .replace(/&amp;/g, '&')
-}
-
-function escapeXml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
 }
 
 function attribute(tag: string, name: string): string | null {
@@ -181,11 +163,11 @@ function entryXml(
   done: boolean,
 ): string {
   return (
-    `<threadedComment ref="${escapeXml(ref)}" dT="${escapeXml(entry.dT)}"` +
-    ` personId="${escapeXml(entry.personId)}" id="${escapeXml(entry.id)}"` +
-    (parentId === null ? '' : ` parentId="${escapeXml(parentId)}"`) +
+    `<threadedComment ref="${escapeXmlAttribute(ref)}" dT="${escapeXmlAttribute(entry.dT)}"` +
+    ` personId="${escapeXmlAttribute(entry.personId)}" id="${escapeXmlAttribute(entry.id)}"` +
+    (parentId === null ? '' : ` parentId="${escapeXmlAttribute(parentId)}"`) +
     (done ? ' done="1"' : '') +
-    `><text>${escapeXml(entry.text)}</text></threadedComment>`
+    `><text>${escapeXmlText(entry.text)}</text></threadedComment>`
   )
 }
 
@@ -259,10 +241,10 @@ async function readPersons(pkg: ThreadedPackage): Promise<PersonsPart> {
 function ensurePerson(persons: PersonsPart, id: string, displayName: string): boolean {
   if (persons.ids.has(id)) return false
   persons.ids.add(id)
-  const name = escapeXml(displayName)
+  const name = escapeXmlAttribute(displayName)
   persons.xml = persons.xml.replace(
     '</personList>',
-    `<person displayName="${name}" id="${escapeXml(id)}" userId="${name}" providerId="None"/></personList>`,
+    `<person displayName="${name}" id="${escapeXmlAttribute(id)}" userId="${name}" providerId="None"/></personList>`,
   )
   return true
 }
@@ -322,7 +304,7 @@ async function savePersons(
 }
 
 function replaceEntryText(raw: string, text: string): string {
-  const escaped = escapeXml(text)
+  const escaped = escapeXmlText(text)
   if (/<text\b[^>]*>[\s\S]*?<\/text>/.test(raw)) {
     return raw.replace(/<text\b[^>]*>[\s\S]*?<\/text>/, () => `<text>${escaped}</text>`)
   }

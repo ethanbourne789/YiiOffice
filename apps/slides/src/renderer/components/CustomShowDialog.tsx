@@ -5,7 +5,7 @@
  * checkboxes and order adjustment. Data is owned by App (persisted per document to localStorage);
  * this only sends back the whole new list.
  */
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useI18n } from '../i18n/locale'
 import type { CustomShow } from '../slideshow-utils'
 

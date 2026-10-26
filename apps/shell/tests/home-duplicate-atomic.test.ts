@@ -2,15 +2,16 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const source = readFileSync(join(__dirname, '../src/main/index.ts'), 'utf8')
+const routing = readFileSync(join(__dirname, '../src/main/shell-routing.ts'), 'utf8')
+const homeIpc = readFileSync(join(__dirname, '../src/main/shell-home-ipc.ts'), 'utf8')
 
 function section(text: string, start: string, end: string): string {
   return text.slice(text.indexOf(start), text.indexOf(end, text.indexOf(start)))
 }
 
-const newSheetTab = section(source, 'async function newSheetTab', 'function surfaceNewTabError')
-const newPdfTab = section(source, 'async function newPdfTab', 'function startQueuedWorkbookNudge')
-const duplicateFile = section(source, 'HOME_CHANNELS.duplicateFile', 'HOME_CHANNELS.deleteFiles')
+const newSheetTab = section(routing, 'async function newSheetTab', 'function surfaceNewTabError')
+const newPdfTab = section(routing, 'async function newPdfTab', 'function startQueuedWorkbookNudge')
+const duplicateFile = section(homeIpc, 'HOME_CHANNELS.duplicateFile', 'HOME_CHANNELS.deleteFiles')
 
 describe('Home file creation is atomic', () => {
   it('publishes a blank spreadsheet through a temporary file', () => {

@@ -1,0 +1,13 @@
+{
+  // Renderer + tests (jsdom). Tests import main-process modules too, so they
+  // live on this side: the DOM lib is additive here, and the main process has
+  // its own stricter project.
+
+  "extends": "./tsconfig.shared.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node", "vite/client"]
+  },
+  "include": ["src/preload", "src/renderer", "src/shared", "src/types", "tests"]
+}

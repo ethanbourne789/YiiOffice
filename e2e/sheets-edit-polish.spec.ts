@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 import JSZip from 'jszip'
-import { copyFile, mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { copyFile, mkdtemp, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import type { Page } from '@playwright/test'

@@ -10,7 +10,12 @@
  * (png keeps transparency, jpeg stays jpeg). Reuses the .modal-backdrop/.modal styles.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { removeBackground, sampleBackgroundColors, type PixelImage, type RGB } from '../cutout'
+import {
+  removeBackground,
+  sampleBackgroundColors,
+  type PixelImage,
+  type RGB,
+} from '@yiioffice/ui'
 import { useI18n, type StringKey } from '../i18n/locale'
 import { useModalKeys } from './modal-keys'
 

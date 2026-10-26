@@ -2606,11 +2606,22 @@ function tableTextsPatchFromModel(
           const grid = nestedTextsDiff(nt, origNt)
           return grid
         })
-        if (nested.some((g) => g !== null)) {
-          changed = true
-          return { nested }
+        const nestedChanged = nested.some((g) => g !== null)
+        // The cell's own paragraphs sit outside the nested tables. They must be
+        // diffed too: without this, typing next to a nested table was silently
+        // dropped on save (the nested grid was unchanged, so the cell returned
+        // null and the original bytes won).
+        const ownTexts = parsedCellParaTexts(originalCell)
+        const ownParas: (string | null)[] =
+          cell.paras.length === ownTexts.length
+            ? cell.paras.map((text, i) => (text === ownTexts[i] ? null : text))
+            : [...cell.paras]
+        if (!nestedChanged && !ownParas.some((p) => p !== null)) return null
+        changed = true
+        return {
+          ...(ownParas.some((p) => p !== null) ? { paras: ownParas } : {}),
+          ...(nestedChanged ? { nested } : {}),
         }
-        return null
       }
       const origTexts = parsedCellParaTexts(originalCell)
       if (cell.paras.join('\n') === origTexts.join('\n')) return null

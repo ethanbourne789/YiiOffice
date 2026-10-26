@@ -15,11 +15,6 @@ async function xlsxEntry(path: string, entry: string): Promise<string> {
   return file.async('text')
 }
 
-async function xlsxListEntries(path: string): Promise<string[]> {
-  const zip = await JSZip.loadAsync(await readFile(path))
-  return Object.keys(zip.files)
-}
-
 async function addEntryToArchive(srcPath: string, destPath: string, entryPath: string, entryContent: string): Promise<void> {
   const zip = await JSZip.loadAsync(await readFile(srcPath))
   zip.file(entryPath, entryContent)

@@ -29,7 +29,7 @@ import {
 import { distributeSelectedColumns } from '../src/renderer/editor/table-sizing'
 import { updateSelectedTableAttrs } from '../src/renderer/editor/table-properties'
 import { overlayLiveRowFlags } from '../src/renderer/pagination-lines'
-import { setToastEmitter } from '../src/renderer/components/toast-bus'
+import { setToastEmitter } from '@yiioffice/ui'
 import { rowPatchFor } from '../src/renderer/components/TablePropertiesDialog'
 
 ;(globalThis as { CSS?: unknown }).CSS ??= { escape: (s: string) => s }

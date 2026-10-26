@@ -76,7 +76,7 @@ export class AHuff {
 
   constructor(
     private readonly bits: BitReader | null,
-    private readonly range: number,
+    range: number,
   ) {
     let bitCount2 = 0
     if (range > 256 && range < 512) bitCount2 = bitsUsed(range - 256 - 1) + 1

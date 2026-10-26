@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { Lang } from '@yiioffice/i18n'
-import { installDropOpenBridge } from '@yiioffice/electron-utils/drop-open'
+import { installDropOpenBridge } from '@yiioffice/electron-utils/drop-open-bridge'
 import { MARKDOWN_CHANNELS } from '../shared/ipc'
 import type {
   AutoSaveDefault,

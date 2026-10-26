@@ -80,26 +80,19 @@ describe('atomic export destinations', () => {
   })
 
   it('publishes Shell PDF conversions through a temporary file', () => {
-    const source = read('apps/shell/src/main/index.ts')
-    const docx = section(
-      source,
-      'async function exportPdfAsDocxLocal',
-      'async function exportPdfAsPptxLocal',
-    )
-    const pptx = section(
-      source,
-      'async function exportPdfAsPptxLocal',
-      'async function exportPdfAsXlsxLocal',
-    )
-    const xlsx = section(
-      source,
-      'async function exportPdfAsXlsxLocal',
-      'ipcMain.handle(PDF_CHANNELS.convertOffice',
-    )
+    // the three conversions share one driver (shell-pdf-export.ts); it is the
+    // only place that hands converted bytes to the filesystem
+    const source = read('apps/shell/src/main/shell-pdf-export.ts')
+    const driver = section(source, 'async function runPdfOfficeExport', 'function pdfLoadErrorDetail')
+    const docx = section(source, 'export function exportPdfAsDocxLocal', 'export function exportPdfAsPptxLocal')
+    const pptx = section(source, 'export function exportPdfAsPptxLocal', 'export function exportPdfAsXlsxLocal')
+    const xlsx = section(source, 'export function exportPdfAsXlsxLocal', 'ipcMain.handle(PDF_CHANNELS.convertOffice')
 
-    expect(docx).toContain('await atomicWriteFile(picked.filePath, result.docx)')
-    expect(pptx).toContain('await atomicWriteFile(picked.filePath, result.pptx)')
-    expect(xlsx).toContain('await atomicWriteFile(picked.filePath, result.xlsx)')
-    expect(`${docx}${pptx}${xlsx}`).not.toMatch(/writeFileSync\(picked\.filePath/)
+    expect(driver).toContain('await atomicWriteFile(picked.filePath, spec.bytes(result))')
+    expect(driver).not.toMatch(/writeFileSync\(picked\.filePath/)
+    // each format only names the field its converter returned
+    expect(docx).toContain('bytes: (result) => result.docx')
+    expect(pptx).toContain('bytes: (result) => result.pptx')
+    expect(xlsx).toContain('bytes: (result) => result.xlsx')
   })
 })

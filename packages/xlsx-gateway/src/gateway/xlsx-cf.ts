@@ -3,6 +3,8 @@
 /// `<conditionalFormatting>` section from it (mirroring the filter recipe).
 /// Highlight styles intern as new dxf entries in the stylesheet.
 
+import { columnToLetters, escapeXmlAttribute, escapeXmlText } from '../shared/xml'
+
 export class CfEditError extends Error {}
 
 export interface CfCellArea {
@@ -528,29 +530,6 @@ function normalizeSqref(sqref: string): string {
     .join(' ')
 }
 
-function columnToLetters(column: number): string {
-  let letters = ''
-  let remaining = column + 1
-  while (remaining > 0) {
-    remaining -= 1
-    letters = String.fromCharCode(65 + (remaining % 26)) + letters
-    remaining = Math.floor(remaining / 26)
-  }
-  return letters
-}
-
 function toArgb(hexColor: string): string {
   return `FF${hexColor.replace('#', '').toUpperCase()}`
-}
-
-function escapeXmlText(input: string): string {
-  return input.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
-}
-
-function escapeXmlAttribute(input: string): string {
-  return input
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
 }

@@ -2,7 +2,7 @@
  * Context menu — fixed positioning, kept within the viewport; closes on any click/Escape/scroll.
  * Items that are null render as separators; items with `sub` open a one-level flyout on hover.
  */
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useEscOverlay } from '../esc-overlay'
 import { platformShortcuts } from '@yiioffice/i18n'
 

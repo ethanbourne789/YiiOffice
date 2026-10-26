@@ -4,7 +4,7 @@
  * range / layout / orientation / framing options on the right. "Print" hands the
  * assembled pages to the system print dialog.
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useEscOverlay } from '../esc-overlay'
 import type { RenderSlide } from '@yiioffice/pptx-render'
 import { useI18n } from '../i18n/locale'

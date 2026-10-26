@@ -18,7 +18,8 @@
     "./renderer-protocol": "./src/renderer-protocol.ts",
     "./renderer-scheme": "./src/renderer-scheme.ts",
     "./safe-external-url": "./src/safe-external-url.ts",
-    "./safe-remote-url": "./src/safe-remote-url.ts"
+    "./safe-remote-url": "./src/safe-remote-url.ts",
+    "./drop-open-bridge": "./src/drop-open-bridge.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -26,7 +27,6 @@
     "test:watch": "vitest"
   },
   "devDependencies": {
-    "typescript": "^7.0.2",
     "vitest": "^5.0.5"
   },
   "dependencies": {

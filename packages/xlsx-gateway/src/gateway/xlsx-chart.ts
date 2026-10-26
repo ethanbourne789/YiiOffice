@@ -1,4 +1,5 @@
 import type { WorkbookChartEdit } from '../shared/edit-schemas'
+import { escapeXmlAttribute, escapeXmlText } from '../shared/xml'
 
 /// Surgical edits to a chart part (xl/charts/chartN.xml): title text, chart
 /// type conversion within the axis-based family, and series solid colors.
@@ -1004,12 +1005,4 @@ function patchPointFill(dPtXml: string, fill: string): string {
     /<a:noFill\/>|<a:solidFill>[\s\S]*?<\/a:solidFill>|<a:gradFill[\s\S]*?<\/a:gradFill>|<a:pattFill[\s\S]*?<\/a:pattFill>|<a:blipFill[\s\S]*?<\/a:blipFill>|<a:grpFill\/>/
   const nextHead = fillPattern.test(head) ? head.replace(fillPattern, () => fill) : head + fill
   return dPtXml.replace(spPrMatch[0], () => `<c:spPr>${nextHead}${tail}</c:spPr>`)
-}
-
-function escapeXmlText(input: string): string {
-  return input.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
-}
-
-function escapeXmlAttribute(input: string): string {
-  return escapeXmlText(input).replaceAll('"', '&quot;')
 }

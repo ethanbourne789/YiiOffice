@@ -1317,7 +1317,6 @@ export function Ribbon({
     if (!keep.includes('shapeFill')) setShapeFillOpen(false)
     if (!keep.includes('table')) setTableOpen(false)
     if (!keep.includes('layout')) setLayoutOpen(false)
-    if (!keep.includes('translate')) setTranslateOpen(false)
     if (!keep.includes('arrange')) setArrangeOpen(false)
     if (!keep.includes('insert')) setInsertDrop(null)
     if (!keep.includes('chart')) setChartDrop(null)

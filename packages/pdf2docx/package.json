@@ -6,7 +6,10 @@
   "type": "module",
   "description": "local PDF → DOCX conversion: PDFium char-level extraction, pure-geometry layout analysis, docx-engine rebuild",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./ocr": "./src/ocr.ts",
+    "./ocr-vision": "./src/ocr-vision.ts",
+    "./script": "./src/script.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -23,7 +26,6 @@
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
-    "typescript": "^7.0.2",
     "vitest": "^5.0.5"
   }
 }

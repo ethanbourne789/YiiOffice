@@ -5,7 +5,6 @@
  * future shell reuse.
  */
 import {
-  clipboard,
   app,
   BrowserWindow,
   desktopCapturer,
@@ -28,26 +27,7 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { cleanupExpiredGeneratedPages } from './generated-page-temp'
 import { exportSlidesPdf } from './pdf-export'
 import { printSlidesHtml } from './print-window'
-import {
-  appMenuLabels,
-  configuredDefaultSaveDir,
-  contextMenuLabels,
-  fetchRemoteImage,
-  installContextMenu,
-  installNavigationGuard,
-  isHeadlessMode,
-  safeExternalUrl,
-  saveAsSuggestion,
-  showOpenDialogWithMemory,
-  showSaveDialogWithMemory,
-  helpMenuTemplate,
-  toggleDevToolsItem,
-  installRendererProtocol,
-  registerRendererScheme,
-  rendererUrl,
-  MAX_REMOTE_IMAGE_BYTES,
-  readBodyCapped,
-} from '@yiioffice/electron-utils'
+import { appMenuLabels, configuredDefaultSaveDir, contextMenuLabels, installContextMenu, installNavigationGuard, isHeadlessMode, safeExternalUrl, saveAsSuggestion, showOpenDialogWithMemory, showSaveDialogWithMemory, helpMenuTemplate, toggleDevToolsItem, installRendererProtocol, registerRendererScheme, rendererUrl } from '@yiioffice/electron-utils'
 import {
   resolveGroupChildId,
   runTxn,
@@ -59,7 +39,6 @@ import {
 } from '@yiioffice/pptx-ops'
 import { matchesElementRef } from '@yiioffice/pptx-engine/identity'
 
-import { sniffImageMime } from './media-mime'
 import {
   newPasteCascade,
   pageKey,
@@ -70,8 +49,13 @@ import {
 import {
   ELEMENT_CLIPBOARD_FORMAT,
   canWriteElementClipboardImage,
+  clipboardHasImage,
+  clipboardRawMarkerPresent,
   elementClipboardMarkerMatches,
   isElementClipboardToken,
+  readClipboardImage,
+  readClipboardText,
+  writeClipboardRawMarker,
   writeElementClipboardImage,
 } from './element-clipboard'
 import { getUiLang, normalizeLang, setUiLang } from '@yiioffice/i18n'
@@ -2474,7 +2458,7 @@ export function registerSlidesIpc(): void {
   })
 
   // App-wide, so a slide copied in one tab can be pasted into another deck.
-  ipcMain.handle('slides:copy-slides', (e, op: CopySlidesOp) => {
+  ipcMain.handle('slides:copy-slides', async (e, op: CopySlidesOp) => {
     const session = sessions.get(e.sender.id)
     if (!session || !op.slideIndexes.length) return false
     const bundles: SlideBundle[] = []
@@ -2486,7 +2470,7 @@ export function registerSlidesIpc(): void {
     const pngs = op.pngs?.length === bundles.length ? op.pngs : undefined
     slideClipboard = { bundles, ...(pngs ? { pngs } : {}) }
     // Marker so plain ⌘V knows the latest copy was a slide (element copies / external copies overwrite it)
-    clipboard.writeBuffer('io.yiioffice.slides.slide', Buffer.from('1'))
+    await writeClipboardRawMarker('io.yiioffice.slides.slide', '1')
     return true
   })
 
@@ -3351,35 +3335,28 @@ export function registerSlidesIpc(): void {
   )
 
   // Our marker still present = the last copy came from this app -> use internal element paste
-  // (on macOS custom formats don't appear in availableFormats, so check via readBuffer)
-  const clipboardMarker = (format: string) => {
-    try {
-      return clipboard.readBuffer(format).length > 0
-    } catch {
-      return false
-    }
-  }
-
-  ipcMain.handle('slides:clipboard-external', () => {
-    if (slideClipboard && clipboardMarker('io.yiioffice.slides.slide')) return { kind: 'slide' }
-    if (elementClipboard && elementClipboardMarkerMatches(elementClipboard.token))
+  // (custom formats are only visible through the raw-format address, not through MIME types)
+  ipcMain.handle('slides:clipboard-external', async () => {
+    if (slideClipboard && (await clipboardRawMarkerPresent('io.yiioffice.slides.slide')))
+      return { kind: 'slide' }
+    if (elementClipboard && (await elementClipboardMarkerMatches(elementClipboard.token)))
       return { kind: 'internal' }
-    const img = clipboard.readImage()
-    if (!img.isEmpty()) return { kind: 'image', base64: img.toPNG().toString('base64'), ext: 'png' }
-    const text = clipboard.readText()
+    const img = await readClipboardImage()
+    if (img) return { kind: 'image', base64: img.toPNG().toString('base64'), ext: 'png' }
+    const text = await readClipboardText()
     if (text.trim()) return { kind: 'text', text }
     return { kind: 'none' }
   })
 
   // Menu-enable probe: is there anything a paste would act on? (no image decode)
-  ipcMain.handle('slides:clipboard-probe', () => {
-    if (slideClipboard && clipboardMarker('io.yiioffice.slides.slide')) return true
-    if (elementClipboard && elementClipboardMarkerMatches(elementClipboard.token)) return true
-    if (clipboard.availableFormats().some((f) => f.startsWith('image/'))) return true
-    return clipboard.readText().trim().length > 0
+  ipcMain.handle('slides:clipboard-probe', async () => {
+    if (slideClipboard && (await clipboardRawMarkerPresent('io.yiioffice.slides.slide'))) return true
+    if (elementClipboard && (await elementClipboardMarkerMatches(elementClipboard.token))) return true
+    if (await clipboardHasImage()) return true
+    return (await readClipboardText()).trim().length > 0
   })
 
-  ipcMain.handle('slides:copy-elements', (e, op: CopyElementsOp) => {
+  ipcMain.handle('slides:copy-elements', async (e, op: CopyElementsOp) => {
     const session = sessions.get(e.sender.id)
     if (!session) return 0
     const slide = session.opened.deck.slides[op.slideIndex]
@@ -3397,15 +3374,19 @@ export function registerSlidesIpc(): void {
         senderId: e.sender.id,
       }
       // Write our marker to the OS clipboard: an external copy overwrites it, so at paste time it tells whether internal or external is newer
-      clipboard.writeBuffer(ELEMENT_CLIPBOARD_FORMAT, Buffer.from(token))
+      await writeClipboardRawMarker(ELEMENT_CLIPBOARD_FORMAT, token)
     }
     return items.length
   })
 
-  ipcMain.handle('slides:copy-elements-image', (e, clipboardToken: string, pngBase64: string) => {
-    if (!canWriteElementClipboardImage(elementClipboard, e.sender.id, clipboardToken)) return false
-    return writeElementClipboardImage(clipboardToken, pngBase64)
-  })
+  ipcMain.handle(
+    'slides:copy-elements-image',
+    async (e, clipboardToken: string, pngBase64: string) => {
+      if (!(await canWriteElementClipboardImage(elementClipboard, e.sender.id, clipboardToken)))
+        return false
+      return writeElementClipboardImage(clipboardToken, pngBase64)
+    },
+  )
 
   ipcMain.handle('slides:paste-elements', (e, op: PasteElementsOp) => {
     const session = sessions.get(e.sender.id)

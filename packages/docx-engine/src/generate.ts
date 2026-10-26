@@ -590,70 +590,62 @@ function xmlSegments(
   return segs
 }
 
+const DRAWING_TAGS = new Set(['mc:AlternateContent', 'w:drawing', 'w:pict', 'w:object'])
+
+const mediaRIds = (xml: string) =>
+  [...xml.matchAll(/<(?:a:blip|v:imagedata)\b[^>]*\br:(?:embed|link|id)="([^"]+)"/g)].map((m) => m[1])
+
+const pPrOf = (pXml: string) => /<w:pPr[\s\S]*?<\/w:pPr>|<w:pPr[^>]*\/>/.exec(pXml)?.[0] ?? ''
+
 /**
- * Rebuild one cell's paragraphs, keeping tcPr. String entries keep the legacy
+ * Runs whose drawing the run model cannot see (shapes, textboxes, charts, blind
+ * pict/object) ride over verbatim. The run model re-emits every drawing it
+ * resolved media for (run.image.xml), including Word's mc:Choice drawing whose
+ * VML w:pict fallback shares the same media relationship, so a payload is a
+ * twin of an emitted image when all its media is already re-emitted and it
+ * carries no textbox text of its own. Carried copies keep only the drawing
+ * payload children — run-level text belongs to the rich runs, while text nested
+ * inside the drawing (textbox content) stays intact.
+ */
+function carriedRunsOf(pXml: string, emittedMedia: Set<string>): string {
+  const isTwin = (payload: string) => {
+    const ids = mediaRIds(payload)
+    return (
+      ids.length > 0 &&
+      ids.every((id) => emittedMedia.has(id)) &&
+      !/<w:txbxContent[\s>]|<v:textbox[\s>]/.test(payload)
+    )
+  }
+  return xmlSegments(pXml, 'w:r', 0, pXml.length)
+    .map((seg) => pXml.slice(seg.start, seg.end))
+    .filter((r) => /<wp:anchor[\s>]|<w:pict[\s>]|<w:object[\s>]/.test(r))
+    .map((r) => {
+      const open = /^<w:r(?:\s[^>]*)?>/.exec(r)?.[0]
+      if (!open) return ''
+      const kept = splitXmlChildren(r.slice(open.length, r.length - '</w:r>'.length)).filter(
+        (c) => DRAWING_TAGS.has(c.name) && !isTwin(c.xml),
+      )
+      return kept.length > 0 ? `<w:r>${kept.map((c) => c.xml).join('')}</w:r>` : ''
+    })
+    .join('')
+}
+
+/**
+ * Rebuild a run of cell paragraphs by index. String entries keep the legacy
  * behavior (first paragraph's pPr / first run's rPr for every paragraph); rich
  * entries regenerate full runs against their own original paragraph's pPr, and
  * null entries keep the original paragraph bytes untouched.
- * Returns null when the cell is too complex to patch safely (nested table).
  */
-function patchCellXml(tcXml: string, paras: readonly CellParaPatch[]): string | null {
-  if (tcXml.indexOf('<w:tbl', 1) !== -1) return null
-  const openTag = /^<w:tc(?: [^>]*)?>/.exec(tcXml)?.[0]
-  if (!openTag) return null
-  const tcPr = /<w:tcPr[\s\S]*?<\/w:tcPr>|<w:tcPr[^>]*\/>/.exec(tcXml)?.[0] ?? ''
-  const originals = xmlSegments(tcXml, 'w:p', openTag.length, tcXml.length).map((seg) =>
-    tcXml.slice(seg.start, seg.end),
-  )
-  const pPrOf = (pXml: string) => /<w:pPr[\s\S]*?<\/w:pPr>|<w:pPr[^>]*\/>/.exec(pXml)?.[0] ?? ''
+function buildCellParagraphs(
+  originals: readonly string[],
+  paras: readonly CellParaPatch[],
+  drawingRuns: string,
+): string {
+  const aligned = paras.length === originals.length
   const firstPPr = pPrOf(originals[0] ?? '')
   const firstRun = /<w:r(?: [^>]*)?>[\s\S]*?<\/w:r>/.exec(originals[0] ?? '')?.[0] ?? ''
   const rPr = /<w:rPr[\s\S]*?<\/w:rPr>/.exec(firstRun)?.[0] ?? ''
-  // picture runs are not part of the text model; carry them over verbatim so a
-  // text edit in a cell with an inline image doesn't drop the image
-  const drawingRuns = tcXml.includes('<w:drawing')
-    ? xmlSegments(tcXml, 'w:r', 0, tcXml.length)
-        .map((seg) => tcXml.slice(seg.start, seg.end))
-        .filter((r) => r.includes('<w:drawing'))
-        .join('')
-    : ''
-  // The run model re-emits every drawing it resolved media for (run.image.xml),
-  // including Word's mc:Choice drawing whose VML w:pict fallback shares the same
-  // media relationship. Only drawings the model cannot see (shapes, textboxes,
-  // charts, blind pict/object) must ride over. Carried copies keep only the
-  // drawing payload children — run-level text belongs to the rich runs, while
-  // text nested inside the drawing (textbox content) stays intact.
-  const mediaRIds = (xml: string) =>
-    [...xml.matchAll(/<(?:a:blip|v:imagedata)\b[^>]*\br:(?:embed|link|id)="([^"]+)"/g)].map(
-      (m) => m[1],
-    )
-  const DRAWING_TAGS = new Set(['mc:AlternateContent', 'w:drawing', 'w:pict', 'w:object'])
-  const carriedRunsOf = (pXml: string, emittedMedia: Set<string>) => {
-    // a payload is a twin of an emitted image when all its media is already
-    // re-emitted and it carries no textbox text of its own
-    const isTwin = (payload: string) => {
-      const ids = mediaRIds(payload)
-      return (
-        ids.length > 0 &&
-        ids.every((id) => emittedMedia.has(id)) &&
-        !/<w:txbxContent[\s>]|<v:textbox[\s>]/.test(payload)
-      )
-    }
-    return xmlSegments(pXml, 'w:r', 0, pXml.length)
-      .map((seg) => pXml.slice(seg.start, seg.end))
-      .filter((r) => /<wp:anchor[\s>]|<w:pict[\s>]|<w:object[\s>]/.test(r))
-      .map((r) => {
-        const open = /^<w:r(?:\s[^>]*)?>/.exec(r)?.[0]
-        if (!open) return ''
-        const kept = splitXmlChildren(r.slice(open.length, r.length - '</w:r>'.length)).filter(
-          (c) => DRAWING_TAGS.has(c.name) && !isTwin(c.xml),
-        )
-        return kept.length > 0 ? `<w:r>${kept.map((c) => c.xml).join('')}</w:r>` : ''
-      })
-      .join('')
-  }
-  const aligned = paras.length === originals.length
-  const body = paras
+  return paras
     .map((entry, i) => {
       if (entry === null) return originals[i] ?? ''
       if (typeof entry === 'string') {
@@ -673,7 +665,85 @@ function patchCellXml(tcXml: string, paras: readonly CellParaPatch[]): string | 
       return `<w:p>${pPrOf(template)}${emitted}${keep}</w:p>`
     })
     .join('')
-  return openTag + tcPr + body + '</w:tc>'
+}
+
+/**
+ * Rebuild one cell's paragraphs, keeping tcPr.
+ * Returns null when the cell is too complex to patch safely (nested table).
+ */
+function patchCellXml(tcXml: string, paras: readonly CellParaPatch[]): string | null {
+  if (tcXml.indexOf('<w:tbl', 1) !== -1) return null
+  const openTag = /^<w:tc(?: [^>]*)?>/.exec(tcXml)?.[0]
+  if (!openTag) return null
+  const tcPr = /<w:tcPr[\s\S]*?<\/w:tcPr>|<w:tcPr[^>]*\/>/.exec(tcXml)?.[0] ?? ''
+  const originals = xmlSegments(tcXml, 'w:p', openTag.length, tcXml.length).map((seg) =>
+    tcXml.slice(seg.start, seg.end),
+  )
+  // picture runs are not part of the text model; carry them over verbatim so a
+  // text edit in a cell with an inline image doesn't drop the image
+  const drawingRuns = tcXml.includes('<w:drawing')
+    ? xmlSegments(tcXml, 'w:r', 0, tcXml.length)
+        .map((seg) => tcXml.slice(seg.start, seg.end))
+        .filter((r) => r.includes('<w:drawing'))
+        .join('')
+    : ''
+  return openTag + tcPr + buildCellParagraphs(originals, paras, drawingRuns) + '</w:tc>'
+}
+
+/**
+ * Patch only the paragraphs the cell owns (everything outside its nested
+ * tables). A cell may interleave `<w:tbl>` between paragraphs, so consecutive
+ * own paragraphs are handled as one group per gap; the nested table bytes are
+ * never rewritten. Returns null when the cell has no own paragraph to patch.
+ */
+function patchCellOwnParas(tcXml: string, paras: readonly (string | null)[]): string | null {
+  const openTag = /^<w:tc(?: [^>]*)?>/.exec(tcXml)?.[0]
+  if (!openTag) return null
+  const from = openTag.length
+  const tblSegs = xmlSegments(tcXml, 'w:tbl', from, tcXml.length)
+  const pSegs = xmlSegments(tcXml, 'w:p', from, tcXml.length).filter(
+    (seg) => !tblSegs.some((t) => seg.start >= t.start && seg.end <= t.end),
+  )
+  if (pSegs.length === 0) return null
+  // split the own paragraphs into runs of adjacent segments (a nested table
+  // between two paragraphs starts a new run, so a rebuild never crosses a tbl)
+  const groups: Array<Array<{ start: number; end: number }>> = []
+  let current: Array<{ start: number; end: number }> = []
+  let lastEnd = from
+  for (const seg of pSegs) {
+    const crossedTable = tblSegs.some((t) => t.start >= lastEnd && t.end <= seg.start)
+    if (crossedTable && current.length > 0) {
+      groups.push(current)
+      current = []
+    }
+    current.push(seg)
+    lastEnd = seg.end
+  }
+  if (current.length > 0) groups.push(current)
+
+  let out = ''
+  let cursor = 0
+  let taken = 0
+  groups.forEach((group, gi) => {
+    const originals = group.map((s) => tcXml.slice(s.start, s.end))
+    const isLast = gi === groups.length - 1
+    // the last group absorbs paragraphs the user added by pressing Enter
+    const slice = isLast ? paras.slice(taken) : paras.slice(taken, taken + originals.length)
+    taken += slice.length
+    if (slice.length === 0) return
+    const groupXml = originals.join('')
+    const drawingRuns = groupXml.includes('<w:drawing')
+      ? xmlSegments(groupXml, 'w:r', 0, groupXml.length)
+          .map((seg) => groupXml.slice(seg.start, seg.end))
+          .filter((r) => r.includes('<w:drawing'))
+          .join('')
+      : ''
+    out +=
+      tcXml.slice(cursor, group[0].start) +
+      buildCellParagraphs(originals, slice, drawingRuns)
+    cursor = group[group.length - 1].end
+  })
+  return out + tcXml.slice(cursor)
 }
 
 /** cell paragraph texts carry tabs/breaks as control chars (extractRuns encoding);
@@ -704,8 +774,11 @@ export type CellParaPatch = string | { runs: Run[] } | null
 export type CellTextsPatch =
   | readonly CellParaPatch[]
   | {
-      /** this cell's own text (optional; rewriting the outer text of a cell containing a nested table is not supported yet) */
-      paras?: readonly string[] | null
+      /**
+       * This cell's own text, i.e. the paragraphs outside its nested tables
+       * (null keeps that paragraph's original bytes). Omitted = own text unchanged.
+       */
+      paras?: ReadonlyArray<string | null> | null
       /** one cell grid per direct nested table (null = leave that nested table untouched) */
       nested?: ReadonlyArray<ReadonlyArray<
         ReadonlyArray<readonly CellParaPatch[] | null | undefined> | null | undefined
@@ -736,7 +809,11 @@ export function patchTableCellTexts(
       const tcXml = tableXml.slice(tc.start, tc.end)
       const patched = Array.isArray(entry)
         ? patchCellXml(tcXml, entry as CellParaPatch[])
-        : patchNestedInCell(tcXml, (entry as { nested?: unknown }).nested as never)
+        : patchNestedInCell(
+            tcXml,
+            (entry as { nested?: unknown }).nested as never,
+            (entry as { paras?: unknown }).paras as never,
+          )
       if (patched === null) return
       out += tableXml.slice(cursor, tc.start) + patched
       cursor = tc.end
@@ -745,7 +822,11 @@ export function patchTableCellTexts(
   return out + tableXml.slice(cursor)
 }
 
-/** patch the cell's direct nested tables' cell texts (recursive surgical patch) */
+/**
+ * Patch a cell that owns a nested table: first its own paragraphs (which sit
+ * outside the nested tables), then each nested table's cells. Returns null when
+ * there is nothing to patch.
+ */
 function patchNestedInCell(
   tcXml: string,
   nested:
@@ -753,22 +834,24 @@ function patchNestedInCell(
         ReadonlyArray<readonly CellParaPatch[] | null | undefined> | null | undefined
       > | null>
     | undefined,
+  paras?: readonly (string | null)[] | null,
 ): string | null {
-  if (!nested || nested.length === 0) return null
-  const openTag = /^<w:tc(?: [^>]*)?>/.exec(tcXml)?.[0]
-  if (!openTag) return null
-  const tblSegs = xmlSegments(tcXml, 'w:tbl', openTag.length, tcXml.length)
-  if (tblSegs.length === 0) return null
+  const base = paras && paras.length > 0 ? (patchCellOwnParas(tcXml, paras) ?? tcXml) : tcXml
+  if (!nested || nested.length === 0) return base === tcXml ? null : base
+  const openTag = /^<w:tc(?: [^>]*)?>/.exec(base)?.[0]
+  if (!openTag) return base === tcXml ? null : base
+  const tblSegs = xmlSegments(base, 'w:tbl', openTag.length, base.length)
+  if (tblSegs.length === 0) return base === tcXml ? null : base
   let out = ''
   let cursor = 0
   tblSegs.forEach((seg, i) => {
     const grid = nested[i]
     if (!grid) return
     out +=
-      tcXml.slice(cursor, seg.start) + patchTableCellTexts(tcXml.slice(seg.start, seg.end), grid)
+      base.slice(cursor, seg.start) + patchTableCellTexts(base.slice(seg.start, seg.end), grid)
     cursor = seg.end
   })
-  return out + tcXml.slice(cursor)
+  return out + base.slice(cursor)
 }
 
 // ---- textbox paragraph patching ----

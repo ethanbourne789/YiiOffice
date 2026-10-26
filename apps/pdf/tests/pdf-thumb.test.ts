@@ -40,6 +40,7 @@ function makePdf() {
       tasks.push(task)
       return task
     }),
+    cleanup: vi.fn(),
   }
   const doc = {
     getPage: vi.fn(async () => page),
@@ -96,6 +97,7 @@ describe('PdfThumb render lifecycle', () => {
 
     await renderThumb(doc, { visible: false })
     expect(tasks[0]!.cancel).toHaveBeenCalledOnce()
+    expect(page.cleanup).toHaveBeenCalledOnce()
     expect(canvas.width).toBe(0)
     expect(canvas.height).toBe(0)
 
@@ -147,7 +149,7 @@ describe('PdfThumb render lifecycle', () => {
   })
 
   it('cancels an in-flight render and releases the canvas when unmounted', async () => {
-    const { doc, tasks } = makePdf()
+    const { doc, page, tasks } = makePdf()
     const canvas = await renderThumb(doc, { visible: true })
     expect(canvas.width).toBeGreaterThan(0)
 
@@ -155,6 +157,7 @@ describe('PdfThumb render lifecycle', () => {
     root = null
 
     expect(tasks[0]!.cancel).toHaveBeenCalledOnce()
+    expect(page.cleanup).toHaveBeenCalledOnce()
     expect(canvas.width).toBe(0)
     expect(canvas.height).toBe(0)
   })

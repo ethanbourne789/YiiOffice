@@ -33,6 +33,17 @@ function editNestedCell(editor: Editor, newText: string) {
   expect(done).toBe(true)
 }
 
+/** type over the outer cell's own text (the nested table is an atom inside it) */
+function editOuterText(editor: Editor, from: string, to: string) {
+  let range: { from: number; to: number } | null = null
+  editor.state.doc.descendants((node, pos) => {
+    if (range || !node.isText || node.text !== from) return
+    range = { from: pos, to: pos + from.length }
+  })
+  expect(range).not.toBeNull()
+  editor.view.dispatch(editor.state.tr.insertText(to, range!.from, range!.to))
+}
+
 describe('nested table editing end to end', () => {
   it('untouched round-trip is byte-identical', async () => {
     const { editor, parsed, bytes } = await openNestedDoc()
@@ -52,6 +63,37 @@ describe('nested table editing end to end', () => {
     const outer = reparsed.blocks[0].table!
     expect(outer.rows[0][0].paras[0]).toBe('Outer')
     expect(outer.rows[0][1].paras[0]).toBe('RightCell')
+    expect(outer.rows[0][0].nestedTables![0].rows[0].map((c) => c.paras[0])).toEqual([
+      'EditedInnerA',
+      'InnerB',
+    ])
+    editor.destroy()
+  })
+
+  it('outer cell text next to a nested table is saved instead of being dropped', async () => {
+    const { editor, parsed } = await openNestedDoc()
+    editOuterText(editor, 'Outer', 'OuterEdited')
+    const plan = pmDocToSavePlan(editor.getJSON() as PmNode, parsed.blocks)
+    expect(plan.changedCount).toBe(1)
+    const reparsed = await parseDocx(await saveDocx(parsed, plan.saveBlocks))
+    const outer = reparsed.blocks[0].table!
+    expect(outer.rows[0][0].paras[0]).toBe('OuterEdited')
+    expect(outer.rows[0][1].paras[0]).toBe('RightCell')
+    expect(outer.rows[0][0].nestedTables![0].rows[0].map((c) => c.paras[0])).toEqual([
+      'InnerA',
+      'InnerB',
+    ])
+    editor.destroy()
+  })
+
+  it('saves an outer edit and a nested edit made in the same save', async () => {
+    const { editor, parsed } = await openNestedDoc()
+    editOuterText(editor, 'Outer', 'OuterEdited')
+    editNestedCell(editor, 'EditedInnerA')
+    const plan = pmDocToSavePlan(editor.getJSON() as PmNode, parsed.blocks)
+    const reparsed = await parseDocx(await saveDocx(parsed, plan.saveBlocks))
+    const outer = reparsed.blocks[0].table!
+    expect(outer.rows[0][0].paras[0]).toBe('OuterEdited')
     expect(outer.rows[0][0].nestedTables![0].rows[0].map((c) => c.paras[0])).toEqual([
       'EditedInnerA',
       'InnerB',

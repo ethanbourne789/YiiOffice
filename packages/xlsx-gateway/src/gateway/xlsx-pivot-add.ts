@@ -1,6 +1,8 @@
 import { ensureRelationshipNamespace } from './xlsx-namespace'
 import { columnLabel } from '../domain/cell-address'
+
 import { shortDateNumFmtId } from '../shared/short-date'
+import { escapeXmlAttribute, unescapeXml } from '../shared/xml'
 import { isValidPivotFilter, type PivotFilterDef } from '../domain/pivot-filters'
 import { formatPivotFormula, parsePivotFormula } from '../domain/pivot-formula'
 import { groupLabel, isValidGrouping, type PivotFieldGrouping } from '../domain/pivot-grouping'
@@ -298,19 +300,11 @@ async function readPivotSharedStrings(pkg: MutablePackage): Promise<readonly str
   const xml = await pkg.readText('xl/sharedStrings.xml')
   return [...xml.matchAll(/<si(?:\s[^>]*)?>([\s\S]*?)<\/si>/g)].map((m) =>
     [...(m[1] ?? '').matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g)]
-      .map((tm) => decodePivotXmlEntities(tm[1] ?? ''))
+      .map((tm) => unescapeXml(tm[1] ?? ''))
       .join(''),
   )
 }
 
-function decodePivotXmlEntities(s: string): string {
-  return s
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, '&')
-}
 
 /// Resolve the worksheet path for a source sheet name. Attribute order and
 /// entity encoding vary by producer, so the sheet is found by decoded name
@@ -385,7 +379,7 @@ function extractCellValue(
   const type = /\bt="([^"]+)"/.exec(attributes)?.[1]
 
   if (type === 'inlineStr') {
-    return decodePivotXmlEntities(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/.exec(body)?.[1] ?? '')
+    return unescapeXml(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/.exec(body)?.[1] ?? '')
   }
   const rawValue = /<v(?:\s[^>]*)?>([\s\S]*?)<\/v>/.exec(body)?.[1]
   if (rawValue === undefined) return null
@@ -393,10 +387,10 @@ function extractCellValue(
     const idx = Number(rawValue)
     return sharedStrings[idx] ?? null
   }
-  if (type === 'str') return decodePivotXmlEntities(rawValue)
+  if (type === 'str') return unescapeXml(rawValue)
   if (type === 'b') return rawValue === '1' ? 1 : 0
   const n = Number(rawValue)
-  return Number.isFinite(n) ? n : decodePivotXmlEntities(rawValue)
+  return Number.isFinite(n) ? n : unescapeXml(rawValue)
 }
 
 // ─── Cache records XML builder ───────────────────────────────────────────────
@@ -472,7 +466,7 @@ function buildCacheRecordsXml(
         if (typeof value === 'number') return `<n v="${value}"/>`
         const n = Number(value)
         if (Number.isFinite(n)) return `<n v="${n}"/>`
-        return `<s v="${escapeAttribute(String(value))}"/>`
+        return `<s v="${escapeXmlAttribute(String(value))}"/>`
       })
       return `<r>${cells.join('')}</r>`
     })
@@ -677,16 +671,16 @@ export function buildCacheDefinitionXml(
   const fields = addition.fieldNames
     .map((name, index) => {
       if (!dimensionFieldSet.has(index)) {
-        return `<cacheField name="${escapeAttribute(name)}" numFmtId="0"><sharedItems/></cacheField>`
+        return `<cacheField name="${escapeXmlAttribute(name)}" numFmtId="0"><sharedItems/></cacheField>`
       }
       const items: readonly string[] = levelItemsByField.get(index) ?? []
       const sharedItems =
         items.length === 0
           ? '<sharedItems/>'
           : `<sharedItems count="${items.length}">` +
-            items.map((item) => `<s v="${escapeAttribute(item)}"/>`).join('') +
+            items.map((item) => `<s v="${escapeXmlAttribute(item)}"/>`).join('') +
             '</sharedItems>'
-      return `<cacheField name="${escapeAttribute(name)}" numFmtId="0">${sharedItems}</cacheField>`
+      return `<cacheField name="${escapeXmlAttribute(name)}" numFmtId="0">${sharedItems}</cacheField>`
     })
     .join('')
   // Calculated fields are appended after all source fields: databaseField="0",
@@ -695,8 +689,8 @@ export function buildCacheDefinitionXml(
   const calcFields = calcValueSpecsOf(addition)
     .map(
       (spec) =>
-        `<cacheField name="${escapeAttribute(spec.calcName ?? '')}" ` +
-        `formula="${escapeAttribute(formatPivotFormula(parsePivotFormula(spec.formula ?? '', addition.fieldNames)))}" ` +
+        `<cacheField name="${escapeXmlAttribute(spec.calcName ?? '')}" ` +
+        `formula="${escapeXmlAttribute(formatPivotFormula(parsePivotFormula(spec.formula ?? '', addition.fieldNames)))}" ` +
         'databaseField="0" numFmtId="0"/>',
     )
     .join('')
@@ -708,7 +702,7 @@ export function buildCacheDefinitionXml(
     `minRefreshableVersion="3" recordCount="${recordCount}">` +
     '<cacheSource type="worksheet">' +
     `<worksheetSource ref="${areaToRef(addition.sourceArea)}" ` +
-    `sheet="${escapeAttribute(addition.sourceSheetName)}"/>` +
+    `sheet="${escapeXmlAttribute(addition.sourceSheetName)}"/>` +
     '</cacheSource>' +
     `<cacheFields count="${cacheFieldCount}">${fields}${calcFields}</cacheFields>` +
     '</pivotCacheDefinition>'
@@ -838,7 +832,7 @@ export function buildPivotTableXml(cacheId: number, addition: PivotAddition): st
       // None of the supported modes references a base field/item; baseField/baseItem
       // keep their defaults.
       return (
-        `<dataField name="${escapeAttribute(caption)}" fld="${fld}"` +
+        `<dataField name="${escapeXmlAttribute(caption)}" fld="${fld}"` +
         `${subtotal === null ? '' : ` subtotal="${subtotal}"`}` +
         `${value.showDataAs === undefined ? '' : ` showDataAs="${value.showDataAs}"`}` +
         ' baseField="0" baseItem="0"' +
@@ -849,7 +843,7 @@ export function buildPivotTableXml(cacheId: number, addition: PivotAddition): st
 
   return (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
-    `<pivotTableDefinition xmlns="${MAIN_NS}" name="${escapeAttribute(addition.name)}" ` +
+    `<pivotTableDefinition xmlns="${MAIN_NS}" name="${escapeXmlAttribute(addition.name)}" ` +
     `cacheId="${cacheId}" applyNumberFormats="0" applyBorderFormats="0" applyFontFormats="0" ` +
     'applyPatternFormats="0" applyAlignmentFormats="0" applyWidthHeightFormats="1" ' +
     'dataCaption="Values" updatedVersion="8" createdVersion="8" minRefreshableVersion="3" ' +
@@ -908,9 +902,9 @@ function buildFiltersXml(addition: PivotAddition): string {
             : `${filter.value}*`
       return (
         `<filter fld="${filter.field}" type="${type}" evalOrder="-1" id="${id}" ` +
-        `stringValue1="${escapeAttribute(filter.value)}">` +
+        `stringValue1="${escapeXmlAttribute(filter.value)}">` +
         '<autoFilter ref="A1"><filterColumn colId="0"><customFilters>' +
-        `<customFilter val="${escapeAttribute(wildcard)}"/>` +
+        `<customFilter val="${escapeXmlAttribute(wildcard)}"/>` +
         '</customFilters></filterColumn></autoFilter></filter>'
       )
     }
@@ -954,7 +948,7 @@ function buildGroupingExtLst(addition: PivotAddition): string {
   if (groupings.length === 0) return ''
   return (
     '<extLst><ext uri="{AIO-PIVOT-GROUPINGS}" xmlns:aio="urn:aioffice:pivot">' +
-    `<aio:aioPivotGroupings v="${escapeAttribute(JSON.stringify(groupings))}"/>` +
+    `<aio:aioPivotGroupings v="${escapeXmlAttribute(JSON.stringify(groupings))}"/>` +
     '</ext></extLst>'
   )
 }
@@ -1055,10 +1049,3 @@ function areaToRef(area: PivotArea): string {
   )
 }
 
-function escapeAttribute(input: string): string {
-  return input
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}

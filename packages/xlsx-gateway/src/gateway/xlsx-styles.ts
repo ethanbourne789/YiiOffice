@@ -1,6 +1,7 @@
 import type { WorkbookStyleEdit } from '../shared/edit-schemas'
 import { isGradientFill, type FillSpec, type StyleColor } from '../domain/style-color'
 import { shortDateNumFmtId } from '../shared/short-date'
+import { escapeXmlAttribute } from '../shared/xml'
 
 /// Copy-on-write editor for xl/styles.xml. Existing entries are never
 /// modified — every changed cell gets a new cellXfs entry (deduped) derived
@@ -490,13 +491,4 @@ function carriedAttributes(element: string, names: readonly string[]): string[] 
 
 function toArgb(hexColor: string): string {
   return `FF${hexColor.slice(1).toUpperCase()}`
-}
-
-function escapeXmlAttribute(input: string): string {
-  return input
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&apos;')
 }

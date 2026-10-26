@@ -6,37 +6,6 @@ import { cssFontFamily } from './line-metrics'
 
 export type StyleMap = ReadonlyMap<string, StyleInfo>
 
-/** What the gallery lists when no document styles are known (tests, no open document) */
-export const FALLBACK_STYLES: StyleMap = new Map<string, StyleInfo>(
-  [
-    { styleId: 'Normal', name: 'Normal', type: 'paragraph', isDefault: true, qFormat: true },
-    {
-      styleId: 'Heading1',
-      name: 'heading 1',
-      type: 'paragraph',
-      headingLevel: 1,
-      qFormat: true,
-      uiPriority: 9,
-    },
-    {
-      styleId: 'Heading2',
-      name: 'heading 2',
-      type: 'paragraph',
-      headingLevel: 2,
-      qFormat: true,
-      uiPriority: 9,
-    },
-    {
-      styleId: 'Heading3',
-      name: 'heading 3',
-      type: 'paragraph',
-      headingLevel: 3,
-      qFormat: true,
-      uiPriority: 9,
-    },
-  ].map((s) => [s.styleId, s as StyleInfo]),
-)
-
 const byPriorityThenName = (a: StyleInfo, b: StyleInfo): number =>
   (a.uiPriority ?? 0) - (b.uiPriority ?? 0) ||
   a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })

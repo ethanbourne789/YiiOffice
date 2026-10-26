@@ -1,67 +1,15 @@
-import { focusWorksheet } from './sheet-focus'
-import {
-  activateFormulaClosure,
-  applyDefinedNames,
-  applyFormatPatchToRange,
-  applyWorkbookNotes,
-  cellValueBounds,
-  clearLazyState,
-  columnLetter,
-  disposeVisuals,
-  ensureLazyRangeLoaded,
-  journalRangeSnapshot,
-  lazyWorkbookCellReader,
-  loadSnapshotIntoUniver,
-  loadVisibleRange,
-  loadWorkbookSkeleton,
-  matrixBounds,
-  modelCellValue,
-  navigateToAnchor,
-  preloadEntireWorkbook,
-  workbookStructureLocked,
-  queueFormulaRecalc,
-  queueSparklineInstall,
-  resolveRenderedSheetId,
-  recalcOverBudgetAtOpen,
-  RECALC_MAX_FAILURES,
-  queueVisualInstall,
-  sheetOutline,
-  syncUniver,
-  univerDefinedNames,
-  installFindRevealFix,
-  installInjectorResolutionGuard,
-  installWrapMeasureLifecycle,
-  noteSidecarCrash,
-} from './univer-sync'
+import { activateFormulaClosure, applyDefinedNames, applyWorkbookNotes, cellValueBounds, clearLazyState, columnLetter, disposeVisuals, journalRangeSnapshot, loadSnapshotIntoUniver, loadVisibleRange, loadWorkbookSkeleton, matrixBounds, navigateToAnchor, preloadEntireWorkbook, workbookStructureLocked, queueFormulaRecalc, queueSparklineInstall, resolveRenderedSheetId, recalcOverBudgetAtOpen, RECALC_MAX_FAILURES, queueVisualInstall, sheetOutline, univerDefinedNames, installFindRevealFix, installInjectorResolutionGuard, installWrapMeasureLifecycle, noteSidecarCrash } from './univer-sync'
 import { installGridGrowth } from './grid-growth'
 import {
   pollUntilReady,
   runHeadlessRendererExport,
 } from '@yiioffice/electron-utils/headless-export'
-import {
-  commitActiveCellEditor,
-  installJournalSuppressionUndoFilter,
-  installLoadAutoHeightGate,
-  journalSuppression,
-  lazySheetMeta,
-  lazySheetScreenExtent,
-  pendingEditsForClose,
-  type ActiveCellEditor,
-  type ActiveWorkbook,
-  type LazyWorkbookState,
-  type UniverRuntime,
-  type UniverWorksheet,
-} from './univer-state'
+import { commitActiveCellEditor, installJournalSuppressionUndoFilter, installLoadAutoHeightGate, journalSuppression, lazySheetMeta, lazySheetScreenExtent, pendingEditsForClose, type ActiveCellEditor, type ActiveWorkbook, type LazyWorkbookState, type UniverRuntime } from './univer-state'
 import { applyChangePlan, planFromOps, type OpExecutorContext } from './op-executor'
 import { renameChartRefsForSheet } from './workbook-ops'
-import {
-  proposeOperations as proposeOperationsImpl,
-  runDeterministicPlan as runDeterministicPlanImpl,
-  structuralDeleteFormulaErrorSync,
-  type PlanContext,
-} from './plan-operations'
+import { structuralDeleteFormulaErrorSync } from './plan-operations'
 import { isNumericIdentifierText } from './cell-warning'
-import { consumePendingUndoCarry, undoStackDepth } from './undo-carry'
+import { consumePendingUndoCarry } from './undo-carry'
 import { createSaveGate, shouldRunSaveTick } from './save-scheduler'
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useAutoSavePref } from '@yiioffice/ui'
@@ -127,10 +75,7 @@ import {
 } from './table-design-actions'
 
 import { type WorkbookOperation } from '@yiioffice/xlsx-gateway/domain/workbook-dsl'
-import {
-  columnLabel,
-  parseAddress,
-} from '@yiioffice/xlsx-gateway/domain/cell-address'
+import { columnLabel } from '@yiioffice/xlsx-gateway/domain/cell-address'
 import { collectCellFormulaTexts, quadraticFormulaError } from './formula-cost'
 import {
   applyChartStateEdit,
@@ -399,13 +344,12 @@ import {
 } from './edit-journal'
 import { shiftPinnedCells } from './formula-closure'
 import { getLang, t } from './i18n/locale'
-import { planStillMatches } from './lazy-plan'
 import { lastSurvivingScreenLine, netAxisDelta, screenToFile } from './view-transform'
 import { selectionFormatEquals, toSelectionFormat, type SelectionFormat } from './selection-format'
 import { ExcelShell, type SelectedShapeRibbon } from './ExcelShell'
 import { RecoveryDialog } from './RecoveryDialog'
 import { ToastHost } from './toast'
-import { showToast } from './toast-bus'
+import { showToast } from '@yiioffice/ui'
 import { AdvancedFilterDialog, type AdvancedFilterColumn } from './AdvancedFilterDialog'
 import { EquationDialog } from './EquationDialog'
 import { IconsDialog } from './IconsDialog'
@@ -422,12 +366,7 @@ import {
 } from './calc-options'
 import { applyFillSeries, fillSeriesContext } from './fill-series-apply'
 import { solveGoalSeek } from './goal-seek'
-import {
-  awaitFormulaValues,
-  clearVerifiedFormulaValues,
-  formulaTargetsFromOps,
-  rememberFormulaValue,
-} from './formula-values'
+import { clearVerifiedFormulaValues } from './formula-values'
 import { SlicerFieldPicker, SlicerPanels, type SlicerUiState } from './SlicerPanel'
 import { WatchWindowPanel, watchKey, type WatchCell, type WatchRowValue } from './WatchWindowPanel'
 import { TimelineFieldPicker, TimelinePanels, type TimelineUiState } from './TimelinePanel'
@@ -524,8 +463,7 @@ export function App({
   const visualViewportKeyRef = useRef('')
   const demoVisualDisposablesRef = useRef<{ dispose(): void }[]>([])
   const demoVisualInstallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [prompt, setPrompt] = useState('')
-  const [preview, setPreview] = useState<ChangePlan | null>(null)
+  const [, setPreview] = useState<ChangePlan | null>(null)
   const [_revision, setRevision] = useState(0)
   const [workbookFile, setWorkbookFile] = useState<WorkbookFile | null>(null)
   const [pendingEdits, setPendingEdits] = useState(0)
@@ -762,18 +700,8 @@ export function App({
     plan: ChangePlan
   } | null>(null)
 
-  /** App-scope state bundle for the extracted plan builders (plan-operations.ts). */
-  function planContext(): PlanContext {
-    return { adapterRef, univerRef, lazyWorkbookRef, lazyPreviewRef, setPreview, autoApplySafePlan }
-  }
 
-  /** Stub: workbookReadContext no longer used after AI removal. */
-  function readContext(): object {
-    return {}
-  }
-
-  // No-op stubs for AI plan feedback (AI removed, but plan-operations.ts still calls autoApplySafePlan)
-  const aiApplyPromisesRef = useRef<Promise<boolean>[]>([])
+  // No-op stub for AI plan feedback (AI removed, but plan-operations.ts still calls the patch hook)
   function patchLastAssistant(_patch: unknown): void {
     // no-op: AI chat panel removed
   }
@@ -948,17 +876,6 @@ export function App({
   }
   visualCommandRef.current = (command, visualId) =>
     handleVisualCommand(visualArrangeContext(), command, visualId)
-
-  function proposeOperations(
-    operations: readonly WorkbookOperation[],
-    summary: string,
-  ): { ok: true; plan: ChangePlan } | { ok: false; error: string } {
-    return proposeOperationsImpl(planContext(), operations, summary)
-  }
-
-  function runDeterministicPlan(instruction: string): { text: string; isError?: boolean } {
-    return runDeterministicPlanImpl(planContext(), instruction)
-  }
 
   // ---- AI section removed ----
 
@@ -2529,41 +2446,6 @@ export function App({
     crossHighlightRef.current?.setVisible(crossHighlightVisible)
   }, [crossHighlightVisible])
 
-  /// A generated workbook shouldn't keep the pristine default sheet: when an
-  /// plan adds its own sheet(s) and never touches Sheet1, drop the empty
-  /// leftover so the first sheet the user sees is the generated one.
-  /// Returns the post-prune revision, or null when nothing was pruned.
-  function pruneEmptyDefaultSheet(plan: ChangePlan): number | null {
-    const addedSheet = plan.structuralChanges.some((change) => change.op.op === 'add_sheet')
-    if (!addedSheet) return null
-    const snapshot = adapterRef.current.getSnapshot()
-    if (snapshot.sheets.length < 2) return null
-    const defaultSheet = snapshot.sheets.find((sheet) => sheet.id === 'sheet-1')
-    if (!defaultSheet || defaultSheet.name !== 'Sheet1') return null
-    if (Object.keys(defaultSheet.cells).length > 0) return null
-    if ((defaultSheet.visuals?.length ?? 0) > 0) return null
-    const touched =
-      plan.cellChanges.some((change) => change.sheetId === 'sheet-1') ||
-      plan.formatChanges.some((change) => change.sheetId === 'sheet-1') ||
-      plan.sheetRenames.some((rename) => rename.sheetId === 'sheet-1') ||
-      plan.structuralChanges.some(
-        (change) => 'sheetId' in change.op && change.op.sheetId === 'sheet-1',
-      )
-    if (touched) return null
-    try {
-      const prunePlan = adapterRef.current.plan({
-        dslVersion: 1,
-        transactionId: `prune-default-sheet-${crypto.randomUUID()}`,
-        baseRevision: snapshot.revision,
-        summary: 'Remove the empty default sheet',
-        operations: [{ op: 'delete_sheet', sheetId: 'sheet-1' }],
-      })
-      return adapterRef.current.apply(prunePlan).revision
-    } catch {
-      // Best-effort cleanup: keep the empty sheet if the delete is rejected.
-      return null
-    }
-  }
 
   /// Demo-mode counterpart of queueVisualInstall: charts live in the adapter
   /// snapshot, so every grid rebuild (Apply/undo) and sheet switch re-installs
@@ -2605,201 +2487,6 @@ export function App({
   function queueDemoVisualInstallForActiveSheet(): void {
     const runtime = univerRef.current
     if (runtime) queueDemoVisualInstall(runtime)
-  }
-
-  /** Default worksheet names carry no content signal, so they never name the file. */
-  const DEFAULT_SHEET_NAME_RE = /^(sheet|工作表|ワークシート|シート)\s*\d*$/i
-
-  /**
-   * Auto-apply a just-proposed plan without the manual Apply click.
-   *
-   * All plans (content, format, and structural) commit immediately for a
-   * smoother, Google-Sheets-like flow — AI edits share the ribbon's command
-   * channel + edit journal, so undo (⌘Z / inline button) covers everything.
-   *
-   * The CAS/planStillMatches guards inside plan()/handleLazyApply are preserved
-   * — auto-apply never bypasses the "workbook changed since preview" check.
-   * When apply fails, the preview card stays up as a manual fallback.
-   */
-  async function autoApplySafePlan(plan: ChangePlan): Promise<ApplyOutcome> {
-    if (!(await commitActiveEditor())) {
-      return { ok: false, reason: t('appApplyTxFailed') }
-    }
-    const opCount =
-      plan.cellChanges.length +
-      plan.formatChanges.length +
-      plan.sheetRenames.length +
-      plan.structuralChanges.length
-    const state = lazyWorkbookRef.current
-    if (state) {
-      const undoDepthBefore = undoStackDepth(univerRef.current)
-      // Lazy path reads lazyPreviewRef (a ref, already set by the caller) —
-      // safe to invoke synchronously right after propose.
-      const apply = handleLazyApply(state).then((outcome) => {
-        if (outcome.ok) {
-          const undoSteps = Math.max(0, undoStackDepth(univerRef.current) - undoDepthBefore)
-          // Patch last assistant message with inline undo button.
-          patchLastAssistant(((entry: any) => ({
-            ...entry,
-            autoApplied: {
-              opCount: (entry.autoApplied?.opCount ?? 0) + opCount,
-              undoSteps: (entry.autoApplied?.undoSteps ?? 0) + undoSteps,
-            },
-          })) as unknown)
-        } else {
-          // No manual-apply entry point: the failure reason is already in the
-          // chat/status bar, and the preview card just collapses.
-          lazyPreviewRef.current = null
-          setPreview(null)
-        }
-        return outcome
-      })
-      aiApplyPromisesRef.current.push(apply.then((outcome) => outcome.ok))
-      return apply
-    }
-    // Non-lazy path: apply the passed plan directly (setPreview is async, so we
-    // cannot rely on the preview state within the same tick).
-    try {
-      const receipt = adapterRef.current.apply(plan)
-      const prunedRevision = pruneEmptyDefaultSheet(plan)
-      // Row/column shifts and new sheets can't be patched cell-by-cell into
-      // the existing Univer grid — rebuild the demo workbook from the snapshot.
-      if (plan.structuralChanges.length > 0 || prunedRevision !== null) {
-        loadSnapshotIntoUniver(
-          univerRef.current,
-          adapterRef.current.getSnapshot(),
-          'new-workbook',
-          'Untitled',
-        )
-        queueDemoVisualInstallForActiveSheet()
-      } else {
-        // Keep these programmatic writes off Univer's undo stack entirely:
-        // on blank workbooks the adapter owns AI-revision history (plans are
-        // built and validated against its snapshot), so undo must go through
-        // adapter.undo() as one step. A Univer-level undo item would revert
-        // the grid but leave the adapter unreverted — the next apply's
-        // full-snapshot syncUniver would then resurrect the undone content.
-        journalSuppression.active = true
-        try {
-          syncUniver(univerRef.current, adapterRef.current.getSnapshot())
-          const workbook = univerRef.current?.univerAPI.getActiveWorkbook()
-          for (const formatChange of plan.formatChanges) {
-            const worksheet = workbook?.getSheetBySheetId(formatChange.sheetId)
-            if (worksheet)
-              applyFormatPatchToRange(worksheet.getRange(formatChange.range), formatChange.format)
-          }
-        } finally {
-          journalSuppression.active = false
-        }
-        // The CommandExecuted chart↔data sync listener is gated on
-        // journalSuppression, so re-queue the sync for the cells this plan
-        // actually changed.
-        const chartSyncBounds = new Map<string, CellBounds>()
-        for (const change of plan.cellChanges) {
-          const cell = parseAddress(change.address)
-          const bounds = chartSyncBounds.get(change.sheetId)
-          if (bounds) {
-            bounds.startRow = Math.min(bounds.startRow, cell.row)
-            bounds.endRow = Math.max(bounds.endRow, cell.row)
-            bounds.startColumn = Math.min(bounds.startColumn, cell.column)
-            bounds.endColumn = Math.max(bounds.endColumn, cell.column)
-          } else {
-            chartSyncBounds.set(change.sheetId, {
-              startRow: cell.row,
-              endRow: cell.row,
-              startColumn: cell.column,
-              endColumn: cell.column,
-            })
-          }
-        }
-        for (const [sheetId, bounds] of chartSyncBounds) queueChartDataSync(sheetId, bounds)
-      }
-      const revision = prunedRevision ?? receipt.revision
-      setRevision(revision)
-      setPreview(null)
-      setMessage(t('appAppliedRevision', { revision }))
-      // Patch last assistant message to show inline undo button.
-      patchLastAssistant(((entry: any) => ({
-        ...entry,
-        autoApplied: {
-          opCount: (entry.autoApplied?.opCount ?? 0) + opCount,
-          undoSteps: (entry.autoApplied?.undoSteps ?? 0) + 1,
-        },
-      })) as unknown)
-      return Promise.resolve({ ok: true })
-    } catch (error: unknown) {
-      // Fall back to leaving the preview up so the user can Apply manually.
-      const reason = error instanceof Error ? error.message : t('appApplyTxFailed')
-      setMessage(reason)
-      return Promise.resolve({ ok: false, reason })
-    }
-  }
-
-  async function handleLazyApply(state: LazyWorkbookState): Promise<ApplyOutcome> {
-    const stored = lazyPreviewRef.current
-    const runtime = univerRef.current
-    if (!stored || !runtime) return { ok: false, reason: t('appApplyTxFailed') }
-    if (stored.sessionId !== state.file.sessionId) {
-      lazyPreviewRef.current = null
-      setPreview(null)
-      setMessage(t('appPreviewOtherWorkbook'))
-      return { ok: false, reason: t('appPreviewOtherWorkbook') }
-    }
-    const workbook = runtime.univerAPI.getActiveWorkbook()
-    const worksheet = workbook?.getSheetBySheetId(stored.sheetId)
-    if (!workbook || !worksheet) {
-      lazyPreviewRef.current = null
-      setPreview(null)
-      setMessage(t('appPreviewSheetGone'))
-      return { ok: false, reason: t('appPreviewSheetGone') }
-    }
-    const reportFailure = (reason: string): void => {
-      // The chat answer already promised the change — surface the failure
-      // there too, or it silently never lands on the canvas.
-      patchLastAssistant(((entry: any) =>
-        entry.text.includes(reason)
-          ? entry
-          : {
-              ...entry,
-              text: `${entry.text}\n\n${t('appApplyFailed', { reason })}`,
-              isError: true,
-            }
-      ) as unknown)
-    }
-    let verified: ApplyOutcome | null = null
-    const outcome = await applyChangePlan(
-      stored.plan,
-      opExecutorContext(runtime, workbook, state),
-      {
-        verifyBeforeApply: () => {
-          if (lazyPreviewRef.current !== stored || lazyWorkbookRef.current !== state) {
-            verified = { ok: false, reason: t('appApplyTxFailed') }
-            return verified
-          }
-          // The reader throws when a planned sheet no longer exists — treat that as
-          // drift too (the plan can no longer apply as previewed).
-          let stillMatches: boolean
-          try {
-            stillMatches = planStillMatches(stored.plan, lazyWorkbookCellReader(workbook))
-          } catch {
-            stillMatches = false
-          }
-          if (stillMatches) return null
-          const reason = t('appWorkbookChangedSincePreview')
-          setMessage(reason)
-          reportFailure(reason)
-          verified = { ok: false, reason }
-          return verified
-        },
-      },
-    )
-    if (outcome.ok) {
-      lazyPreviewRef.current = null
-      setPreview(null)
-    } else if (outcome !== verified && outcome.reason) {
-      reportFailure(outcome.reason)
-    }
-    return outcome
   }
 
   /** Ribbon/dialog edits run the same executor as AI proposals (op-executor.ts). */
@@ -4018,7 +3705,7 @@ export function App({
               .get(IUniverInstanceService)
               .getCurrentUnitOfType<Workbook>(UniverInstanceType.UNIVER_SHEET) ?? null
           }
-          onJumpTo={(sheetId, bounds) =>
+          onJumpTo={(_sheetId, _bounds) =>
             // selectWorkbookRange removed with AI modules; jumpTo is no-op
             void 0
           }

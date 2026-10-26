@@ -49,10 +49,6 @@ describe('Phase 3.3 element-patch save', () => {
     const { deck } = await openPptx(fx('01_standard_business.pptx'))
     const slide = deck.slides.find((s) => firstTextEl(s.elements))!
     const el = firstTextEl(slide.elements)
-    const _oldText = el
-      .text!.paragraphs.flatMap((p) => p.runs)
-      .map((r) => r.text)
-      .join('')
     // Change the first run's text
     el.text!.paragraphs[0]!.runs[0]!.text = 'PATCHED_TITLE_TEXT'
     el.dirty = true

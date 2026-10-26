@@ -10,7 +10,7 @@
     "dev": "electron-vite dev",
     "dev:renderer": "vite --config vite.renderer.config.ts",
     "build": "electron-vite build",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "dist:mac": "electron-vite build && electron-builder --mac",
@@ -38,7 +38,6 @@
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-konva": "^19.3.2",
-    "typescript": "^7.0.2",
     "vite": "^8.3.5",
     "vitest": "^5.0.5"
   },
@@ -85,8 +84,7 @@
   },
   "dependencies": {
     "@yiioffice/electron-utils": "*",
-    "acorn": "^8.18.0",
-    "harfbuzzjs": "^1.4.0",
+    "harfbuzzjs": "^1.6.4",
     "pngjs": "^7.0.0",
     "utif2": "^4.1.0"
   }

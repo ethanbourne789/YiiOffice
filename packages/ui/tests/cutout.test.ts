@@ -9,7 +9,7 @@ import {
   toleranceToThreshold,
   type PixelImage,
   type RGB,
-} from '../src/renderer/cutout'
+} from '../src/cutout'
 
 /** Build a solid-color base image (RGBA, alpha 255) */
 function makeImage(width: number, height: number, fill: RGB): PixelImage {

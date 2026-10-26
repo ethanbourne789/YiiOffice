@@ -38,7 +38,7 @@ import {
   slidesIsDirty,
 } from '../../../slides/src/main/slides-main'
 import { rendererUrl, safeExternalUrl } from '@yiioffice/electron-utils'
-import type { DocumentTabKind, OpenDocumentTab, TabKind, TabSummary } from '../shared/tabs-api'
+import type { TabKind, TabSummary } from '../shared/tabs-api'
 import { TAB_STRIP_HEIGHT } from '../shared/tab-drag-geometry'
 
 /** a tab lifted out of the strip with its live view: what "Open in New Window",
@@ -57,8 +57,6 @@ interface TabRecord {
   view: WebContentsView | null
   title: string
   filePath?: string
-  /** chrome-free Present tab: no file, no editor menu or save/export targets */
-  present?: boolean
 }
 
 const HOME_ID = 'home'
@@ -217,49 +215,6 @@ export class TabManager {
       active: t.id === this.activeId,
       ...(t.filePath ? { filePath: t.filePath } : {}),
     }))
-  }
-
-  /**
-   * Documents open in the editor: every editor tab except Home (no file)
-   * and chrome-free Present tabs (a live preview of another tab's document, so
-   * acting on it would double-count that document).
-   *
-   * Dirtiness is resolved here per family because it is not uniform — five
-   * families answer synchronously in the main process, docs has to ask its
-   * renderer. Hence the async signature.
-   */
-  async openDocuments(): Promise<OpenDocumentTab[]> {
-    const tabs = this.tabs.filter((tab) => tab.kind !== 'home' && !tab.present && tab.view)
-    return Promise.all(
-      tabs.map(async (tab) => ({
-        id: tab.id,
-        kind: tab.kind as DocumentTabKind,
-        title: tab.title,
-        ...(tab.filePath ? { filePath: tab.filePath } : {}),
-        active: tab.id === this.activeId,
-        dirty: await this.tabIsDirty(tab),
-      })),
-    )
-  }
-
-  /** unsaved-changes state of one tab, whichever family owns it */
-  private async tabIsDirty(tab: TabRecord): Promise<boolean> {
-    const wc = tab.view?.webContents
-    if (!wc || wc.isDestroyed()) return false
-    switch (tab.kind) {
-      case 'sheets':
-        return sheetsPendingEditCount(wc.id) > 0
-      case 'pdf':
-        return pdfIsDirty(wc.id)
-      case 'markdown':
-        return markdownIsDirty(wc.id)
-      case 'slides':
-        return slidesIsDirty(wc.id)
-      case 'docs':
-        return docsQueryDirty(wc)
-      default:
-        return false
-    }
   }
 
   openHomeTab(): void {
@@ -430,7 +385,7 @@ export class TabManager {
     setActiveDocsResolver(target.kind === 'docs' ? () => target.view!.webContents : () => null)
     if (target.kind === 'sheets' && target.view) setActiveSheetsWebContents(target.view.webContents)
     if (target.kind === 'slides' && target.view) setActiveSlidesWebContents(target.view.webContents)
-    this.applyMenuFor(target.present ? 'home' : target.kind)
+    this.applyMenuFor(target.kind)
   }
 
   /** move a tab to a new index in the strip; Home is pinned at index 0 */
@@ -464,14 +419,6 @@ export class TabManager {
     if (!tab) return
     tab.filePath = filePath
     tab.title = basename(filePath)
-    this.onChanged()
-  }
-
-  /** an untitled document named itself before its first save */
-  setTabTitleFor(webContentsId: number, title: string): void {
-    const tab = this.tabs.find((t) => t.view?.webContents.id === webContentsId)
-    if (!tab || tab.filePath || tab.title === title) return
-    tab.title = title
     this.onChanged()
   }
 
@@ -615,13 +562,19 @@ export class TabManager {
       removed.view.setVisible(false)
       this.shellWindow.contentView.removeChildView(removed.view)
       if (removed.kind === 'docs') {
-        // webContents.close()/.destroy() on a closed docs tab wedges Electron's whole
-        // UI thread in a native modal run loop (reproduced consistently; survives
-        // close() vs destroy(), teardown ordering, deferring, and disabling
-        // accessibility support — looks like an upstream WebContentsView/Chromium
-        // issue, not something fixable from here). Detaching without destroying
-        // avoids the freeze; the orphaned webContents is reclaimed when the app quits.
+        // Destroying the webContents synchronously here wedges Electron's UI
+        // thread in a native modal run loop: the tab close usually runs as the
+        // continuation of the save-prompt dialog's promise, and the native
+        // modal loop is still on the stack at that point (reproduced with both
+        // close() and destroy()). Teardown must happen now (the orphan would
+        // otherwise keep writing recovery copies), but the destroy is deferred
+        // to a macrotask so it runs after that loop has unwound — reclaiming
+        // the renderer process instead of leaking one per closed docs tab.
         teardownDocsRenderer(removed.view.webContents)
+        const orphan = removed.view.webContents
+        setTimeout(() => {
+          if (!orphan.isDestroyed()) orphan.close()
+        }, 0)
       } else {
         removed.view.webContents.close()
       }
@@ -636,7 +589,7 @@ export class TabManager {
     if (id === HOME_ID) return null
     const idx = this.tabs.findIndex((t) => t.id === id)
     const tab = idx >= 0 ? this.tabs[idx] : undefined
-    if (!tab?.view || tab.present || this.closingIds.has(id)) return null
+    if (!tab?.view || this.closingIds.has(id)) return null
     this.tabs.splice(idx, 1)
     if (this.htmlFullScreenId === id) this.htmlFullScreenId = null
     const view = tab.view
@@ -652,10 +605,10 @@ export class TabManager {
   }
 
   /** Whether a tab can leave the strip for its own window (tear-off / Open in
-   *  New Window): every document tab except a chrome-free Present tab. */
+   *  New Window). */
   canDetachTab(id: string): boolean {
     const tab = this.tabs.find((t) => t.id === id)
-    return !!tab?.view && !tab.present && !this.closingIds.has(id)
+    return !!tab?.view && !this.closingIds.has(id)
   }
 
   /**
@@ -686,17 +639,6 @@ export class TabManager {
     return id
   }
 
-  /** the editor tab showing this file, whichever module owns it (path compared after resolving links) */
-  findTabByPath(
-    path?: string,
-  ): { id: string; kind: TabKind; webContents: WebContents } | undefined {
-    const wanted = canonicalPath(path)
-    const tab = this.tabs.find(
-      (t) => t.view && t.filePath && !t.present && canonicalPath(t.filePath) === wanted,
-    )
-    return tab?.view ? { id: tab.id, kind: tab.kind, webContents: tab.view.webContents } : undefined
-  }
-
   webContentsForTab(id: string): WebContents | undefined {
     return this.tabs.find((t) => t.id === id)?.view?.webContents
   }
@@ -704,12 +646,7 @@ export class TabManager {
   private findTabOfKindByPath(kind: TabKind, path?: string): string | undefined {
     const wanted = canonicalPath(path)
     return this.tabs.find(
-      (t) =>
-        t.kind === kind &&
-        t.view &&
-        t.filePath &&
-        !t.present &&
-        canonicalPath(t.filePath) === wanted,
+      (t) => t.kind === kind && t.view && t.filePath && canonicalPath(t.filePath) === wanted,
     )?.id
   }
 

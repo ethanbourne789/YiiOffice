@@ -95,10 +95,9 @@ import { ImageEditLayer, imageRectKey } from './ImageEditLayer'
 import { RedactionLayer } from './RedactionLayer'
 import type { LocalRedaction } from './RedactionLayer'
 import type { LocalImageEdit } from './ImageEditLayer'
-import { CropDialog, CutoutDialog, cropImagePng } from './ImageDialogs'
+import { CropDialog, CutoutDialog } from './ImageDialogs'
 import { cropRect, flipPixels, multiplyAlpha } from './image-bake'
-import type { CropFractions, ImageBakeOp } from './image-bake'
-import { removeBackground, type PixelImage } from './cutout'
+import { CropFractions } from './image-bake'
 import { navAction, shouldHandleDocumentUndo } from './keyNav'
 import { rowOfVisIdx, spreadRows, stepPage } from './spread'
 import {
@@ -152,11 +151,7 @@ import {
 } from './color-runs'
 import type { CharStyle } from './color-runs'
 import { platformShortcuts } from '@yiioffice/i18n'
-import {
-  Dropdown,
-  useDismissablePopover,
-  useRibbonCollapse,
-} from '@yiioffice/ui'
+import { Dropdown, useDismissablePopover, useRibbonCollapse, type PixelImage } from '@yiioffice/ui'
 import { useI18n } from './i18n/locale'
 import { useAutosave } from './useAutosave'
 import type {
@@ -202,36 +197,7 @@ import { useVisibleSet, PdfPage, MarkupOverlay } from './PdfPage'
 import { PdfThumb, ThumbPendingOverlay } from './PdfThumb'
 import type { ThumbMenu } from './PdfThumb'
 import { SignDropOverlay, signPlaceK, imagePlaceK, staticFormFillPlaceK } from './SignDropOverlay'
-import {
-  EDIT_FONT_BY_ID,
-  measureTextWidth,
-  rgbToHex,
-  hexToRgb,
-  hexTo255,
-  rgb255ToHex,
-  styleRunsToKeyRuns,
-  styleSegCss,
-  boldCss,
-  boldToken,
-  keyRunsToStyleRuns,
-  blockRectKey,
-  blockMoveInput,
-  editCarriesBlock,
-  isBlockEditOf,
-  patchPendingEdits,
-  resolveTextEdit,
-  shiftPendingEdit,
-  shiftRect,
-  unionCover,
-  inflateCss,
-  textInsertPreviewStyle,
-  textEditPreviewParts,
-  textEditPreviewContent,
-  seedDraftColors,
-  paperCss,
-  textEraseKey,
-  textEraseProbe,
-} from './text-edit-preview'
+import { EDIT_FONT_BY_ID, measureTextWidth, rgbToHex, hexToRgb, hexTo255, rgb255ToHex, styleRunsToKeyRuns, styleSegCss, boldCss, boldToken, keyRunsToStyleRuns, blockRectKey, blockMoveInput, patchPendingEdits, shiftPendingEdit, shiftRect, unionCover, inflateCss, textInsertPreviewStyle, textEditPreviewParts, textEditPreviewContent, seedDraftColors, paperCss, textEraseKey, textEraseProbe } from './text-edit-preview'
 import { samplePaperColor } from './paper-sample'
 import type { LocalTextEdit, LocalTextInsert, TextDraft } from './text-edit-preview'
 import { planEditOps, reduceBucket } from './edit-ops'
@@ -791,7 +757,7 @@ export default function App() {
   const metadataRef = useRef(metadata)
   metadataRef.current = metadata
   /** Properties as stored in the file; the pending metadata overrides them until saved */
-  const [docInfo, setDocInfo] = useState<MetadataInput>({})
+  const [, setDocInfo] = useState<MetadataInput>({})
   const [stampDlg, setStampDlg] = useState(false)
   const [propsDlg, setPropsDlg] = useState(false)
   const [fileSize, setFileSize] = useState(0)
@@ -1110,6 +1076,10 @@ export default function App() {
           rots.push(page.rotate ?? 0)
           origins.push([page.view[0]!, page.view[1]!])
           userUnits.push(page.userUnit ?? 1)
+          // Only the geometry was needed. Without this, opening a large PDF
+          // keeps every page's parsed content alive for the whole session
+          // (each page re-parses lazily when it first scrolls into view).
+          page.cleanup()
         }
       } catch (err) {
         // getMetadata/page probing failed after the document resolved but before
@@ -2206,7 +2176,6 @@ export default function App() {
     // The line affordance is just as stale after a reload (it hangs at the last
     // pre-save pointer position until the next mousemove)
     clearLineHover()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc])
 
   /** Cluster paragraph boxes for pages scrolled into view while edit-text mode is on.
@@ -5099,15 +5068,6 @@ export default function App() {
     return c.toDataURL('image/png').split(',')[1] ?? null
   }
 
-  const cropPng = async (b64: string, crop: CropFractions): Promise<string | null> => {
-    const img = await decodePng(b64)
-    try {
-      return img ? cropImagePng(img, crop) : null
-    } catch {
-      return null
-    }
-  }
-
   /** Crop footprint of an insert op: its bytes are display-oriented, so the fractions
       apply in display space and map back through the page geometry (handles /Rotate) */
   const cropRectDisplay = (
@@ -5174,37 +5134,6 @@ export default function App() {
       { op: 'bakeImageEdit', id: target.id, image: png, rect, opacityBase },
     ])
     return plan.failures.length === 0
-  }
-
-  /** AI-tool entry to the same bakes as the floating bar, for an existing page image */
-  const bakeExisting = async (
-    ref: PageImageRef,
-    op: ImageBakeOp,
-    signal?: AbortSignal,
-  ): Promise<boolean> => {
-    if (readOnly || isImageClaimedNow(ref)) return false
-    const target: ImageBakeTarget = { kind: 'existing', ref }
-    const src = await bakeSourcePng(target)
-    if (!src || signal?.aborted) return false
-    const out =
-      op.kind === 'crop'
-        ? await cropPng(src, op.crop)
-        : await transformPngPixels(src, (img) =>
-            op.kind === 'flip'
-              ? flipPixels(img, op.axis)
-              : op.kind === 'opacity'
-                ? multiplyAlpha(img, op.alpha)
-                : removeBackground(img, op.tolerance).data,
-          )
-    if (!out || signal?.aborted) return false
-    const landed = commitBaked(
-      target,
-      out,
-      op.kind === 'crop' ? op.crop : undefined,
-      op.kind === 'opacity' ? src : undefined,
-    )
-    if (landed) setSelected(null)
-    return landed
   }
 
   /** Fetch → transform → commit, used by the one-click bakes (flip / transparency) */
@@ -5607,15 +5536,6 @@ export default function App() {
 
   const noteThreadsOn = (origIdx: number): NoteThreadItem[] =>
     threadsFromSaved(origIdx, savedNotes.get(origIdx) ?? [])
-
-  /** Async threads for any page: the visible-page cache when warm, pdf.js otherwise
-      (AI tools address arbitrary pages, not just the ones scrolled into view) */
-  const noteThreadsFor = async (origIdx: number): Promise<NoteThreadItem[]> => {
-    const cached = savedNotes.get(origIdx)
-    if (cached) return threadsFromSaved(origIdx, cached)
-    if (!doc) return threadsFromSaved(origIdx, [])
-    return threadsFromSaved(origIdx, (await loadSavedAnnots(doc, origIdx)).notes)
-  }
 
   /** Root pins DrawLayer renders for saved threads (pending roots render from drawings) */
   const savedNotePins = (origIdx: number): SavedNotePin[] =>
@@ -7452,8 +7372,8 @@ export default function App() {
                   <button
                     type="button"
                     className="rb-icon"
-                    aria-label={t('aiCollapsePanel')}
-                    data-tip={t('aiCollapsePanel')}
+                    aria-label={t('collapsePanel')}
+                    data-tip={t('collapsePanel')}
                     onClick={() => setSidebar(null)}
                   >
                     <svg

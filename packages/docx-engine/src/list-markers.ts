@@ -111,7 +111,13 @@ function toCjkCounting(
   return dropLeadingOne ? out.replace(new RegExp(`^${digits[1]}${units[1]}`), units[1]) : out
 }
 
-function toChinese(value: number): string {
+/**
+ * Chinese/Japanese counting form: 一、十、十一、二十一、一百二十三.
+ * Shared by list numbering (`formatNumber`) and page numbers
+ * (`pagination-hf.formatPageNumber`) so the two cannot drift: a page number
+ * ≥100 must read 一百二十三, not the digit-by-digit 一二三.
+ */
+export function toChinese(value: number): string {
   return toCjkCounting(value, CN_DIGITS, CN_UNITS, true)
 }
 

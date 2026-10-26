@@ -12,8 +12,6 @@ import type { CustGeomPathCmd, SlideComment, SectionInfo } from '@yiioffice/pptx
 import type { FontSizeStep } from '@yiioffice/pptx-ops/font-size'
 // the font catalog's shape is the store's to declare, not a copy kept in step by hand
 import type { CatalogEntry as FontCatalogEntry } from '@yiioffice/electron-utils/font-store'
-/** Placeholder removed from ai/layout-skeleton; empty interface for backward compat */
-export interface LayoutSkeleton {}
 import type {
   EditRun,
   EditParagraph,

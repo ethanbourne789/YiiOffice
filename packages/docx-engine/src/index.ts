@@ -178,6 +178,7 @@ export {
   customEnumItems,
   formatNumber,
   markerTabAdvance,
+  toChinese,
   type ListItemRef,
   type ListMarkerInfo,
 } from './list-markers'

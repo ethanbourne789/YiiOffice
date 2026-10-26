@@ -2,7 +2,7 @@
  * The Insert tab's three dialogs: hyperlink / header & footer / equation.
  * Reuses SettingsModal's .modal-backdrop/.modal styles.
  */
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useModalDialog } from './modal-dialog'
 import { Dropdown } from '@yiioffice/ui'
 import type { LinkTargetOp } from '../../shared/ipc'

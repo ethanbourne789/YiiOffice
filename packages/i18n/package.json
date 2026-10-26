@@ -14,7 +14,6 @@
     "test:watch": "vitest"
   },
   "devDependencies": {
-    "typescript": "^7.0.2",
     "vitest": "^5.0.5"
   }
 }

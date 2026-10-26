@@ -4,7 +4,7 @@
  * current part on the right. All edits go through slides:master-* IPC; App only mounts it and
  * refreshes all slides after exit.
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { RenderFill, RenderNode, RenderSlide, ShapeRenderNode } from '@yiioffice/pptx-render'
 import { SlideCanvas } from './SlideCanvas'
 import { SlideThumb } from './SlideThumb'

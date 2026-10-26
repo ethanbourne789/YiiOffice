@@ -1,0 +1,17 @@
+{
+  // Main process + preload. No DOM lib: these run in Node with Electron's
+  // typings, and a DOM lib here silently re-points Electron-shaped globals
+  // (`clipboard`, `Blob`, `File`, …) at their browser declarations.
+
+  "extends": "./tsconfig.shared.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "types": ["node"]
+  },
+  "include": [
+    "src/main",
+    "src/shared",
+    "electron.vite.config.ts",
+    "vite.renderer.config.ts"
+  ]
+}

@@ -1,6 +1,7 @@
 /// Worksheet protection: `<sheetProtection>` with Excel's permission flags
 /// and password hash. Also: workbook structure protection
 /// (`<workbookProtection>`) and allow-edit ranges (`<protectedRanges>`).
+import { escapeXmlAttribute, unescapeXml } from '../shared/xml'
 import type { SheetPasswordHash } from './xlsx-protection-hash'
 
 export class SheetProtectionError extends Error {}
@@ -79,14 +80,6 @@ function isTrue(value: string | undefined): boolean {
   return value === '1' || value === 'true'
 }
 
-function unescapeAttr(value: string): string {
-  return value
-    .replaceAll('&quot;', '"')
-    .replaceAll('&lt;', '<')
-    .replaceAll('&gt;', '>')
-    .replaceAll('&amp;', '&')
-}
-
 export function parseSheetProtectionElement(element: string): ParsedSheetProtection {
   const allow = { ...DEFAULT_SHEET_PROTECTION_ALLOW }
   for (const permission of SHEET_PROTECTION_PERMISSIONS) {
@@ -100,8 +93,8 @@ export function parseSheetProtectionElement(element: string): ParsedSheetProtect
   const password: SheetPasswordHash | null = hashValue
     ? {
         algorithmName: readAttribute(element, 'algorithmName') ?? 'SHA-512',
-        hashValue: unescapeAttr(hashValue),
-        saltValue: unescapeAttr(readAttribute(element, 'saltValue') ?? ''),
+        hashValue: unescapeXml(hashValue),
+        saltValue: unescapeXml(readAttribute(element, 'saltValue') ?? ''),
         spinCount: Number(readAttribute(element, 'spinCount') ?? '0') || 0,
       }
     : legacy
@@ -116,14 +109,6 @@ export function readSheetProtection(worksheetXml: string): ParsedSheetProtection
   return existing ? parseSheetProtectionElement(existing[0]) : null
 }
 
-function escapeAttrValue(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-}
-
 /// Schema attribute order; lock-style flags are written only when they
 /// differ from their default, matching Excel's own output.
 export function sheetProtectionElement(
@@ -134,9 +119,9 @@ export function sheetProtectionElement(
   if (password && 'legacy' in password) attributes.push(`password="${password.legacy}"`)
   else if (password) {
     attributes.push(
-      `algorithmName="${escapeAttrValue(password.algorithmName)}"`,
-      `hashValue="${escapeAttrValue(password.hashValue)}"`,
-      `saltValue="${escapeAttrValue(password.saltValue)}"`,
+      `algorithmName="${escapeXmlAttribute(password.algorithmName)}"`,
+      `hashValue="${escapeXmlAttribute(password.hashValue)}"`,
+      `saltValue="${escapeXmlAttribute(password.saltValue)}"`,
       `spinCount="${password.spinCount}"`,
     )
   }
@@ -262,14 +247,6 @@ export interface ProtectedRangeState {
 const PROTECTED_RANGES_PATTERN =
   /<protectedRanges\b[^>]*\/>|<protectedRanges\b[^>]*>[\s\S]*?<\/protectedRanges>/
 
-function escapeAttr(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-}
-
 /// Replaces the sheet's allow-edit ranges with the session's snapshot; an
 /// empty set removes the element. Replacing password-protected ranges fails
 /// closed (their hashes cannot be preserved through the rewrite).
@@ -294,7 +271,7 @@ export function applyProtectedRanges(
   const body = ranges
     .map(
       (range) =>
-        `<protectedRange sqref="${escapeAttr(range.sqref)}" name="${escapeAttr(range.name)}"/>`,
+        `<protectedRange sqref="${escapeXmlAttribute(range.sqref)}" name="${escapeXmlAttribute(range.name)}"/>`,
     )
     .join('')
   const element = `<protectedRanges>${body}</protectedRanges>`

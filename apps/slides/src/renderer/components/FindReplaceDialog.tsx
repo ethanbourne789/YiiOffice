@@ -4,7 +4,7 @@
  * through the main-process model layer (in-run matching, byte-faithful patches), and on success
  * the whole RenderSlide set refreshes.
  */
-import React, { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useI18n } from '../i18n/locale'
 import type {
   GroupRenderNode,

@@ -89,7 +89,7 @@ import {
 } from '@yiioffice/ui'
 import type { ChartPresetDef, IconDef, SmartArtDef } from './insert-presets'
 import { ToastHost } from './components/toast'
-import { showToast } from './components/toast-bus'
+import { showToast } from '@yiioffice/ui'
 import { t, useI18n } from './i18n/locale'
 import { ChartDataDialog } from './components/ChartDataDialog'
 import type { BrushFormat } from './format-brush'
@@ -2945,8 +2945,6 @@ export function App() {
   )
   const inkCount = useMemo(() => (slide ? inkNodesOf(slide).length : 0), [slide])
   const clearInk = useCallback(() => arrangeActions.clearInk(ctxRef.current), [])
-
-  const _fileName = slide ? path?.split('/').pop() || t('appUntitledPresentation') : undefined
 
   // yiioffice CLI (`open --slide/--el`, `selection`): the shell evaluates this hook
   useEffect(() => {

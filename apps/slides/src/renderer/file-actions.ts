@@ -11,7 +11,7 @@ import { collectExportPdfLinks } from './export-links'
 import { renderSlidesToPdfPages } from './export-pages'
 import { renderSlidesToPngBase64 } from './export-render'
 import { t } from './i18n/locale'
-import { showToast } from './components/toast-bus'
+import { showToast } from '@yiioffice/ui'
 
 /**
  * If a text box/table is still being edited on ⌘S/close-save, blur first so the

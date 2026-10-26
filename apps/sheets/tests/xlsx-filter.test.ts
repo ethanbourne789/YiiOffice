@@ -126,7 +126,8 @@ describe('applyFilterState', () => {
       hiddenRows: [],
       visibilityRange: AREA,
     })
-    expect(xml).toContain('<filter val="a&lt;b&gt;&amp;&quot;&apos;"/>')
+    // attribute values: & < > " are escaped, a bare ' stays literal (as Excel writes it)
+    expect(xml).toContain(`<filter val="a&lt;b&gt;&amp;&quot;'"/>`)
   })
 })
 

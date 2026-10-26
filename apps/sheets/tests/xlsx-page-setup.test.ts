@@ -162,7 +162,7 @@ describe('buildHeaderFooterXml', () => {
 
   it('XML-escapes the content, literal ampersands included', () => {
     expect(buildHeaderFooterXml({ left: 'P&&L <2026> "Q1"' }, null)).toBe(
-      '<headerFooter><oddHeader>&amp;LP&amp;&amp;L &lt;2026&gt; &quot;Q1&quot;</oddHeader>' +
+      '<headerFooter><oddHeader>&amp;LP&amp;&amp;L &lt;2026&gt; "Q1"</oddHeader>' +
         '</headerFooter>',
     )
   })

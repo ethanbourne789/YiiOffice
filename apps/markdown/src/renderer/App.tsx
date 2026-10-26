@@ -45,7 +45,7 @@ import { OutlinePane } from './components/OutlinePane'
 import { SourcePane } from './components/SourcePane'
 import { SlashMenu, type SlashMenuHandle } from './components/SlashMenu'
 import { ToastHost } from './components/toast'
-import { showToast } from './components/toast-bus'
+import { showToast } from '@yiioffice/ui'
 import { TableMenu } from './components/TableMenu'
 import { FrontmatterPanel } from './components/FrontmatterPanel'
 import { DOCX_MAX_IMAGE_PX, exportDocxBytes } from './export/docxExport'
@@ -288,6 +288,9 @@ export default function App() {
         const { text, format } = readSourceText(raw)
         sourceTextRef.current = text
         sourceFormatRef.current = format
+        // the CodeMirror view is keyed by path, so a new file remounts it; this
+        // covers a same-path reload (and keeps setDoc from being dead API)
+        sourceRef.current?.setDoc(text)
         setFilePath(path)
         setFmText('')
         setFmOpen(false)
@@ -1022,6 +1025,10 @@ export default function App() {
           {sourceMode ? (
             <div className="source-editor">
               <PlainTextEditor
+                // a different .txt/.json must remount: the buffer is seeded
+                // once per mount, so reusing the view would keep the old text
+                // on screen and write it back on save
+                key={filePath ?? 'untitled'}
                 ref={sourceRef}
                 initialText={sourceTextRef.current}
                 mode={textMode === 'json' ? 'json' : 'plain'}

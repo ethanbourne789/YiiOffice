@@ -70,7 +70,7 @@ function syncFileBestEffortSync(path: string): void {
  * network mounts (gvfs SMB refuses with EEXIST, yiioffice#1877); either way the
  * save falls back to an in-place write rather than failing.
  */
-export async function atomicWriteFile(filePath: string, data: Buffer): Promise<void> {
+export async function atomicWriteFile(filePath: string, data: Uint8Array): Promise<void> {
   const tmp = tempPathBeside(filePath)
   try {
     await writeFile(tmp, data)

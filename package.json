@@ -23,7 +23,7 @@
     "check:theme-colors": "node tools/check-theme-colors.mjs",
     "check:english-comments": "node tools/check-english-comments.mjs",
     "check:help-langs": "node tools/check-help-langs.mjs",
-    "lint": "eslint .",
+    "lint": "node tools/lint.mjs",
     "fixtures": "npm run fixtures -w @yiioffice/docx-engine",
     "test": "npm run test -w @yiioffice/i18n && npm run test -w @yiioffice/electron-utils && npm run test -w @yiioffice/font-metrics && npm run test -w @yiioffice/zip-gate && npm run test -w @yiioffice/docx-engine && npm run test -w @yiioffice/pdf2docx && npm run test -w @yiioffice/html2docx && npm run test -w @yiioffice/file-parse && npm run test -w @yiioffice/pptx-engine && npm run test -w @yiioffice/xlsx-gateway && npm run test -w @yiioffice/pptx-ops && npm run test -w @yiioffice/pptx-render && npm run test -w @yiioffice/ui && npm run test -w @yiioffice/docs && npm run test -w @yiioffice/sheets && npm run test -w @yiioffice/shell && npm run test -w @yiioffice/slides && npm run test -w @yiioffice/pdf && npm run test -w @yiioffice/markdown",
     "typecheck": "npm run typecheck -w @yiioffice/i18n && npm run typecheck -w @yiioffice/electron-utils && npm run typecheck -w @yiioffice/font-metrics && npm run typecheck -w @yiioffice/zip-gate && npm run typecheck -w @yiioffice/docx-engine && npm run typecheck -w @yiioffice/pdf2docx && npm run typecheck -w @yiioffice/html2docx && npm run typecheck -w @yiioffice/file-parse && npm run typecheck -w @yiioffice/pptx-engine && npm run typecheck -w @yiioffice/xlsx-gateway && npm run typecheck -w @yiioffice/pptx-ops && npm run typecheck -w @yiioffice/pptx-render && npm run typecheck -w @yiioffice/ui && npm run typecheck -w @yiioffice/docs && npm run typecheck -w @yiioffice/sheets && npm run typecheck -w @yiioffice/shell && npm run typecheck -w @yiioffice/slides && npm run typecheck -w @yiioffice/pdf && npm run typecheck -w @yiioffice/markdown",
@@ -47,15 +47,12 @@
     "katex": "^0.18.2",
     "vite": "^8.3.5",
     "@tiptap/core": "3.31.0",
-    "@tiptap/pm": "3.31.0",
-    "@tiptap/extension-mention": "3.31.0",
-    "@tiptap/extension-bubble-menu": "3.31.0",
-    "@tiptap/extension-floating-menu": "3.31.0"
+    "@tiptap/pm": "3.31.0"
   },
   "devDependencies": {
-    "@typescript/typescript-win32-x64": "7.0.2",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.61.1",
+    "@typescript/native": "npm:typescript@7.0.2",
     "concurrently": "^9.2.5",
     "cross-env": "^10.1.0",
     "eslint": "^10.8.0",
@@ -65,6 +62,7 @@
     "playwright-core": "^1.61.1",
     "pngjs": "^7.0.0",
     "prettier": "^3.9.6",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
     "typescript-eslint": "^8.65.0"
   },
   "allowScripts": {

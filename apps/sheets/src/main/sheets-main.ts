@@ -14,21 +14,7 @@ import { createServer } from 'node:http'
 import { userInfo } from 'node:os'
 import { basename, dirname, isAbsolute, join } from 'node:path'
 
-import {
-  app,
-  BrowserWindow,
-  desktopCapturer,
-  dialog,
-  ipcMain,
-  Menu,
-  net,
-  screen,
-  session as electronSession,
-  shell,
-  systemPreferences,
-  webContents,
-  WebContentsView,
-} from 'electron'
+import { app, BrowserWindow, desktopCapturer, dialog, ipcMain, Menu, screen, session as electronSession, shell, systemPreferences, WebContentsView } from 'electron'
 import type {
   IpcMainInvokeEvent,
   MenuItemConstructorOptions,
@@ -37,24 +23,7 @@ import type {
   WebContents,
 } from 'electron'
 import { z } from 'zod'
-import {
-  appMenuLabels,
-  configuredDefaultSaveDir,
-  contextMenuLabels,
-  installContextMenu,
-  installNavigationGuard,
-  isHeadlessMode,
-  safeExternalUrl,
-  showOpenDialogWithMemory,
-  showSaveDialogWithMemory,
-  helpMenuTemplate,
-  viewMenuTemplate,
-  windowMenuTemplate,
-  installRendererProtocol,
-  registerRendererScheme,
-  rendererUrl,
-  writeJsonAtomic,
-} from '@yiioffice/electron-utils'
+import { appMenuLabels, configuredDefaultSaveDir, contextMenuLabels, installContextMenu, installNavigationGuard, isHeadlessMode, safeExternalUrl, showOpenDialogWithMemory, showSaveDialogWithMemory, helpMenuTemplate, viewMenuTemplate, windowMenuTemplate, installRendererProtocol, registerRendererScheme, rendererUrl } from '@yiioffice/electron-utils'
 import { createI18n, getUiLang, type Lang, normalizeLang, setUiLang } from '@yiioffice/i18n'
 
 import {
@@ -395,8 +364,6 @@ interface SheetsTabSession {
 /** per-tab session state, keyed by webContents.id — replaces the old single-window closures
  * that `registerIpcHandlers`/`validateSender` used to capture, which broke as soon as a second
  * tab (or a closed-then-reopened tab) registered and overwrote the previous closure. */
-/// Same ceiling as local add_image (readLocalImage's 20MB check)
-const MAX_REMOTE_IMAGE_BYTES = 20 * 1024 * 1024
 /** Max .csv/.tsv bytes converted on open: stops a 500MB text file OOMing main before sidecar limits. */
 const MAX_DELIMITED_IMPORT_BYTES = 32 * 1024 * 1024
 
@@ -883,7 +850,7 @@ const sidecarOpenResultSchema = workbookFileSchema.omit({
 })
 
 export async function createSheetsWindow(
-  options: { includeAiHandlers?: boolean } = {},
+  _options: { includeAiHandlers?: boolean } = {},
 ): Promise<BrowserWindow> {
   const client = sidecar ?? new XlsxSidecarClient(resolveSidecarPath())
   sidecar = client
@@ -1982,35 +1949,64 @@ export function registerSheetsIpc(): void {
 
     // The sidecar session still streams the pre-save bytes; swap it for a
     // fresh session over the saved file so future reads match the disk state.
+    // The file is already on disk at this point: a rebuild failure must not
+    // surface as "save failed" and make the user retry a save that landed.
     const quietUnsavedNew = targetPath === session.path && session.unsavedNew === true
     entry.sessions.delete(request.sessionId)
-    await cleanupSessionResources({
-      tempRoot: app.getPath('temp'),
-      snapshotPath: session.snapshotPath,
-      // A CSV in-place save keeps saving into the temp copy, and a quiet save of
-      // an unsaved new workbook just wrote its backing file — the directory
-      // must survive the session swap.
-      importTempDir: csvInPlace || quietUnsavedNew ? undefined : session.importTempDir,
-      closeSidecar: () => client.close(request.sessionId),
-    })
-    const file = await openWorkbookSession(
-      client,
-      targetPath,
-      entry.sessions,
-      csvInPlace
-        ? {
-            csvImport: true,
-            csvSourcePath: session.csvSourcePath,
-            importTempDir: session.importTempDir,
-          }
-        : quietUnsavedNew
+    let file: WorkbookFile
+    try {
+      await cleanupSessionResources({
+        tempRoot: app.getPath('temp'),
+        snapshotPath: session.snapshotPath,
+        // A CSV in-place save keeps saving into the temp copy, and a quiet save of
+        // an unsaved new workbook just wrote its backing file — the directory
+        // must survive the session swap.
+        importTempDir: csvInPlace || quietUnsavedNew ? undefined : session.importTempDir,
+        closeSidecar: () => client.close(request.sessionId),
+      })
+      file = await openWorkbookSession(
+        client,
+        targetPath,
+        entry.sessions,
+        csvInPlace
           ? {
-              suggestSaveAs: session.suggestSaveAs,
+              csvImport: true,
+              csvSourcePath: session.csvSourcePath,
               importTempDir: session.importTempDir,
-              unsavedNew: true,
             }
-          : undefined,
-    )
+          : quietUnsavedNew
+            ? {
+                suggestSaveAs: session.suggestSaveAs,
+                importTempDir: session.importTempDir,
+                unsavedNew: true,
+              }
+            : undefined,
+      )
+    } catch (error) {
+      console.error('[sheets] file saved but the session rebuild failed:', error)
+      // Hand back a path-bearing stub so the caller reports a successful save
+      // (and a reopen warning) rather than a failure. The stub is not a real
+      // session — the renderer's reopen will fail and tell the user to reopen
+      // the file — but the bytes on disk are correct and must not be reported
+      // as a failed save. The cast is deliberate: filling the 15 optional
+      // worksheet-metadata fields from a session that no longer exists would
+      // invent data.
+      const savedSha = await sha256File(targetPath).catch(() => undefined)
+      file = {
+        sessionId: request.sessionId,
+        name: basename(targetPath),
+        path: targetPath,
+        sha256: savedSha ?? session.sha256,
+        entryCount: 0,
+        sheets: [...session.sheetNames.values()].map((name) => ({ name })),
+        activeTab: 0,
+        styles: [],
+        dxfStyles: [],
+        visuals: [],
+        definedNames: [],
+        readOnly: false,
+      } as unknown as WorkbookFile
+    }
     if (quietUnsavedNew && session.suggestSaveAs !== undefined) {
       // the temp path must not reach the title or recents; the recovery copy
       // is what a crash restores from, so it tracks the saved bytes

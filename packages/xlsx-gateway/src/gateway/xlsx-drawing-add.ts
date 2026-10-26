@@ -2,6 +2,7 @@
 /// OOXML parts: a chart part, a drawing part (created or extended), the
 /// worksheet/drawing relationships, and the [Content_Types].xml overrides.
 
+import { escapeXmlAttribute, escapeXmlText } from '../shared/xml'
 import { ensureRelationshipNamespace } from './xlsx-namespace'
 import { nextFreeRelationshipId } from './xlsx-sheets'
 
@@ -989,10 +990,3 @@ export async function registerContentTypeOverride(
   touchedEntries.add(path)
 }
 
-function escapeXmlText(input: string): string {
-  return input.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
-
-function escapeXmlAttribute(input: string): string {
-  return escapeXmlText(input).replace(/"/g, '&quot;').replace(/'/g, '&apos;')
-}

@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { PDFDocument, PDFName } from 'pdf-lib'
+import { PDFDocument } from 'pdf-lib'
 import { launchShell, waitForPageWithUrl, closeAndSaveVideo } from './helpers'
 
 // Skip: PDF form design field placement count changed (6 instead of 7 fields)

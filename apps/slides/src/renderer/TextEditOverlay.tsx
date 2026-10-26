@@ -4,7 +4,7 @@
  * ribbon font group (execCommand on the selection). On exit, walk the DOM to extract the
  * paragraph/run structure (each run's format preserved independently) and go through IPC editText.
  */
-import React, { useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import type { EditCaret } from './action-context'
 import { formatAutoNum, DEFAULT_INSETS_EMU, emuToPx, isWideChar } from '@yiioffice/pptx-render'
 import type { GlyphRun, ShapeRenderNode, TextLine } from '@yiioffice/pptx-render'

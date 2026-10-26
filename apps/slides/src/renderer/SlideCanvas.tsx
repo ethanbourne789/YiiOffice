@@ -371,7 +371,8 @@ function styleRotaterAnchor(anchor: Konva.Rect, size: number): void {
     cornerRadius: size / 2,
     strokeEnabled: false,
     fillPriority: 'pattern',
-    fillPatternImage: getRotaterIcon(),
+    // Konva paints the pattern from any canvas-backed source; its typings only name HTMLImageElement.
+    fillPatternImage: getRotaterIcon() as unknown as HTMLImageElement,
     fillPatternRepeat: 'no-repeat',
     fillPatternScale: { x: size / (ROTATER_SIZE * 4), y: size / (ROTATER_SIZE * 4) },
   })

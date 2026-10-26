@@ -10,7 +10,7 @@
     "dev": "electron-vite dev",
     "dev:renderer": "vite --config vite.renderer.config.ts",
     "build": "electron-vite build",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "dist:mac": "electron-vite build && electron-builder --mac",
@@ -39,7 +39,6 @@
     "opentype.js": "^2.0.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "typescript": "^7.0.2",
     "vite": "^8.3.5",
     "vitest": "^5.0.5"
   },
@@ -87,7 +86,6 @@
     }
   },
   "dependencies": {
-    "@typescript/typescript-win32-x64": "^7.0.2",
     "@yiioffice/electron-utils": "*",
     "@yiioffice/font-metrics": "*",
     "@yiioffice/pptx-render": "*",

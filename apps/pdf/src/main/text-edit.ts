@@ -172,7 +172,13 @@ export function loadPdfium(): Promise<Pdfium> {
     const m = ('pdfium' in wrapped ? wrapped.pdfium : wrapped) as Pdfium
     m._PDFiumExt_Init()
     return m
-  })()
+  })().catch((error: unknown) => {
+    // A rejected init must not be cached: `??=` would otherwise pin the
+    // failure and leave text editing dead until the app restarts. Clear the
+    // slot so the next call retries the load.
+    pdfiumPromise = null
+    throw error
+  })
   return pdfiumPromise
 }
 

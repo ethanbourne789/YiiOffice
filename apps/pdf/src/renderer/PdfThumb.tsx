@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef } from 'react'
 import type { ReactElement } from 'react'
-import type { PDFDocumentProxy } from 'pdfjs-dist'
+import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist'
 import { geomDispSize, pdfRectToCss } from './annotations'
 import type { LocalMarkup, PageGeom } from './annotations'
 import { DrawLayer } from './DrawLayer'
@@ -55,12 +55,23 @@ export function PdfThumb({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const renderedRef = useRef<RenderedThumb | null>(null)
   const renderSettledRef = useRef<Promise<void>>(Promise.resolve())
+  // Page proxy of the last render, so an offscreen thumb can free its parsed
+  // content (pdf.js 6 has no proxy.destroy; cleanup() is the release valve).
+  const pageRef = useRef<PDFPageProxy | null>(null)
+  useEffect(() => {
+    return () => {
+      pageRef.current?.cleanup()
+      pageRef.current = null
+    }
+  }, [doc])
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     if (!visible) {
       renderedRef.current = null
       releaseCanvasPixels(canvas)
+      pageRef.current?.cleanup()
+      pageRef.current = null
       return
     }
     const rendered = renderedRef.current
@@ -84,6 +95,7 @@ export function PdfThumb({
       try {
         const page = await doc.getPage(pageNo)
         if (disposed) return
+        pageRef.current = page
         const rotation = (page.rotate + rotationDelta) % 360
         const scale = rasterW / page.getViewport({ scale: 1, rotation }).width
         const viewport = page.getViewport({ scale, rotation })

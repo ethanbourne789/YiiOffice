@@ -2,6 +2,7 @@
 /// External targets live as TargetMode="External" relationships referenced by
 /// r:id; internal anchors use the `location` attribute and need no rel.
 
+import { escapeXmlAttribute, toA1 } from '../shared/xml'
 import { escapeRegExp, nextFreeRelationshipId } from './xlsx-sheets'
 
 export { ensureRelationshipNamespace } from './xlsx-namespace'
@@ -124,23 +125,4 @@ function insertHyperlinkElement(xml: string, element: string): string {
   const end = xml.lastIndexOf('</worksheet>')
   if (end === -1) throw new HyperlinkEditError('Worksheet has no closing element.')
   return xml.slice(0, end) + section + xml.slice(end)
-}
-
-function toA1(row: number, column: number): string {
-  let letters = ''
-  let remaining = column + 1
-  while (remaining > 0) {
-    remaining -= 1
-    letters = String.fromCharCode(65 + (remaining % 26)) + letters
-    remaining = Math.floor(remaining / 26)
-  }
-  return `${letters}${row + 1}`
-}
-
-function escapeXmlAttribute(input: string): string {
-  return input
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
 }

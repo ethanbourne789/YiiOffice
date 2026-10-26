@@ -23,7 +23,7 @@ import { pdfIsDirty, requestPdfClose } from '../../../pdf/src/main/pdf-main'
 import { markdownIsDirty, requestMarkdownClose } from '../../../markdown/src/main/markdown-main'
 import { canonicalPath } from './tab-manager'
 import type { DetachedTab } from './tab-manager'
-import type { OpenDocumentTab, TabKind } from '../shared/tabs-api'
+import type { TabKind } from '../shared/tabs-api'
 import { DOCK_DWELL_MS, dockBand, pointInRect } from '../shared/tab-drag-geometry'
 
 /**
@@ -132,19 +132,6 @@ export function focusDetachedByPath(path: string): boolean {
   return false
 }
 
-/** control-host lookup: a detached editor answers like a tab, with a `detached:` id */
-export function findDetachedTabByPath(
-  path: string,
-): { id: string; kind: TabKind; webContents: WebContents } | undefined {
-  const wanted = canonicalPath(path)
-  for (const [wcId, rec] of detached) {
-    if (rec.filePath && canonicalPath(rec.filePath) === wanted && !rec.window.isDestroyed()) {
-      return { id: ID_PREFIX + wcId, kind: rec.kind, webContents: rec.view.webContents }
-    }
-  }
-  return undefined
-}
-
 /** the detached window hosting this webContents (dialog parenting: fromWebContents
  *  cannot resolve a WebContentsView's host) */
 export function detachedWindowForWebContents(wcId: number): BrowserWindow | undefined {
@@ -180,22 +167,6 @@ export function focusedDetachedTab():
     }
   }
   return undefined
-}
-
-export function isDetachedTabId(id: string): boolean {
-  return recordById(id) !== undefined
-}
-
-/** bring a detached editor forward; false when the id is not a detached window */
-export function activateDetached(id: string): boolean {
-  const rec = recordById(id)
-  if (!rec) return false
-  bringToFront(rec.window)
-  return true
-}
-
-export function detachedWebContentsFor(id: string): WebContents | undefined {
-  return recordById(id)?.view.webContents
 }
 
 export function closeDetachedWithoutPrompt(id: string): boolean {
@@ -247,26 +218,6 @@ async function confirmDetachedClose(rec: DetachedRecord): Promise<boolean> {
   }
 }
 
-/** the detached editors in the same shape as TabManager.openDocuments (agent targets) */
-export async function detachedOpenDocuments(): Promise<OpenDocumentTab[]> {
-  const out: OpenDocumentTab[] = []
-  for (const [wcId, rec] of detached) {
-    if (rec.window.isDestroyed()) continue
-    const dirty = await detachedIsDirty(rec)
-    // the dirty query yielded: the window may have closed meanwhile
-    if (rec.window.isDestroyed()) continue
-    out.push({
-      id: ID_PREFIX + wcId,
-      kind: rec.kind as OpenDocumentTab['kind'],
-      title: rec.window.getTitle(),
-      ...(rec.filePath ? { filePath: rec.filePath } : {}),
-      active: rec.window.isFocused(),
-      dirty,
-    })
-  }
-  return out
-}
-
 /** Save As / open-in-place landed on a new path — keep the window title and
  *  the dedup registry in sync (same contract as TabManager.setTabFileFor). */
 export function detachedSetFileFor(webContentsId: number, filePath: string): void {
@@ -278,12 +229,6 @@ export function detachedSetFileFor(webContentsId: number, filePath: string): voi
 }
 
 /** an untitled document named itself before its first save */
-export function detachedSetTitleFor(webContentsId: number, title: string): void {
-  const rec = detached.get(webContentsId)
-  if (!rec || rec.filePath || rec.window.isDestroyed()) return
-  rec.window.setTitle(title)
-}
-
 /** a rename on disk (Home list) — follow it, same contract as renameTabFile */
 export function detachedRenameFile(
   oldPath: string,
@@ -428,8 +373,20 @@ export function createDetachedEditorWindow(options: {
     if (torn?.rec === rec) torn = null
     win.contentView.removeChildView(view)
     detached.delete(wcId)
-    if (kind === 'docs') teardownDocsRenderer(view.webContents)
-    else view.webContents.close()
+    if (kind === 'docs') {
+      // Same deferred destroy as TabManager.removeTab: tearing down now
+      // (recovery copies, write grants) but destroying the webContents from a
+      // macrotask, because this runs inside the close-prompt dialog's promise
+      // continuation and a synchronous close() there wedges Electron's UI
+      // thread in its native modal run loop.
+      teardownDocsRenderer(view.webContents)
+      const orphan = view.webContents
+      setTimeout(() => {
+        if (!orphan.isDestroyed()) orphan.close()
+      }, 0)
+    } else {
+      view.webContents.close()
+    }
     win.destroy()
   }
   const rec: DetachedRecord = {
@@ -522,7 +479,11 @@ export function createDetachedEditorWindow(options: {
       }
     })()
   })
-  win.on('close', () => {
+  // 'closed', not 'close': the guard above cancels the close while the save
+  // prompt is open, and 'close' listeners keep running after preventDefault().
+  // Dropping the record then would lose the file path and the focus routing
+  // while the window is still on screen.
+  win.on('closed', () => {
     clearDockHover(rec)
     if (torn?.rec === rec) torn = null
     detached.delete(wcId)

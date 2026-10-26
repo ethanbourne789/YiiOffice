@@ -3,7 +3,6 @@
  * The source of truth lives in the main process (the pptx <p:timing>); the list is owned by App
  * and written back wholesale (setAnimations overwrite-style); this only displays and sends back intents.
  */
-import React from 'react'
 import type { AnimEffectKind, AnimationItem } from '../../shared/ipc'
 import { animClassOf, animGalleryKind } from '../animation-play'
 import { useI18n, type StringKey } from '../i18n/locale'

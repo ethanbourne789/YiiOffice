@@ -3,6 +3,7 @@
 /// consumes. Anything outside the supported envelope lands in `unsupported`
 /// (with a reason) instead of producing a silently wrong refresh.
 
+import { unescapeXml } from '../shared/xml'
 import type { PivotFilterDef } from '../domain/pivot-filters'
 import { parsePivotFormula } from '../domain/pivot-formula'
 import { isValidGrouping, type PivotFieldGrouping } from '../domain/pivot-grouping'
@@ -95,14 +96,6 @@ function attr(element: string, name: string): string | null {
   return found?.[1] ?? null
 }
 
-function decodeEntities(value: string): string {
-  return value
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, '&')
-}
 
 /// All <tag …>…</tag> or <tag …/> occurrences at any depth (regex-scoped —
 /// fine for pivot parts, which never nest a tag inside itself). The self-closing
@@ -126,12 +119,12 @@ function parseSharedItems(cacheFieldXml: string): PivotSharedItem[] {
   for (const match of container.matchAll(pattern)) {
     const kind = match[1]
     const value = attr(match[0], 'v')
-    if (kind === 's') items.push(decodeEntities(value ?? ''))
+    if (kind === 's') items.push(unescapeXml(value ?? ''))
     else if (kind === 'n') items.push(Number(value ?? '0'))
     else if (kind === 'b') items.push(value === '1' || value === 'true')
-    else if (kind === 'd') items.push(decodeEntities(value ?? ''))
+    else if (kind === 'd') items.push(unescapeXml(value ?? ''))
     else if (kind === 'm') items.push(null)
-    else items.push(decodeEntities(value ?? '#ERROR'))
+    else items.push(unescapeXml(value ?? '#ERROR'))
   }
   return items
 }
@@ -200,7 +193,7 @@ export function parsePivotDefinition(
   if (!worksheetSource) {
     unsupported.push('the data source is not a worksheet range (external/consolidated source)')
   }
-  const sourceSheet = decodeEntities(attr(worksheetSource ?? '', 'sheet') ?? '')
+  const sourceSheet = unescapeXml(attr(worksheetSource ?? '', 'sheet') ?? '')
   const sourceRef = attr(worksheetSource ?? '', 'ref') ?? ''
   if (worksheetSource && (!sourceSheet || !sourceRef)) {
     unsupported.push('the data source uses a defined name, recompute not supported yet')
@@ -212,7 +205,7 @@ export function parsePivotDefinition(
   const groupingExt = /<(?:\w+:)?aioPivotGroupings\b[^>]*\bv="([^"]*)"/.exec(pivotTableXml)
   if (groupingExt) {
     try {
-      const entries = JSON.parse(decodeEntities(groupingExt[1] ?? '')) as unknown
+      const entries = JSON.parse(unescapeXml(groupingExt[1] ?? '')) as unknown
       if (!Array.isArray(entries)) throw new Error('not an array')
       for (const entry of entries) {
         const { fieldIndex, ...grouping } = entry as { fieldIndex?: unknown }
@@ -233,10 +226,10 @@ export function parsePivotDefinition(
   const formulaByField = new Map<number, string>()
   cacheFields.forEach((fieldXml, index) => {
     const formula = attr(fieldXml, 'formula')
-    if (formula !== null) formulaByField.set(index, decodeEntities(formula).replace(/^\s*=/, ''))
+    if (formula !== null) formulaByField.set(index, unescapeXml(formula).replace(/^\s*=/, ''))
   })
   const fields: PivotCacheField[] = cacheFields.map((fieldXml, index) => ({
-    name: decodeEntities(attr(fieldXml, 'name') ?? ''),
+    name: unescapeXml(attr(fieldXml, 'name') ?? ''),
     sharedItems: parseSharedItems(fieldXml),
     ...(groupingByField.has(index) ? { grouping: groupingByField.get(index)! } : {}),
     ...(formulaByField.has(index) ? { formula: formulaByField.get(index)! } : {}),
@@ -308,7 +301,7 @@ export function parsePivotDefinition(
     }
     const field = Number(attr(fieldXml, 'fld') ?? '0')
     return {
-      name: decodeEntities(attr(fieldXml, 'name') ?? ''),
+      name: unescapeXml(attr(fieldXml, 'name') ?? ''),
       field,
       subtotal: attr(fieldXml, 'subtotal') ?? 'sum',
       ...(showDataAs !== null && isPivotShowDataAs(showDataAs)
@@ -375,7 +368,7 @@ export function parsePivotDefinition(
         kind: 'label',
         field,
         op: labelOp,
-        value: decodeEntities(attr(filterXml, 'stringValue1') ?? ''),
+        value: unescapeXml(attr(filterXml, 'stringValue1') ?? ''),
       })
     } else if (type === 'count') {
       const top10 = firstElement(filterXml, 'top10')

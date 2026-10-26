@@ -1,7 +1,7 @@
 /// Payload handling for OS file drops (installDropOpenBridge in preloads).
 /// Kept in its own module so the decision logic is unit-testable without
 /// booting the whole shell main process.
-import { partitionDropPayload } from '@yiioffice/electron-utils'
+import { partitionDropPayload } from '@yiioffice/electron-utils/drop-open'
 
 export interface DroppedFilesDeps {
   /** the normal File > Open pipeline; false = the path didn't open */

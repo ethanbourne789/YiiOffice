@@ -1,5 +1,6 @@
 // Header/footer variant resolution and page-number sequences / formats.
 import type { HeaderFooter, HfImage, HfPartInfo, SectionInfo } from '@yiioffice/docx-engine'
+import { toChinese } from '@yiioffice/docx-engine'
 
 import type { PageSlice } from './pagination-types'
 
@@ -214,18 +215,6 @@ function toGreek(n: number, base: number): string {
   const idx = ((bounded - 1) % 24) + 1
   const repeat = Math.floor((bounded - 1) / 24) + 1
   return String.fromCharCode(base + idx - 1 + (idx >= 18 ? 1 : 0)).repeat(repeat)
-}
-
-const CN_DIGITS = '〇一二三四五六七八九'
-
-function toChinese(n: number): string {
-  if (n < 10) return CN_DIGITS[n]
-  if (n < 20) return `十${n % 10 ? CN_DIGITS[n % 10] : ''}`
-  if (n < 100) return `${CN_DIGITS[Math.floor(n / 10)]}十${n % 10 ? CN_DIGITS[n % 10] : ''}`
-  return String(n)
-    .split('')
-    .map((d) => CN_DIGITS[Number(d)])
-    .join('')
 }
 
 /** Display the page number in the section's number format (w:pgNumType w:fmt) */

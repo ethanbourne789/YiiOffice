@@ -34,9 +34,9 @@ function strAttr(tag: string, name: string): string | undefined {
   return new RegExp(`${name}\\s*=\\s*["']([^"']*)["']`).exec(tag)?.[1]
 }
 
-/** Integer attribute of a tag; XML allows either quote style, so match both. */
+/** Integer attribute of a tag; XML allows either quote style and whitespace around `=`. */
 function intAttr(tag: string, name: string, fallback: number): number {
-  const m = new RegExp(`${name}=["'](-?\\d+)["']`).exec(tag)
+  const m = new RegExp(`${name}\\s*=\\s*["'](-?\\d+)["']`).exec(tag)
   const v = m ? parseInt(m[1], 10) : NaN
   return Number.isFinite(v) ? v : fallback
 }
@@ -419,9 +419,13 @@ export function applySectionSettings(sectPrXml: string, settings: SectionSetting
   } else {
     xml = injectIntoSectPr(xml, pgSz)
   }
+  // Either quote style and whitespace around `=` are legal XML; matching only
+  // `name="` would fall through and append a duplicate attribute (which Word
+  // then reports as a repairable file).
   const replaceMarAttr = (tag: string, name: string, value: number): string => {
-    if (new RegExp(`${name}="`).test(tag)) {
-      return tag.replace(new RegExp(`${name}="-?\\d+"`), `${name}="${value}"`)
+    const existing = new RegExp(`${name}\\s*=\\s*["']-?\\d+["']`)
+    if (existing.test(tag)) {
+      return tag.replace(existing, `${name}="${value}"`)
     }
     return tag.replace(/\/>$/, ` ${name}="${value}"/>`)
   }

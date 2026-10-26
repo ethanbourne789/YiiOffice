@@ -26,4 +26,12 @@ describe('workbook open bounds', () => {
     expect(parseSharedStringsXml(xml)).toEqual(['hello', 'ab'])
     expect(parseSharedStringsXml('<sst/>')).toEqual([])
   })
+
+  it('keeps phonetic (ruby) runs out of the cell value', () => {
+    const xml =
+      `<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="2" uniqueCount="2">` +
+      `<si><t>東京</t><rPh sb="0" eb="2"><t>トウキョウ</t></rPh><phoneticPr fontId="1"/></si>` +
+      `<si><r><t>大阪</t></r><rPh sb="0" eb="2"><t>オオサカ</t></rPh></si></sst>`
+    expect(parseSharedStringsXml(xml)).toEqual(['東京', '大阪'])
+  })
 })

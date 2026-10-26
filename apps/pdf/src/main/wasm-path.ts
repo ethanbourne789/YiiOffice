@@ -1,6 +1,5 @@
-import { existsSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 
 /**
  * Runtime wasm assets live in node_modules during dev/tests but the packaged app
@@ -20,19 +19,10 @@ export function pdfiumWasmPath(): string {
 }
 
 export function hbSubsetWasmPath(): string {
-  const r = req()
   try {
-    // harfbuzzjs ≤0.10 ships hb-subset.wasm at the package root with no exports map
-    return r.resolve('harfbuzzjs/hb-subset.wasm')
+    // harfbuzzjs 1.x seals subpaths except ./dist/*.wasm — resolve through the exports map
+    return req().resolve('harfbuzzjs/dist/harfbuzz-subset.wasm')
   } catch {
-    /* fall through */
+    return packagedPath('hb-subset.wasm')
   }
-  try {
-    // harfbuzzjs ≥1.x seals subpaths; the wasm sits next to the exported entry point
-    const p = join(dirname(r.resolve('harfbuzzjs')), 'harfbuzz-subset.wasm')
-    if (existsSync(p)) return p
-  } catch {
-    /* fall through */
-  }
-  return packagedPath('hb-subset.wasm')
 }

@@ -3,6 +3,7 @@
 
 import { parseAddress } from '../domain/cell-address'
 import { MAX_GRID_COLUMNS, MAX_GRID_ROWS } from '../shared/grid-bounds'
+import { escapeXmlText } from '../shared/xml'
 
 export class SparklineAddError extends Error {}
 
@@ -27,9 +28,6 @@ const X14_NS = 'http://schemas.microsoft.com/office/spreadsheetml/2009/9/main'
 const XM_NS = 'http://schemas.microsoft.com/office/excel/2006/main'
 const DEFAULT_SERIES_ARGB = 'FF376092'
 const NEGATIVE_ARGB = 'FFD00000'
-function escapeXml(value: string): string {
-  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
 
 function toArgb(color: string | undefined): string {
   if (color === undefined) return DEFAULT_SERIES_ARGB
@@ -54,7 +52,7 @@ function buildGroupXml(group: SparklineGroupAdd): string {
   const sparklines = group.cells
     .map(
       (cell) =>
-        `<x14:sparkline><xm:f>${escapeXml(cell.sourceRef)}</xm:f>` +
+        `<x14:sparkline><xm:f>${escapeXmlText(cell.sourceRef)}</xm:f>` +
         `<xm:sqref>${toSqref(cell.cell)}</xm:sqref></x14:sparkline>`,
     )
     .join('')

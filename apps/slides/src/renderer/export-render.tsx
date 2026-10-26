@@ -3,7 +3,6 @@
  * and exports high-resolution PNGs. Reuses SlideThumb (same rendering as the main canvas and
  * thumbnails), guaranteeing the export matches what the editor shows.
  */
-import React from 'react'
 import { createRoot } from 'react-dom/client'
 import type Konva from 'konva'
 import { Layer, Stage } from 'react-konva'

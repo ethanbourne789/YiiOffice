@@ -8,7 +8,7 @@
  *   in a Konva Group driven by NodeAnimState (opacity/scale/rotation/offset/wipe clip,
  *   transformed around the node center).
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Stage, Layer, Rect, Group } from 'react-konva'
 import type { Context } from 'konva/lib/Context'
 import type { RenderNode, RenderSlide, ShapeRenderNode } from '@yiioffice/pptx-render'

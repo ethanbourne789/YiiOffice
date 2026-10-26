@@ -2,7 +2,7 @@ import JSZip from 'jszip'
 import { describe, expect, it } from 'vitest'
 import { generateParagraphXml, generateTocFieldXml, parseDocx, saveDocx } from '../src/index'
 import { sdtCheckboxGlyphs } from '../src/checkbox-control'
-import type { Block, GenerateContext, GeneratedBlock } from '../src/index'
+import { Block, GenerateContext } from '../src/index'
 import { buildDocx } from './helpers/build-docx'
 
 const documentXmlOf = async (bytes: Uint8Array): Promise<string> =>

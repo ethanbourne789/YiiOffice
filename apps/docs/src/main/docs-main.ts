@@ -24,21 +24,7 @@ import {
 import { tmpdir } from 'node:os'
 import { basename, dirname, extname, isAbsolute, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import {
-  BrowserWindow,
-  ClipboardItem,
-  Menu,
-  WebContentsView,
-  app,
-  clipboard,
-  dialog,
-  ipcMain,
-  nativeImage,
-  net,
-  session,
-  shell,
-  webContents,
-} from 'electron'
+import { BrowserWindow, ClipboardItem, Menu, WebContentsView, app, clipboard, dialog, ipcMain, nativeImage, session, shell, webContents } from 'electron'
 import {
   appMenuLabels,
   configuredDefaultSaveDir,

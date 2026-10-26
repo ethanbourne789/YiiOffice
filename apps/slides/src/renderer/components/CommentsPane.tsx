@@ -4,7 +4,7 @@
  * sends back intents. The list is owned by App (refreshed after page switch/add/delete), keeping
  * the ribbon badge in sync.
  */
-import React, { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { SlideComment } from '../../shared/ipc'
 import { useI18n } from '../i18n/locale'
 import { IconComment, IconSidebarCollapse } from './icons'

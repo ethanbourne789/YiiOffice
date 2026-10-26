@@ -87,7 +87,7 @@ import { adoptEmbeddedFonts } from './embedded-fonts'
 import { defaultEastAsiaFontFor } from './font-list'
 import { hasPrintableHeaderFooter } from './pagination'
 import { clearPrintZoom, setPrintZoom } from './print-zoom'
-import { showToast } from './components/toast-bus'
+import { showToast } from '@yiioffice/ui'
 import { buildStandaloneHtml } from './html-export'
 /** An export waiting for the pagination preview to mount; resolve settles the caller's exportPdf promise. */
 export type PendingPdfExport = { outPath?: string; resolve: (ok: boolean) => void }
@@ -888,14 +888,6 @@ export interface ExplicitSaveTarget {
   overwrite: boolean
   /** receives the main process's reason when the write is refused */
   onError?: (message: string) => void
-}
-
-/** the parsed fragment flags every node aiChanged (yellow highlight); a boot-time fill is not a reviewable AI edit */
-function stripAiChanged(node: PmNode): PmNode {
-  const next: PmNode = { ...node }
-  if (next.attrs && 'aiChanged' in next.attrs) next.attrs = { ...next.attrs, aiChanged: false }
-  if (next.content) next.content = next.content.map(stripAiChanged)
-  return next
 }
 
 /**

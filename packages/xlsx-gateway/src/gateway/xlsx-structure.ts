@@ -4,6 +4,8 @@
 /// validations, conditional formatting). Anything that cannot be shifted
 /// safely throws — the save must fail closed rather than corrupt references.
 
+import { columnToLetters, escapeXmlAttribute, escapeXmlText, lettersToColumn, unescapeXml } from '../shared/xml'
+
 import type { WorkbookStyleEdit } from '../shared/edit-schemas'
 import { MAX_GRID_COLUMNS, MAX_GRID_ROWS } from '../shared/grid-bounds'
 
@@ -355,11 +357,47 @@ function toRef(range: CellArea): string {
   )
 }
 
+/// Inverse of `toRef`, for reading existing `<mergeCell ref="…">` back into a
+/// comparable area. A single-cell ref (no colon) is its own 1×1 area.
+function parseAreaRef(ref: string): CellArea | null {
+  const [startRaw, endRaw] = ref.replace(/\$/g, '').split(':')
+  if (!startRaw) return null
+  const start = parseA1(startRaw)
+  const end = parseA1(endRaw ?? startRaw)
+  if (!start || !end) return null
+  return {
+    startRow: Math.min(start.row, end.row),
+    endRow: Math.max(start.row, end.row),
+    startColumn: Math.min(start.column, end.column),
+    endColumn: Math.max(start.column, end.column),
+  }
+}
+
+function existingMergeAreas(xml: string): { ref: string; area: CellArea }[] {
+  const out: { ref: string; area: CellArea }[] = []
+  for (const match of xml.matchAll(/<mergeCell\b[^>]*\bref="([^"]+)"[^>]*\/>/g)) {
+    const area = parseAreaRef(match[1] ?? '')
+    if (area) out.push({ ref: match[1]!, area })
+  }
+  return out
+}
+
+/// Excel refuses a merge that touches cells of another merge — the file only
+/// opens after a repair. Re-merging the exact same range is idempotent (skip);
+/// any other overlap must fail closed instead of writing a corrupt sheet.
 function applyMergeOp(xml: string, op: Extract<StructuralOp, { range: CellArea }>): string {
   const ref = toRef(op.range)
   if (op.kind === 'unmerge-cells') {
     const without = xml.replace(new RegExp(`<mergeCell\\b[^>]*\\bref="${ref}"[^>]*/>`), '')
     return refreshMergeCount(without)
+  }
+  for (const existing of existingMergeAreas(xml)) {
+    if (existing.ref === ref || sameArea(existing.area, op.range)) return xml
+    if (areasOverlap(existing.area, op.range)) {
+      throw new StructuralShiftError(
+        `Merging ${ref} would overlap the existing merge ${existing.ref} — unmerge it first.`,
+      )
+    }
   }
   const element = `<mergeCell ref="${ref}"/>`
   if (xml.includes('</mergeCells>')) {
@@ -608,7 +646,7 @@ export function shiftCrossSheetFormulas(
     const axis: Axis = axisOf(op)
     const shift = toShift(op)
     const rewrite = (body: string): string =>
-      escapeXmlText(shiftFormulaText(decodeEntities(body), editedSheetName, shift, axis, true))
+      escapeXmlText(shiftFormulaText(unescapeXml(body), editedSheetName, shift, axis, true))
     // The attribute part must not end with '/': a self-closing shared
     // formula (`<f t="shared" si="0"/>`) is not an opening tag, and matching
     // it would swallow real XML up to the next `</f>` as a "formula body".
@@ -626,7 +664,7 @@ export function shiftCrossSheetFormulas(
       /(<hyperlink\b[^>]*?\blocation=")([^"]+)(")/g,
       (_full, prefix: string, location: string, suffix: string) =>
         `${prefix}${escapeXmlAttribute(
-          shiftFormulaText(decodeEntities(location), editedSheetName, shift, axis, true),
+          shiftFormulaText(unescapeXml(location), editedSheetName, shift, axis, true),
         )}${suffix}`,
     )
   }
@@ -647,7 +685,7 @@ export function shiftDefinedNames(
       /(<definedName\b[^>]*>)([\s\S]*?)(<\/definedName>)/g,
       (_full, open: string, body: string, close: string) =>
         `${open}${escapeXmlText(
-          shiftFormulaText(decodeEntities(body), editedSheetName, shift, axis, true),
+          shiftFormulaText(unescapeXml(body), editedSheetName, shift, axis, true),
         )}${close}`,
     )
   }
@@ -668,7 +706,7 @@ export function shiftChartReferences(
       /(<c:f>)([\s\S]*?)(<\/c:f>)/g,
       (_full, open: string, body: string, close: string) =>
         `${open}${escapeXmlText(
-          shiftFormulaText(decodeEntities(body), editedSheetName, shift, axis, true),
+          shiftFormulaText(unescapeXml(body), editedSheetName, shift, axis, true),
         )}${close}`,
     )
   }
@@ -858,7 +896,7 @@ function listTableColumns(tableXml: string): TableColumnElement[] {
       start: match.index,
       end: match.index + match[0].length,
       id: Number(/\bid="([0-9]+)"/.exec(open)?.[1] ?? '0'),
-      name: decodeEntities(/\bname="([^"]*)"/.exec(open)?.[1] ?? ''),
+      name: unescapeXml(/\bname="([^"]*)"/.exec(open)?.[1] ?? ''),
     })
   }
   return elements
@@ -1027,6 +1065,15 @@ function areasOverlap(a: CellArea, b: CellArea): boolean {
   return (
     spansOverlap(a.startRow, a.endRow, b.startRow, b.endRow) &&
     spansOverlap(a.startColumn, a.endColumn, b.startColumn, b.endColumn)
+  )
+}
+
+function sameArea(a: CellArea, b: CellArea): boolean {
+  return (
+    a.startRow === b.startRow &&
+    a.endRow === b.endRow &&
+    a.startColumn === b.startColumn &&
+    a.endColumn === b.endColumn
   )
 }
 
@@ -1421,7 +1468,7 @@ function transformFormulas(xml: string, sheetName: string, shift: Shift, axis: A
     (_full, rawAttributes: string | undefined, body: string) => {
       const attributes = rawAttributes ?? ''
       const rewritten = escapeXmlText(
-        shiftFormulaText(decodeEntities(body), sheetName, shift, axis),
+        shiftFormulaText(unescapeXml(body), sheetName, shift, axis),
       )
       const newAttributes = attributes.replace(
         /(\bref=")([^"]*)(")/,
@@ -1445,7 +1492,7 @@ function transformFormulas(xml: string, sheetName: string, shift: Shift, axis: A
   result = result.replace(
     /<(formula[12]?)>([\s\S]*?)<\/\1>/g,
     (_full, tag: string, body: string) =>
-      `<${tag}>${escapeXmlText(shiftFormulaText(decodeEntities(body), sheetName, shift, axis))}</${tag}>`,
+      `<${tag}>${escapeXmlText(shiftFormulaText(unescapeXml(body), sheetName, shift, axis))}</${tag}>`,
   )
   return result
 }
@@ -1818,38 +1865,3 @@ function parseA1(ref: string): { row: number; column: number } | null {
   return { row: Number(match[2]) - 1, column: lettersToColumn(match[1]) }
 }
 
-function lettersToColumn(letters: string): number {
-  let column = 0
-  for (const character of letters) {
-    column = column * 26 + character.charCodeAt(0) - 64
-  }
-  return column - 1
-}
-
-function columnToLetters(column: number): string {
-  let letters = ''
-  let remaining = column + 1
-  while (remaining > 0) {
-    remaining -= 1
-    letters = String.fromCharCode(65 + (remaining % 26)) + letters
-    remaining = Math.floor(remaining / 26)
-  }
-  return letters
-}
-
-function decodeEntities(input: string): string {
-  return input
-    .replaceAll('&quot;', '"')
-    .replaceAll('&apos;', "'")
-    .replaceAll('&gt;', '>')
-    .replaceAll('&lt;', '<')
-    .replaceAll('&amp;', '&')
-}
-
-function escapeXmlText(input: string): string {
-  return input.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
-}
-
-function escapeXmlAttribute(input: string): string {
-  return escapeXmlText(input).replaceAll('"', '&quot;')
-}

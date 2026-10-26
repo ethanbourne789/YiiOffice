@@ -8,13 +8,7 @@ vi.mock('electron', () => ({
   },
 }))
 
-import {
-  appMenuLabels,
-  buildContextMenuItems,
-  contextMenuLabels,
-  installContextMenu,
-  setContextMenuInterceptor,
-} from '../src/index'
+import { buildContextMenuItems, contextMenuLabels, installContextMenu, setContextMenuInterceptor } from '../src/index'
 
 const { popup } = electronMock
 

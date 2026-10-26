@@ -1,9 +1,9 @@
 /** Transient feedback for user-triggered actions (save etc.): a fixed
  * top-center pill that auto-dismisses. The status bar stays the durable log.
- * Trigger via showToast from './toast-bus' (kept component-only here so React
+ * Trigger via showToast from '@yiioffice/ui' (the bus lives there, component-only here so React
  * Fast Refresh works in dev). */
 import { useEffect, useState } from 'react'
-import { setToastEmitter, type ToastData } from './toast-bus'
+import { setToastEmitter, type ToastData } from '@yiioffice/ui'
 
 export function ToastHost() {
   const [toast, setToast] = useState<ToastData | null>(null)

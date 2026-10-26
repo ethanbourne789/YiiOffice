@@ -4,6 +4,7 @@
 /// Mappings are the exact inverse of the read-side install in App.tsx.
 
 import { MAX_GRID_COLUMNS, MAX_GRID_ROWS } from '../shared/grid-bounds'
+import { columnToLetters, escapeXmlAttribute, escapeXmlText } from '../shared/xml'
 
 export class DvEditError extends Error {}
 
@@ -334,28 +335,4 @@ function toRef(range: DvCellArea): string {
   return range.startRow === range.endRow && range.startColumn === range.endColumn
     ? start
     : `${start}:${columnToLetters(range.endColumn)}${range.endRow + 1}`
-}
-
-function columnToLetters(column: number): string {
-  let letters = ''
-  let remaining = column + 1
-  while (remaining > 0) {
-    remaining -= 1
-    letters = String.fromCharCode(65 + (remaining % 26)) + letters
-    remaining = Math.floor(remaining / 26)
-  }
-  return letters
-}
-
-function escapeXmlText(input: string): string {
-  return input.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
-}
-
-function escapeXmlAttribute(input: string): string {
-  return input
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll('\n', '&#10;')
 }

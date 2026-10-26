@@ -1,0 +1,20 @@
+{
+  // Renderer + preload: browser contexts, so they get the DOM lib while the main
+  // process has its own stricter project. Tests stay out of the typecheck scope
+  // (they run through vitest/esbuild), as before the split.
+
+  "extends": "./tsconfig.shared.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node", "vite/client"]
+  },
+  "include": [
+    "src/preload",
+    "src/renderer",
+    "src/shared",
+    "../slides/src/main/env.d.ts",
+    "../../packages/pdf2docx/src/bidi-js.d.ts",
+    "../../packages/html2docx/src/raw.d.ts"
+  ]
+}

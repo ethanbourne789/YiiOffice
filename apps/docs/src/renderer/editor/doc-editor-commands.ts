@@ -56,7 +56,7 @@ function paraPositionsInRange(
 
 function setParagraphAttrsCommand(attrs: Record<string, unknown>) {
   return ({ state, dispatch }: { state: EditorState; dispatch?: (tr: Transaction) => void }) => {
-    const { from, to } = state.selection.range()
+    const { from, to } = state.selection
     const changed: [number, Record<string, unknown>][] = []
 
     for (const pos of paraPositionsInRange(state.doc, from, to)) {
@@ -87,7 +87,7 @@ function setParagraphAttrsCommand(attrs: Record<string, unknown>) {
 function stepHangingIndentCommand(delta: number) {
   return ({ state, dispatch }: { state: EditorState; dispatch?: (tr: Transaction) => void }) => {
     const HALF_INCH_TWIPS = 360
-    const { from, to } = state.selection.range()
+    const { from, to } = state.selection
     let didChange = false
 
     if (!dispatch) return false
@@ -118,7 +118,7 @@ function stepIndentCommand(delta: number) {
 
     if (!dispatch) return false
 
-    const { from, to } = state.selection.range()
+    const { from, to } = state.selection
     let didChange = false
 
     for (const pos of paraPositionsInRange(state.doc, from, to)) {
@@ -159,7 +159,7 @@ function stepIndentCommand(delta: number) {
 
 function unsetListCommand() {
   return ({ state, dispatch }: { state: EditorState; dispatch?: (tr: Transaction) => void }) => {
-    const { from, to } = state.selection.range()
+    const { from, to } = state.selection
     let didChange = false
 
     if (!dispatch) return false
@@ -168,7 +168,7 @@ function unsetListCommand() {
       const node = state.doc.nodeAt(pos)
       if (node && node.type.name === 'docListItem') {
         // Convert list item to paragraph, preserving content and paragraph attrs
-        const paraAttrs = {
+        const paraAttrs: Record<string, unknown> = {
           styleId: node.attrs.styleId ?? null,
           indentLeft: node.attrs.indentLeft ?? null,
           indentFirstLine: node.attrs.indentFirstLine ?? null,
@@ -200,7 +200,7 @@ function toggleListItemCommand(options: {
   level: number
 }) {
   return ({ state, dispatch }: { state: EditorState; dispatch?: (tr: Transaction) => void }) => {
-    const { from, to } = state.selection.range()
+    const { from, to } = state.selection
     let didChange = false
 
     if (!dispatch) return false

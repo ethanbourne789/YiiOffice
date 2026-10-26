@@ -1,0 +1,7 @@
+{
+  // Compiler options shared by both sides of the app (workspace paths, strictness).
+  // The main/renderer split below only adds lib, types and file sets.
+
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {}
+}

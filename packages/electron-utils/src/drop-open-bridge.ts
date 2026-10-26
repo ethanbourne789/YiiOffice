@@ -1,0 +1,103 @@
+/// Preload-side half of drag & drop opening (see drop-open.ts for the rules).
+///
+/// Renderers share one main process (the shell hosts every editor view), so the
+/// bridge only has to resolve dropped files to paths and send them over ONE
+/// channel; the shell routes each path through its normal open pipeline. The
+/// installer runs inside preloads, where `webUtils.getPathForFile` is callable
+/// and DOM listeners see real OS drops — paths never cross contextBridge.
+///
+/// Ownership contract with page-level drop zones: a zone that handles its own
+/// file drops (AI attachment panels, slides image insert) cancels the event
+/// before it bubbles here (`defaultPrevented`), and this bridge stays out of
+/// the way. Text/media drags without OS files are untouched.
+import { ipcRenderer, webUtils } from "electron";
+import {
+  DROP_OPEN_CHANNEL,
+  KNOWN_UNSUPPORTED_DOC_RE,
+  MAX_DROPPED_FILES,
+  OPENABLE_DOC_RE,
+} from "./drop-open";
+
+/** the resolver signature webUtils.getPathForFile satisfies; injectable for tests */
+type PathResolver = (file: File) => string;
+
+/** Resolve one dropped file, tolerating resolver failures (see droppableFilePaths). */
+function tryResolvePath(file: File, getPathForFile: PathResolver): string {
+  try {
+    return getPathForFile(file).trim();
+  } catch {
+    return "";
+  }
+}
+
+/** Early bound for path resolution: downstream caps opens at 20, but resolving
+ *  10k dropped files first still costs. Overlong paths are skipped outright. */
+export const MAX_RESOLVED_DROP_PATHS = 100;
+export const MAX_DROP_PATH_CHARS = 4096;
+
+/**
+ * Resolve an event's dropped files to local paths. Returns null when the drag
+ * carries no OS files at all (internal text/element drags), or [] when it does
+ * but none resolve (directories, virtual entries) — both mean "not ours".
+ */
+export function droppableFilePaths(
+  ev: Pick<DragEvent, "dataTransfer">,
+  getPathForFile: PathResolver,
+): string[] | null {
+  const transfer = ev.dataTransfer;
+  if (!transfer || !transfer.types.includes("Files")) return null;
+  const paths: string[] = [];
+  for (const file of Array.from(transfer.files)) {
+    if (paths.length >= MAX_RESOLVED_DROP_PATHS) break;
+    // A throwing resolver (e.g. a sandboxed entry Electron cannot map) must
+    // not abort the whole drop: skip that file like a virtual entry.
+    // Non-empty guard covers virtual entries (e.g. page-referenced blobs).
+    const path = tryResolvePath(file, getPathForFile);
+    if (!path || path.length > MAX_DROP_PATH_CHARS) continue;
+    paths.push(path);
+  }
+  return paths;
+}
+
+/** Symbol.for keeps repeated installs idempotent when several bundled copies of
+ *  this module end up in one process (mirrors navigation-guard). */
+const INSTALLED = Symbol.for("yiioffice.drop-open-installed");
+
+/**
+ * Preload-side hook: makes `drop` fire for document drags anywhere in the
+ * page and forwards recognized files to the shell's router. Intentionally not
+ * exposed through contextBridge — page code cannot spoof these events with
+ * arbitrary paths because payload construction happens here in the preload
+ * world only.
+ */
+export function installDropOpenBridge(): void {
+  const holder = globalThis as Record<symbol, boolean | undefined>;
+  if (typeof window === "undefined" || holder[INSTALLED]) return;
+  holder[INSTALLED] = true;
+
+  // Without a canceled dragover Chromium never fires `drop`; canceling here is
+  // what lets a document-drag land anywhere that isn't already a drop zone.
+  window.addEventListener("dragover", (ev: DragEvent) => {
+    if (ev.defaultPrevented) return;
+    if (!ev.dataTransfer?.types.includes("Files")) return;
+    ev.preventDefault();
+  });
+
+  window.addEventListener("drop", (ev: DragEvent) => {
+    // first: something in the page already claimed this drop (image insert,
+    // AI attachments...) — never second-guess it
+    if (ev.defaultPrevented) return;
+    const paths = droppableFilePaths(ev, (file) =>
+      webUtils.getPathForFile(file),
+    );
+    if (!paths) return;
+    // only recognized documents ride along; stray images/folders are swallowed
+    // here so they neither navigate the page nor produce open attempts
+    const payload = paths.filter(
+      (p) => OPENABLE_DOC_RE.test(p) || KNOWN_UNSUPPORTED_DOC_RE.test(p),
+    );
+    ev.preventDefault();
+    if (payload.length === 0) return;
+    ipcRenderer.send(DROP_OPEN_CHANNEL, payload.slice(0, MAX_DROPPED_FILES));
+  });
+}

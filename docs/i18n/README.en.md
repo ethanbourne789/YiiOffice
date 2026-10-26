@@ -2,10 +2,10 @@
 
 **A local-first, open-source Office suite — reads and writes real Word, Excel, PowerPoint and PDF files. No sign-in, no uploads, no ads.**
 
-![Electron](https://img.shields.io/badge/Electron-43-47848F?logo=electron&logoColor=white)
+![Electron](https://img.shields.io/badge/Electron-45-47848F?logo=electron&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)
-![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
+![TypeScript](https://img.shields.io/badge/TypeScript-7.0-3178C6?logo=typescript&logoColor=white)
+![Platform](https://img.shields.io/badge/platform-Windows-0078D4?logo=windows&logoColor=white)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 ![No Login](https://img.shields.io/badge/no%20login-%E2%9C%93-brightgreen)
 ![No Ads](https://img.shields.io/badge/no%20ads-%E2%9C%93-brightgreen)
@@ -30,7 +30,7 @@ Four principles follow from that:
 | **Clean** | No login wall, no ads, no telemetry, no paid entry points hidden in the UI. |
 | **Format first** | Reads and writes standard `.docx` / `.xlsx` / `.pptx` / `.pdf` directly. No private formats, no "import, then edit". |
 
-**About the runtime:** this repository is the **Electron edition** of YiiOffice (Electron 43 + React 19). The Tauri 3 edition lives in the `YiiOffice-Tauri3` repository and covers the same feature surface. Electron ships Chromium and Node inside the app, so installers and memory use are larger — in exchange, rendering is identical on all three platforms, no system WebView version is involved, and the debugging and packaging toolchain is mature.
+**About the runtime:** this repository is the **Electron edition** of YiiOffice (Electron 45 + React 19). The Tauri 3 edition lives in the `YiiOffice-Tauri3` repository and covers the same feature surface. Electron ships Chromium and Node inside the app, so installers and memory use are larger — in exchange, rendering is fully deterministic, no system WebView version is involved, and the debugging and packaging toolchain is mature.
 
 **About AI:** this tree **does not** contain an AI / LLM / MCP subsystem; those entry points were removed, leaving only a few stubs still to be cleaned up.
 
@@ -56,7 +56,7 @@ One window hosting every editor as a tab — the first thing you see when the ap
 |--------|---------|--------|------------|
 | **Docs** | `.docx` | Tiptap 3 + `docx-engine` | Paginated and multi-page views, headers and footers, page numbers and sections, style gallery, rulers and page setup, footnotes and endnotes, comments, document compare, equations and fields, ink, find and replace, word count, document protection, encrypted files, print and PDF export |
 | **Sheets** | `.xlsx` `.xlsm` `.xls` `.csv` `.tsv` | Univer 0.25 + `xlsx-gateway` + Rust `xlsx-sidecar` | Formulas and a function library (insert function, argument hints), format cells, conditional formatting, data validation, sort/filter/advanced filter, grouping, pivot tables, charts, merge and freeze, go-to, goal seek, consolidate, fill series, paste special, name manager, sheet protection, paged printing, CSV |
-| **Slides** | `.pptx` | Konva 9 + `pptx-engine` / `pptx-render` | Masters and layouts, text/shape/picture/chart editing, animations and transitions (Morph included), slideshow with presenter view, notes and comments, custom shows, non-destructive cropping, ink, SVG and image export |
+| **Slides** | `.pptx` | Konva 10 + `pptx-engine` / `pptx-render` | Masters and layouts, text/shape/picture/chart editing, animations and transitions (Morph included), slideshow with presenter view, notes and comments, custom shows, non-destructive cropping, ink, SVG and image export |
 | **PDF** | `.pdf` | pdf.js 6 + PDFium WASM + pdf-lib | In-place text and image editing, comments and markup, form design and filling, redaction, signatures and stamps, outline navigation, page operations, password protection, on-device PDF → Word/PPT/Excel |
 | **Markdown** | `.md` `.markdown` `.txt` `.json` | Tiptap + CodeMirror 6 | WYSIWYG and source views, tables/code blocks/images, Mermaid diagrams, KaTeX math, export to DOCX / PDF / image, print |
 
@@ -90,16 +90,16 @@ yiioffice open report.docx                         # hand the file to the editor
 
 | Layer | Choice |
 |-------|--------|
-| Desktop runtime | **Electron 43** + electron-vite 5, packaged with electron-builder 26 |
+| Desktop runtime | **Electron 45** + electron-vite 6, packaged with electron-builder 26 |
 | Main process | Node (TypeScript), `WebContentsView` tab host, `node:sqlite` FTS5 index |
-| Frontend | React 19 + TypeScript 5.9, one Vite 7 build per app |
+| Frontend | React 19 + TypeScript 7.0, one Vite 8 build per app |
 | Documents | Tiptap 3 (Docs / Markdown) |
 | Spreadsheets | Univer 0.25; `.xlsx` parsing and formula evaluation in a Rust sidecar (calamine + IronCalc) |
-| Slides | Konva 9 / react-konva 19 |
+| Slides | Konva 10 / react-konva 19 |
 | PDF | pdf.js 6, PDFium WASM (`@embedpdf/pdfium`), pdf-lib |
 | Code editing | CodeMirror 6 (HTML / Markdown source views) |
-| Rendering support | harfbuzzjs (complex text shaping), Mermaid, KaTeX |
-| Tooling | npm workspaces (monorepo), ESLint 10, Prettier, Vitest 4, Playwright, Cargo |
+| Rendering support | harfbuzzjs 1.6 (complex text shaping, font subsetting), Mermaid, KaTeX |
+| Tooling | npm workspaces (monorepo), ESLint 10, Prettier, Vitest 5, Playwright, Cargo |
 
 ---
 
@@ -113,8 +113,6 @@ yiioffice open report.docx                         # hand the file to the editor
 | npm | ≥ 10 |
 | Rust | stable — only for the Sheets `xlsx-sidecar`; `cargo` on PATH |
 | Windows | Windows 10/11, x64 or arm64 |
-| macOS | arm64 (`YIIOFFICE_MAC_X64=1` also packages the Intel build) |
-| Linux | x64; AppImage, deb and rpm targets |
 
 ### Install and develop
 
@@ -142,12 +140,10 @@ npm run build:all
 npm run shell
 
 # Full packages
-npm run dist:mac      # dmg + zip (universal sidecar)
 npm run dist:win      # zip (portable; no NSIS installer yet)
-npm run dist:linux    # AppImage + deb + rpm
 ```
 
-Packaging regenerates the bundled third-party licence list (`npm run notices`) first. The Sheets sidecar is compiled by `npm run build -w @yiioffice/sheets`, which runs `cargo build --release`; on macOS `dist:mac` merges both architectures into a universal binary.
+Packaging regenerates the bundled third-party licence list (`npm run notices`) first. The Sheets sidecar is compiled by `npm run build -w @yiioffice/sheets`, which runs `cargo build --release`.
 
 ---
 
@@ -225,11 +221,11 @@ A single app can be checked on its own: `npm test -w @yiioffice/docs`, `npm run 
 
 ## Status
 
-The app is at `0.11.0` (`@yiioffice/shell`), the root `package.json` still says `0.1.0` and the CLI is `0.10.0`; the three version numbers are not aligned yet. A Windows portable zip can be built locally (`apps/shell/release-build/YiiOffice-0.11.0-win.zip`); macOS and Linux artifacts are not published.
+The app is at `0.11.0` (`@yiioffice/shell`), the root `package.json` still says `0.1.0` and the CLI is `0.10.0`; the three version numbers are not aligned yet. A Windows portable zip can be built locally (`apps/shell/release-build/YiiOffice-0.11.0-win.zip`).
 
 | State | Content |
 |-------|---------|
-| ✅ Done | Monorepo structure; shell main flow (home, tabs, file create/rename/move/delete, persisted settings, full-text search); renderer and main-process features of all five editors; Rust xlsx sidecar; CLI and control channel; packaging scripts (mac / win / linux) |
+| ✅ Done | Monorepo structure; shell main flow (home, tabs, file create/rename/move/delete, persisted settings, full-text search); renderer and main-process features of all five editors; Rust xlsx sidecar; CLI and control channel; packaging script (win) |
 | 🚧 In progress | Cleaning up the AI stubs left after the subsystem was removed; unifying the IPC trust model (path grants plus `senderFrame` checks); preserving file permissions on atomic writes; `ErrorBoundary` in renderers and a main-process crash handler; promoting the test and typecheck gates |
 | 🗺️ Planned | ODF import (`.odt/.ods/.odp`), PDF certificate signatures, Markdown backlinks, more UI languages |
 
@@ -249,7 +245,7 @@ No. There is no account system and no upload; editing, saving, search and conver
 Yes. Saves are OOXML patches: only edited nodes change, the remaining bytes stay as they were, so structures and extended properties Office relies on are preserved.
 
 **How does this relate to `YiiOffice-Tauri3`?**
-Two runtimes over the same product. The Tauri edition uses a Rust main process and the system WebView, so packages and memory are smaller; the Electron edition uses Chromium and Node, giving identical rendering on all platforms plus a mature ecosystem and debugging tools, at the cost of size.
+Two runtimes over the same product. The Tauri edition uses a Rust main process and the system WebView, so packages and memory are smaller; the Electron edition uses Chromium and Node, giving fully deterministic rendering plus a mature ecosystem and debugging tools, at the cost of size.
 
 **Why is there only a zip for Windows?**
 The `electron-builder` win target currently lists `zip` (portable) only. The NSIS installer and the auto-update chain are not finished — see audit §S3.

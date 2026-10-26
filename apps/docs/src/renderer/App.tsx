@@ -51,41 +51,7 @@ import {
   takeTextReroute,
 } from './editor/paste-options'
 import { PasteOptionsChip } from './components/PasteOptionsChip'
-import {
-  BLANK_BULLET_NUM_ID,
-  BLANK_ORDERED_NUM_ID,
-  DEFAULT_SECTION,
-  applyPageNumType,
-  customLevelFromNumberingLevel,
-  applySectionSettings,
-  applySectionStartType,
-  applyTitlePg,
-  verifyProtectionPassword,
-  type Block,
-  type CommentInfo,
-  type CustomNumberingLevel,
-  type NumberingDef,
-  type DocProtection,
-  type WriteProtection,
-  nextNoteId,
-  PAGE_MARK,
-  type HeaderFooter,
-  type HfImage,
-  type NoteInfo,
-  type ParsedDocFull,
-  type SectionInfo,
-  type SectionSettings,
-  type SourceInfo,
-  pictureWatermarkPreviewImage,
-  previewFontSettings,
-  type StyleInfo,
-  type StyleUpsert,
-  type DefaultFonts,
-  type ThemeColors,
-  type ThemeFonts,
-  type PictureWatermarkSpec,
-  type WatermarkSpec,
-} from '@yiioffice/docx-engine'
+import { DEFAULT_SECTION, applyPageNumType, customLevelFromNumberingLevel, applySectionSettings, applySectionStartType, applyTitlePg, verifyProtectionPassword, type Block, type CommentInfo, type CustomNumberingLevel, type NumberingDef, type DocProtection, type WriteProtection, PAGE_MARK, type HeaderFooter, type HfImage, type NoteInfo, type ParsedDocFull, type SectionInfo, type SectionSettings, type SourceInfo, pictureWatermarkPreviewImage, previewFontSettings, type StyleInfo, type StyleUpsert, type DefaultFonts, type ThemeColors, type ThemeFonts, type PictureWatermarkSpec, type WatermarkSpec } from '@yiioffice/docx-engine'
 import type { MenuCommand, OpenDocxResult } from '../shared/ipc'
 import {
   insertHfField,
@@ -293,7 +259,7 @@ import {
   type TableDialogKind,
 } from './components/TableDialogs'
 import { TablePropertiesDialog } from './components/TablePropertiesDialog'
-import { showToast } from './components/toast-bus'
+import { showToast } from '@yiioffice/ui'
 import { setTableAutoFit, toggleRepeatHeaderRows } from './editor/table-properties'
 import { distributeSelectedColumns } from './editor/table-sizing'
 import {
@@ -420,29 +386,7 @@ import {
   restartNumbering as restartNumberingImpl,
   type NumberingContext,
 } from './numbering-actions'
-import {
-  addInk as addInkImpl,
-  addCommentAt as addCommentAtImpl,
-  cancelNewComment as cancelNewCommentImpl,
-  clearInks as clearInksImpl,
-  commentThreadAtCaret as commentThreadAtCaretImpl,
-  compareWithFile as compareWithFileImpl,
-  deleteAllComments as deleteAllCommentsImpl,
-  deleteComment as deleteCommentImpl,
-  deleteCommentAtCaret as deleteCommentAtCaretImpl,
-  deleteNote as deleteNoteImpl,
-  editComment as editCommentImpl,
-  gotoComment as gotoCommentImpl,
-  handleRevision as handleRevisionImpl,
-  removeInks as removeInksImpl,
-  replyToComment as replyToCommentImpl,
-  resolveComment as resolveCommentImpl,
-  startNewComment as startNewCommentImpl,
-  submitNewComment as submitNewCommentImpl,
-  submitNote as submitNoteImpl,
-  type NotePrompt,
-  type ReviewContext,
-} from './review-actions'
+import { addInk as addInkImpl, cancelNewComment as cancelNewCommentImpl, clearInks as clearInksImpl, commentThreadAtCaret as commentThreadAtCaretImpl, compareWithFile as compareWithFileImpl, deleteAllComments as deleteAllCommentsImpl, deleteComment as deleteCommentImpl, deleteCommentAtCaret as deleteCommentAtCaretImpl, deleteNote as deleteNoteImpl, editComment as editCommentImpl, gotoComment as gotoCommentImpl, handleRevision as handleRevisionImpl, removeInks as removeInksImpl, replyToComment as replyToCommentImpl, resolveComment as resolveCommentImpl, startNewComment as startNewCommentImpl, submitNewComment as submitNewCommentImpl, submitNote as submitNoteImpl, type NotePrompt, type ReviewContext } from './review-actions'
 
 const IS_MAC = navigator.platform.toLowerCase().includes('mac')
 
@@ -890,14 +834,6 @@ export function App() {
   const footerAreaView = areaView('footer')
 
   /** the AI header/footer tool edits the strip the matching edge area shows */
-  const commitHf = (kind: 'header' | 'footer', next: HeaderFooter, viewOverride?: HfView) => {
-    commitHfAt(
-      kind === 'header' ? 0 : lastSectionIdx,
-      kind,
-      viewOverride ?? (kind === 'header' ? headerAreaView : footerAreaView),
-      next,
-    )
-  }
   /** "Different first page" toggle (ribbon checkbox); page 1's header/footer become the first-page variant, as in Word */
   const toggleTitlePg = (on: boolean) => {
     hfEditorRef.current?.exit()

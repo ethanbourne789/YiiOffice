@@ -798,7 +798,7 @@ interface ReviewTabProps extends TabProps {
 }
 
 export function ReviewTab({
-  editor,
+  editor: _editor,
   hasDoc,
   dropdown,
   setDropdown,
@@ -993,32 +993,6 @@ export function ReviewTab({
             </span>
             <span>{t('ribbonShowComments')}</span>
           </button>
-          <button
-            className="rb-big"
-            disabled={!hasDoc || openCommentCount === 0}
-            data-tip={t('ribbonAiCommentsTip', { count: openCommentCount })}
-            onClick={() => {}}
-          >
-            <span className="rb-big-icon">
-              <span className="ai-feature-icon" aria-hidden="true">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 3V11.5a7.5 7.5 0 0 1 7.5-7.5h2A7.5 7.5 0 0 1 20 11.5z" />
-                  <path
-                    d="M17 14l.26.7c.34.91.5 1.37.84 1.7.33.33.79.5 1.7.84l.7.26-.7.26c-.91.34-1.37.5-1.7.84-.34.33-.5.79-.84 1.7L17 21l-.26-.7c-.34-.91-.5-1.37-.84-1.7-.33-.34-.79-.5-1.7-.84l-.7-.26.7-.26c.91-.34 1.37-.5 1.7-.84.34-.33.5-.79.84-1.7L17 14z"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </span>
-            </span>
-            <span>{t('ribbonAiComments')}</span>
-          </button>
         </div>
         <div className="ribbon-group-label">{t('ribbonGroupComments')}</div>
       </div>
@@ -1164,33 +1138,6 @@ export function ReviewTab({
               <IconRedo size={BIG} />
             </span>
             <span>{t('ribbonNextChange')}</span>
-          </button>
-          <button
-            className="rb-big"
-            disabled={!hasDoc || revisionCount === 0}
-            data-tip={t('ribbonAiRevisionsTip', { count: revisionCount })}
-            onClick={() => {}}
-          >
-            <span className="rb-big-icon">
-              <span className="ai-feature-icon" aria-hidden="true">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M4 5h16M4 9h12M4 13h9M4 17h7" />
-                  <path
-                    d="M17 14l.26.7c.34.91.5 1.37.84 1.7.33.33.79.5 1.7.84l.7.26-.7.26c-.91.34-1.37.5-1.7.84-.34.33-.5.79-.84 1.7L17 21l-.26-.7c-.34-.91-.5-1.37-.84-1.7-.33-.34-.79-.5-1.7-.84l-.7-.26.7-.26c.91-.34 1.37-.5 1.7-.84.34-.33.5-.79.84-1.7L17 14z"
-                    strokeLinejoin="round"
-                  />
-                  <path d="M19.5 4.5l-7 7-2 .5.5-2 7-7z" />
-                </svg>
-              </span>
-            </span>
-            <span>{t('ribbonAiRevisions')}</span>
           </button>
         </div>
         <div className="ribbon-group-label">{t('ribbonGroupTracking')}</div>

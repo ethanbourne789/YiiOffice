@@ -6,6 +6,7 @@
 /// which cells belong to the pivot.
 
 import { columnIndex, columnLabel } from '../domain/cell-address'
+import { unescapeXml } from '../shared/xml'
 import { resolveRelTarget, type MutablePackage } from './xlsx-drawing-add'
 import { buildCacheDefinitionXml, buildPivotTableXml, type PivotAddition } from './xlsx-pivot-add'
 
@@ -274,7 +275,7 @@ async function applyPivotRelayout(
   // the original carries content the builders cannot reproduce.
   assertOnlyModelledContent(pivotTableXml, 'table')
   assertOnlyModelledContent(cacheXml, 'cache')
-  const name = unescapeAttribute(
+  const name = unescapeXml(
     /<pivotTableDefinition\b[^>]*?\bname="([^"]*)"/.exec(pivotTableXml)?.[1] ?? '',
   )
   const cacheId = Number(/\bcacheId="(\d+)"/.exec(pivotTableXml)?.[1])
@@ -479,11 +480,3 @@ function refToArea(ref: string): PivotAddition['location'] {
   }
 }
 
-function unescapeAttribute(input: string): string {
-  return input
-    .replaceAll('&lt;', '<')
-    .replaceAll('&gt;', '>')
-    .replaceAll('&quot;', '"')
-    .replaceAll('&apos;', "'")
-    .replaceAll('&amp;', '&')
-}

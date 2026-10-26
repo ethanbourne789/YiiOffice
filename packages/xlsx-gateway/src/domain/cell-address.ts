@@ -1,3 +1,5 @@
+import { columnToLetters, lettersToColumn, toA1 } from '../shared/xml'
+
 export interface CellCoordinates {
   readonly row: number
   readonly column: number
@@ -30,14 +32,7 @@ export function columnLabel(column: number): string {
   if (!Number.isInteger(column) || column < 0) {
     throw new RangeError(`Invalid column index: ${column}`)
   }
-  let label = ''
-  let remaining = column + 1
-  while (remaining > 0) {
-    remaining -= 1
-    label = String.fromCharCode(65 + (remaining % 26)) + label
-    remaining = Math.floor(remaining / 26)
-  }
-  return label
+  return columnToLetters(column)
 }
 
 export function formatAddress(row: number, column: number): string {
@@ -47,7 +42,7 @@ export function formatAddress(row: number, column: number): string {
   if (!Number.isInteger(column) || column < 0) {
     throw new RangeError(`Invalid column index: ${column}`)
   }
-  return `${columnLabel(column)}${row + 1}`
+  return toA1(row, column)
 }
 
 /// A → 0, Z → 25, AA → 26.
@@ -55,11 +50,7 @@ export function columnIndex(label: string): number {
   // Accept surrounding whitespace and lowercase labels.
   const normalized = label.trim().toUpperCase()
   if (!/^[A-Z]+$/.test(normalized)) throw new Error(`Invalid column label: ${label}`)
-  let column = 0
-  for (const character of normalized) {
-    column = column * 26 + character.charCodeAt(0) - 64
-  }
-  return column - 1
+  return lettersToColumn(normalized)
 }
 
 /// Accepts "A1:C10" or a single cell "B2"; normalizes so start ≤ end.

@@ -3,7 +3,7 @@
  * parity): opens at the click point, kept within the viewport; closes on outside
  * click / Escape / scroll. Picking a preset swaps the shape's geometry only.
  */
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useEscOverlay } from '../esc-overlay'
 import { isLineDrawKind } from '../draw-shape'
 import { SHAPE_GALLERY } from '../insert-presets'

@@ -54,7 +54,9 @@ function assertExtraResourceSources() {
   for (const rel of [
     '../../node_modules/electron/dist/LICENSES.chromium.html',
     '../../node_modules/@embedpdf/pdfium/dist/pdfium.wasm',
-    '../pdf/node_modules/harfbuzzjs/hb-subset.wasm',
+    // harfbuzzjs is declared by both apps/pdf and apps/slides at the same range,
+    // so npm hoists a single copy to the repo root (1.x keeps wasm under dist/)
+    '../../node_modules/harfbuzzjs/dist/harfbuzz-subset.wasm',
   ]) {
     if (!existsSync(join(__dirname, rel))) {
       throw new Error(
@@ -262,7 +264,7 @@ const config = {
       to: 'wasm/pdfium.wasm',
     },
     {
-      from: '../pdf/node_modules/harfbuzzjs/hb-subset.wasm',
+      from: '../../node_modules/harfbuzzjs/dist/harfbuzz-subset.wasm',
       to: 'wasm/hb-subset.wasm',
     },
     // platform system-OCR helpers for scanned-page recovery (each exists only

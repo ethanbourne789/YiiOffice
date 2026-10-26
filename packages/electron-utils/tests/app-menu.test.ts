@@ -21,15 +21,7 @@ vi.mock('electron', () => ({
   },
 }))
 
-import {
-  aboutMenuItem,
-  appMenuLabels,
-  editMenuTemplate,
-  helpMenuTemplate,
-  viewMenuTemplate,
-  windowMenuTemplate,
-  type AppMenuLabels,
-} from '../src/index'
+import { aboutMenuItem, appMenuLabels, editMenuTemplate, viewMenuTemplate, windowMenuTemplate, type AppMenuLabels } from '../src/index'
 
 const LANGS = ['zh', 'en'] as const
 

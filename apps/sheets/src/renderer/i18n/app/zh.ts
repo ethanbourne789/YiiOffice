@@ -244,6 +244,8 @@ export const zh = {
   appSparklinesInserted: '已插入 {count} 个迷你图（选区右侧列），⌘S 保存进文件。',
   appSaveHeldStranded:
     '透视表/表格与新建工作表 + 行列变更没法一次保存——先保存一次结构，再添加透视表/表格。',
+  appSaveDroppedLateEdits: '保存过程中产生的部分编辑未能保留，请重新修改后再保存。',
+  appSaveReopenFailed: '已保存，但工作簿未能在本窗口重新打开——请关闭后重新打开文件。',
   appSaveSecondCanceled: '第二段保存被取消——结构已保存，透视表/表格/命名区域还未写入。',
   appSavedTwoPhase: '已保存。',
   appSaveSecondFailed: '结构已保存，但第二段（透视表/表格/命名区域）失败：{reason}',

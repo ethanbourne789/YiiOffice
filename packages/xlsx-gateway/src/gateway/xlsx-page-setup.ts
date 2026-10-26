@@ -4,6 +4,7 @@
 /// name in workbook.xml. Untouched attributes and elements stay verbatim.
 
 import { columnIndex, parseRange } from '../domain/cell-address'
+import { escapeXmlText, unescapeXml } from '../shared/xml'
 import { parseSheetElements } from './xlsx-sheets'
 
 export class PageSetupError extends Error {}
@@ -250,8 +251,8 @@ export function buildHeaderFooterXml(
   footer: HeaderFooterParts | null | undefined,
 ): string {
   return assembleHeaderFooterXml(
-    header ? escapeXml(encodeHeaderFooterSections(header)) : '',
-    footer ? escapeXml(encodeHeaderFooterSections(footer)) : '',
+    header ? escapeXmlText(encodeHeaderFooterSections(header)) : '',
+    footer ? escapeXmlText(encodeHeaderFooterSections(footer)) : '',
   )
 }
 
@@ -297,7 +298,7 @@ function setHeaderFooter(
       ? undefined
       : parts === null
         ? ''
-        : escapeXml(encodeHeaderFooterSections(parts))
+        : escapeXmlText(encodeHeaderFooterSections(parts))
   setSection('oddHeader', encode(header))
   setSection('oddFooter', encode(footer))
   const element =
@@ -486,7 +487,7 @@ function setSheetScopedName(
   if (reference === null) return xml
   const element =
     `<definedName name="${name}" localSheetId="${sheetIndex}">` +
-    `${escapeXml(reference)}</definedName>`
+    `${escapeXmlText(reference)}</definedName>`
   // Google Sheets exports an empty self-closing `<definedNames/>`.
   const empty = /<definedNames\b[^>]*\/>/.exec(xml)
   if (empty) {
@@ -623,18 +624,3 @@ function hasCellRowEnds(range: string): boolean {
   }
 }
 
-function escapeXml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
-function unescapeXml(value: string): string {
-  return value
-    .replace(/&quot;/g, '"')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&')
-}

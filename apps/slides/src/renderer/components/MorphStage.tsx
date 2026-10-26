@@ -8,7 +8,7 @@
  * The decoration layer (master/layout) renders statically per the target page — in the common
  * same-layout case it's identical anyway; with different layouts we accept an instant switch.
  */
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Stage, Layer, Rect, Group } from 'react-konva'
 import type { RenderNode, RenderSlide } from '@yiioffice/pptx-render'
 import type { ShapeKey } from '../../shared/ipc'

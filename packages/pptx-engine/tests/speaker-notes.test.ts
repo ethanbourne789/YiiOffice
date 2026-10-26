@@ -113,7 +113,6 @@ describe('speaker notes', () => {
   it('iron rule: slides without written notes gain no notesSlide, existing notesSlide bytes unchanged', async () => {
     const opened = await openPptx(fx('01_standard_business.pptx'))
     const deck = opened.deck
-    const _slidePath = deck.slides[0]!.path
 
     // If the fixture already has notesSlides, record the original bytes
     const notesPathBefore: string[] = []

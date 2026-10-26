@@ -63,7 +63,7 @@ import type {
   ValidateTextEditsRequest,
 } from '../shared/ipc'
 import type { SavedSignature } from '../shared/ipc'
-import { writePdfAtomically } from './atomic-write'
+import { atomicWriteFile } from '@yiioffice/electron-utils/atomic-write'
 import {
   cropPagesBytes,
   extractPagesBytes,
@@ -577,6 +577,14 @@ export interface MergeInputIo {
 export const MAX_MERGE_TOTAL_BYTES = 1_073_741_824
 
 /**
+ * Single-file open budget. Opening used to readFile any size and then hand the
+ * buffer over IPC (a second copy on the main process, a third in the renderer),
+ * while the merge flow refused past 1 GiB — so one oversized scan could OOM
+ * the singleton main process. Same budget as the merge path.
+ */
+export const MAX_OPEN_BYTES = 1_073_741_824
+
+/**
  * Stat + sum every merge input before anything is read — refusing an
  * oversized merge must not require reading it first — then read the picked
  * files one at a time (so at most one extra copy is live) and finally the
@@ -624,6 +632,15 @@ function registerPdfIpc(): void {
   ipcMain.handle(PDF_CHANNELS.readFile, async (e, path: unknown) => {
     if (typeof path !== 'string' || !allowedByWc.get(e.sender.id)?.has(path)) {
       throw new Error('pdf: path not granted to this view')
+    }
+    // Stat first so an oversized file is refused without reading it into
+    // memory (the same shape as readMergeInputs).
+    const { size } = await stat(path)
+    if (size > MAX_OPEN_BYTES) {
+      throw new Error(
+        `pdf: file too large — ${Math.round(size / (1024 * 1024))} MB exceeds the ` +
+          `${Math.round(MAX_OPEN_BYTES / (1024 * 1024))} MB open limit`,
+      )
     }
     const buf = await readFile(path)
     return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)
@@ -972,7 +989,7 @@ function registerPdfIpc(): void {
           new Uint8Array(await readFile(other)),
           typeof afterPageIndex === 'number' ? afterPageIndex : -1,
         )
-        await writePdfAtomically(path, merged)
+        await atomicWriteFile(path, merged)
         return { ok: true, insertedCount: count }
       } catch (err) {
         return { ok: false, error: err instanceof Error ? err.message : String(err) }
@@ -992,7 +1009,7 @@ function registerPdfIpc(): void {
           new Uint8Array(await readFile(path)),
           typeof afterPageIndex === 'number' ? afterPageIndex : -1,
         )
-        await writePdfAtomically(path, bytes)
+        await atomicWriteFile(path, bytes)
         return { ok: true }
       } catch (err) {
         return { ok: false, error: err instanceof Error ? err.message : String(err) }
@@ -1120,7 +1137,7 @@ function registerPdfIpc(): void {
           new Uint8Array(await readFile(other)),
           pages,
         )
-        await writePdfAtomically(path, merged)
+        await atomicWriteFile(path, merged)
         return { ok: true, removed, inserted }
       } catch (err) {
         return { ok: false, error: err instanceof Error ? err.message : String(err) }
@@ -1140,7 +1157,7 @@ function registerPdfIpc(): void {
       }
       try {
         const bytes = await setPageSizeBytes(new Uint8Array(await readFile(path)), width, height)
-        await writePdfAtomically(path, bytes)
+        await atomicWriteFile(path, bytes)
         return { ok: true }
       } catch (err) {
         return { ok: false, error: err instanceof Error ? err.message : String(err) }
@@ -1188,7 +1205,7 @@ function registerPdfIpc(): void {
       }
       try {
         const bytes = await cropPagesBytes(new Uint8Array(await readFile(path)), pages, rect)
-        await writePdfAtomically(path, bytes)
+        await atomicWriteFile(path, bytes)
         return { ok: true }
       } catch (err) {
         return { ok: false, error: err instanceof Error ? err.message : String(err) }

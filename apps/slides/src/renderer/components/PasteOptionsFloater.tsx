@@ -3,7 +3,7 @@
  * the just-pasted slide's thumbnail. Its menu re-runs the paste with another
  * mode (keep source formatting / use destination theme / paste as picture).
  */
-import React, { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useEscOverlay } from '../esc-overlay'
 import type { PasteSlideMode } from '../../shared/ipc'
 import { ContextMenu, type CtxItem } from './ContextMenu'

@@ -3,6 +3,7 @@
 /// built-ins, hidden names, and names it failed to install (`preserveNames`)
 /// — stay byte-verbatim.
 
+import { escapeXmlAttribute, escapeXmlText, unescapeXml } from '../shared/xml'
 import { withFutureFunctionMarkers } from './future-functions'
 
 export class DefinedNameError extends Error {}
@@ -121,24 +122,4 @@ function validateName(name: string): void {
   if (name.startsWith('_xlnm')) {
     throw new DefinedNameError('Names starting with "_xlnm" are reserved by Excel.')
   }
-}
-
-function unescapeXml(input: string): string {
-  return input
-    .replaceAll('&quot;', '"')
-    .replaceAll('&lt;', '<')
-    .replaceAll('&gt;', '>')
-    .replaceAll('&amp;', '&')
-}
-
-function escapeXmlText(input: string): string {
-  return input.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
-}
-
-function escapeXmlAttribute(input: string): string {
-  return input
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
 }

@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { IpcRendererEvent } from 'electron'
-import { installDropOpenBridge } from '@yiioffice/electron-utils/drop-open'
+import { installDropOpenBridge } from '@yiioffice/electron-utils/drop-open-bridge'
 import type {
   DefaultAppStatus,
   FolderListing,

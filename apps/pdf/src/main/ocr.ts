@@ -11,8 +11,8 @@ import { fileURLToPath } from 'node:url'
 import {
   createVisionOcrEngine,
   createWindowsOcrEngine,
-} from '../../../../packages/pdf2docx/src/ocr-vision'
-import type { OcrEngine } from '../../../../packages/pdf2docx/src/ocr'
+} from '@yiioffice/pdf2docx/ocr-vision'
+import type { OcrEngine } from '@yiioffice/pdf2docx/ocr'
 import type { PdfOcrLine } from '../shared/ipc'
 
 let ocrEngine: OcrEngine | null | undefined

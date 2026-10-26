@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { IpcRendererEvent } from 'electron'
 import type { RenderSlide } from '@yiioffice/pptx-render'
-import { installDropOpenBridge } from '@yiioffice/electron-utils/drop-open'
+import { installDropOpenBridge } from '@yiioffice/electron-utils/drop-open-bridge'
 import type {
   AddChartOp,
   AddElementOp,

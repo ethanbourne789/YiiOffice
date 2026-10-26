@@ -2,10 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   DROP_OPEN_CHANNEL,
-  droppableFilePaths,
-  installDropOpenBridge,
   partitionDropPayload,
 } from '../src/drop-open'
+import { droppableFilePaths, installDropOpenBridge } from '../src/drop-open-bridge'
 
 // ---- electron mock (module under test imports ipcRenderer/webUtils eagerly) ----
 

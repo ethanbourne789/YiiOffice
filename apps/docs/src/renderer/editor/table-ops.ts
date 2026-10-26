@@ -12,7 +12,7 @@ import {
   selectedRect,
 } from '@tiptap/pm/tables'
 import { alignAttrFor, effectiveBidi } from './direction'
-import { showToast } from '../components/toast-bus'
+import { showToast } from '@yiioffice/ui'
 import { t } from '../i18n/locale'
 
 /** Word's Table menu operations that prosemirror-tables has no command for.
@@ -201,7 +201,6 @@ function insertColumnAt(tr: Transaction, tablePos: number, at: number): void {
 function insertRowAt(tr: Transaction, tablePos: number, at: number): void {
   const table = tr.doc.nodeAt(tablePos)
   if (!table) return
-  const map = TableMap.get(table)
   const g = gridOf(table)
   // Find a template row
   const templateRow = g.rows[at >= g.rows.length ? g.rows.length - 1 : at]

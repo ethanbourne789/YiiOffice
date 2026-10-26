@@ -1,6 +1,10 @@
 /** Toast event bus, split from the ToastHost component so this module has no
  * component exports: React Fast Refresh replaces mixed-export modules wholesale,
- * which strands callers on a stale emitter during dev HMR. */
+ * which strands callers (file-actions) on a stale emitter during dev HMR.
+ *
+ * Shared by every app through @yiioffice/ui — each bundle gets its own instance
+ * of this module, so an app's ToastHost always registers the emitter its own
+ * callers read. */
 
 export interface ToastData {
   text: string

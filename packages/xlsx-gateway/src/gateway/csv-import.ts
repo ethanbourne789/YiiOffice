@@ -4,6 +4,7 @@
 
 import JSZip from 'jszip'
 
+import { columnToLetters, escapeXmlAttribute, escapeXmlText } from '../shared/xml'
 import { encodeXlsxEscapes } from './xlsx-escapes'
 import { DEFAULT_THEME_XML } from './xlsx-default-theme'
 import { MINIMAL_STYLESHEET_XML } from './xlsx-default-styles'
@@ -231,25 +232,6 @@ export function isNumericCell(value: string): boolean {
   return Number.isFinite(Number(value))
 }
 
-function escapeXml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-}
-
-function columnLabel(column: number): string {
-  let label = ''
-  let remaining = column + 1
-  while (remaining > 0) {
-    remaining -= 1
-    label = String.fromCharCode(65 + (remaining % 26)) + label
-    remaining = Math.floor(remaining / 26)
-  }
-  return label
-}
-
 export function buildWorksheetXml(rows: readonly (readonly string[])[]): string {
   const lines: string[] = []
   let maxColumns = 1
@@ -258,16 +240,16 @@ export function buildWorksheetXml(rows: readonly (readonly string[])[]): string 
     row.forEach((value, columnIndex) => {
       if (value === '') return
       maxColumns = Math.max(maxColumns, columnIndex + 1)
-      const reference = `${columnLabel(columnIndex)}${rowIndex + 1}`
+      const reference = `${columnToLetters(columnIndex)}${rowIndex + 1}`
       cells.push(
         isNumericCell(value)
           ? `<c r="${reference}"><v>${Number(value)}</v></c>`
-          : `<c r="${reference}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(encodeXlsxEscapes(value))}</t></is></c>`,
+          : `<c r="${reference}" t="inlineStr"><is><t xml:space="preserve">${escapeXmlText(encodeXlsxEscapes(value))}</t></is></c>`,
       )
     })
     if (cells.length > 0) lines.push(`<row r="${rowIndex + 1}">${cells.join('')}</row>`)
   })
-  const dimension = `A1:${columnLabel(maxColumns - 1)}${Math.max(rows.length, 1)}`
+  const dimension = `A1:${columnToLetters(maxColumns - 1)}${Math.max(rows.length, 1)}`
   return (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
     '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
@@ -376,7 +358,7 @@ async function xlsxBufferFromRows(
     'xl/workbook.xml',
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
       '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
-      `<sheets><sheet name="${escapeXml(sheetName)}" sheetId="1" r:id="rId1"/></sheets></workbook>`,
+      `<sheets><sheet name="${escapeXmlAttribute(sheetName)}" sheetId="1" r:id="rId1"/></sheets></workbook>`,
   )
   zip.file(
     'xl/_rels/workbook.xml.rels',

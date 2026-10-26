@@ -12,7 +12,9 @@ const pdfjsRoot = dirname(dirname(require.resolve('pdfjs-dist/package.json')))
 const pdfjsDir = (sub: string) => normalizePath(join(pdfjsRoot, 'pdfjs-dist', sub))
 
 export default defineConfig({
-  // @yiioffice/i18n ships as TS source; pdf-lib's package only includes out/** — both must be bundled
+  // @yiioffice/i18n ships as TS source; pdf-lib's package only includes out/** — both must be bundled.
+  // @embedpdf/pdfium is a runtime dependency (its wasm is a packaging asset) but the
+  // packaged app has no node_modules, so the JS side still has to be inlined.
   main: {
     plugins: [
       externalizeDepsPlugin({
@@ -21,6 +23,7 @@ export default defineConfig({
           'pdf-lib',
           '@yiioffice/electron-utils',
           '@yiioffice/font-metrics',
+          '@embedpdf/pdfium',
         ],
       }),
     ],

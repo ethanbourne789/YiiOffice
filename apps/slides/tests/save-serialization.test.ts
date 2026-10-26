@@ -4,7 +4,11 @@ import { describe, expect, it, vi } from 'vitest'
 // (missing in CI). Mock the UI-only modules so this unit test exercises
 // only the save-serialization queue.
 vi.mock('../src/renderer/export-render', () => ({ renderSlidesToPngBase64: vi.fn() }))
-vi.mock('../src/renderer/components/toast-bus', () => ({ showToast: vi.fn() }))
+// toast-bus now lives in the shared UI package; keep every other export real
+vi.mock('@yiioffice/ui', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@yiioffice/ui')>()),
+  showToast: vi.fn(),
+}))
 vi.mock('../src/renderer/i18n/locale', () => ({ t: (k: string) => k }))
 
 import { adoptSavedSlides, save, saveAs } from '../src/renderer/file-actions'

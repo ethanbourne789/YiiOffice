@@ -2,6 +2,8 @@
 /// <a:fontScheme> in place. Styles referencing theme slots (color theme=,
 /// font scheme=) follow the new theme in Excel; explicit rgb stays verbatim.
 
+import { escapeXmlAttribute } from '../shared/xml'
+
 export class ThemeStateError extends Error {}
 
 export interface WorkbookThemeState {
@@ -29,14 +31,6 @@ const SCHEME_SLOTS: readonly (readonly [string, number])[] = [
   ['folHlink', 11],
 ]
 
-function escapeAttr(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-}
-
 export function applyThemeState(themeXml: string, state: WorkbookThemeState): string {
   let xml = themeXml
   if (state.colors !== undefined) {
@@ -53,7 +47,7 @@ export function applyThemeState(themeXml: string, state: WorkbookThemeState): st
       }
       xml = xml.replace(pattern, `<a:${slot}><a:srgbClr val="${hex}"/></a:${slot}>`)
     }
-    xml = xml.replace(/(<a:clrScheme name=")[^"]*(")/, `$1${escapeAttr(name)}$2`)
+    xml = xml.replace(/(<a:clrScheme name=")[^"]*(")/, `$1${escapeXmlAttribute(name)}$2`)
   }
   if (state.fonts !== undefined) {
     const { name, major, minor } = state.fonts
@@ -62,9 +56,9 @@ export function applyThemeState(themeXml: string, state: WorkbookThemeState): st
     if (!majorPattern.test(xml) || !minorPattern.test(xml)) {
       throw new ThemeStateError('The theme has no font scheme to rewrite.')
     }
-    xml = xml.replace(majorPattern, `$1${escapeAttr(major)}$2`)
-    xml = xml.replace(minorPattern, `$1${escapeAttr(minor)}$2`)
-    xml = xml.replace(/(<a:fontScheme name=")[^"]*(")/, `$1${escapeAttr(name)}$2`)
+    xml = xml.replace(majorPattern, `$1${escapeXmlAttribute(major)}$2`)
+    xml = xml.replace(minorPattern, `$1${escapeXmlAttribute(minor)}$2`)
+    xml = xml.replace(/(<a:fontScheme name=")[^"]*(")/, `$1${escapeXmlAttribute(name)}$2`)
   }
   return xml
 }

@@ -1485,6 +1485,7 @@ export function recordStructuralOp(
       const moved = movePosition(axis === 'row' ? entry.row : entry.column)
       if (moved === null) continue
       const next = axis === 'row' ? { ...entry, row: moved } : { ...entry, column: moved }
+      cloneEntryIdentity(entry, next)
       shifted.set(`${next.row}:${next.column}`, next)
     }
     journal.cells.set(sheetId, shifted)
@@ -2325,40 +2326,108 @@ export function journalEntriesInRange(
   return matches
 }
 
+/// Stable identity for JournalEntry objects across structural re-keys. A merge
+/// allocates a new object on purpose (it IS a change), but a row/column shift
+/// only rewrites coordinates — the entry itself is unchanged and must not look
+/// like a late edit when it is carried into a reopened journal.
+const entryIdentities = new WeakMap<JournalEntry, number>()
+let nextEntryIdentity = 1
+
+function entryIdentity(entry: JournalEntry): number {
+  let id = entryIdentities.get(entry)
+  if (id === undefined) {
+    id = nextEntryIdentity++
+    entryIdentities.set(entry, id)
+  }
+  return id
+}
+
+function cloneEntryIdentity(from: JournalEntry, to: JournalEntry): void {
+  const id = entryIdentities.get(from)
+  if (id !== undefined) entryIdentities.set(to, id)
+}
+
 export interface JournalCellSnapshot {
   readonly cells: ReadonlyMap<string, ReadonlyMap<string, JournalEntry>>
   readonly structuralOps: ReadonlyMap<string, number>
+  /// Sheet ids already in `sheets.added` when the snapshot was taken: a sheet
+  /// missing from this set was created after the save started.
+  readonly addedSheets: ReadonlySet<string>
+  /// Identity of every entry present at snapshot time (survives re-keys).
+  readonly entryIds: ReadonlySet<number>
 }
 
 export function snapshotJournalCells(journal: EditJournal): JournalCellSnapshot {
+  const entryIds = new Set<number>()
+  for (const entries of journal.cells.values()) {
+    for (const entry of entries.values()) entryIds.add(entryIdentity(entry))
+  }
   return {
     cells: new Map([...journal.cells].map(([sheetId, entries]) => [sheetId, new Map(entries)])),
     structuralOps: new Map(
       [...journal.structuralOps].map(([sheetId, ops]) => [sheetId, ops.length]),
     ),
+    addedSheets: new Set(journal.sheets.added.keys()),
+    entryIds,
   }
 }
 
 /// Copies into `into` every cell entry of `journal` that was recorded (or
 /// merged) after `snapshot` was taken. Each merge allocates a new entry
-/// object, so identity against the snapshot is the change test. A sheet
-/// whose rows/columns shifted since the snapshot is skipped: its entries
-/// were re-keyed to coordinates the unshifted reopened file does not have,
-/// and the shift itself is not carried; sheets added this session have no
-/// part in the reopened file either.
+/// object, so identity against the snapshot is the change test — keying by
+/// `row:col` would misclassify an entry that a later structural op re-keyed.
+///
+/// Structural ops recorded after the snapshot are carried too: the late cell
+/// entries live in post-shift coordinates, so the reopened journal must
+/// replay the same shifts before those coordinates mean anything.
+///
+/// Sheets created after the snapshot travel with their add/duplicate record.
+/// Anything that still cannot be carried is counted in `dropped` so the
+/// caller can tell the user instead of losing edits in silence.
+export interface CarryLateResult {
+  readonly carried: number
+  readonly dropped: number
+}
+
 export function carryLateJournalCells(
   journal: EditJournal,
   snapshot: JournalCellSnapshot,
   into: EditJournal,
-): number {
+): CarryLateResult {
   let carried = 0
+  let dropped = 0
   for (const [sheetId, entries] of journal.cells) {
-    if (journal.sheets.added.has(sheetId)) continue
+    // Late entries on a sheet that was removed after the snapshot cannot be
+    // saved anywhere; say so instead of counting them as carried.
+    if (journal.sheets.removed.has(sheetId)) {
+      for (const entry of entries.values()) {
+        if (!snapshot.entryIds.has(entryIdentity(entry))) dropped += 1
+      }
+      continue
+    }
+    const addedAfterSnapshot =
+      journal.sheets.added.has(sheetId) && !snapshot.addedSheets.has(sheetId)
     const opsBefore = snapshot.structuralOps.get(sheetId) ?? 0
-    if ((journal.structuralOps.get(sheetId)?.length ?? 0) !== opsBefore) continue
-    const before = snapshot.cells.get(sheetId)
+    const lateOps = journal.structuralOps.get(sheetId)?.slice(opsBefore) ?? []
+
+    // A sheet created after the snapshot does not exist in the reopened file.
+    // Carry its add record (and any duplicate source) so the next save
+    // recreates it.
+    if (addedAfterSnapshot) {
+      const add = journal.sheets.added.get(sheetId)
+      if (add) into.sheets.added.set(sheetId, { ...add })
+    }
+
+    for (const op of lateOps) {
+      const ops = into.structuralOps.get(sheetId) ?? []
+      ops.push(op)
+      into.structuralOps.set(sheetId, ops)
+    }
+
     for (const [key, entry] of entries) {
-      if (before?.get(key) === entry) continue
+      // Identity, not key lookup: a re-keyed entry keeps its identity and
+      // must not be carried a second time under its new coordinates.
+      if (snapshot.entryIds.has(entryIdentity(entry))) continue
       let target = into.cells.get(sheetId)
       if (!target) {
         target = new Map()
@@ -2368,8 +2437,9 @@ export function carryLateJournalCells(
       carried += 1
     }
   }
-  return carried
+  return { carried, dropped }
 }
+
 
 /// Counts what a save would actually write, so entries on removed sheets
 /// don't inflate the pending-edit badge.

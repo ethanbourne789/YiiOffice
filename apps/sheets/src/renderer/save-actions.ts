@@ -31,7 +31,7 @@ import type { CellState } from '@yiioffice/xlsx-gateway/domain/workbook.types'
 import { verifiedFormulaValues } from './formula-values'
 import { t } from './i18n/locale'
 import { abortStagedEditsTransfer, stageEditsForSave, type StagedEdits } from './save-edits-staging'
-import { showToast } from './toast-bus'
+import { showToast } from '@yiioffice/ui'
 import { captureUndoCarry, hasPendingUndoCarry, stashUndoCarry } from './undo-carry'
 import {
   collectCfStates,
@@ -491,12 +491,17 @@ export async function handleSave(
           : null,
       )
       ctx.stashViewRestore(viewAtSave)
-      if (!(await reopenCarryingLateEdits(ctx, state, cellsAtSave, result.file))) {
-        return { ok: false }
+      // The file is already on disk; a failed reopen must not report "save
+      // failed" and make the user retry a save that already landed. When the
+      // reopen fails its "saved, but could not reopen" warning is the final
+      // status — overwriting it with the plain success line would hide the
+      // one thing the user must act on.
+      const reopened = await reopenCarryingLateEdits(ctx, state, cellsAtSave, result.file)
+      if (reopened) {
+        const saved = t('appSaved')
+        ctx.setMessage(saved)
+        if (!quiet) showToast(saved)
       }
-      const saved = t('appSaved')
-      ctx.setMessage(saved)
-      if (!quiet) showToast(saved)
       return { ok: true, ...(result.file.path !== undefined ? { path: result.file.path } : {}) }
     }
     // Two-phase saves reopen twice with structural entanglement; v1 does not
@@ -547,12 +552,12 @@ export async function handleSave(
         return { ok: false }
       }
       ctx.stashViewRestore(viewAtSave)
-      if (!(await reopenCarryingLateEdits(ctx, state, cellsAtSave, second.file))) {
-        return { ok: false }
+      const reopened = await reopenCarryingLateEdits(ctx, state, cellsAtSave, second.file)
+      if (reopened) {
+        const saved = t('appSavedTwoPhase')
+        ctx.setMessage(saved)
+        if (!quiet) showToast(saved)
       }
-      const saved = t('appSavedTwoPhase')
-      ctx.setMessage(saved)
-      if (!quiet) showToast(saved)
       return { ok: true, ...(second.file.path !== undefined ? { path: second.file.path } : {}) }
     } catch (error: unknown) {
       if (ctx.lazyWorkbookRef.current !== state) return { ok: false }
@@ -582,17 +587,43 @@ export async function handleSave(
 /// Cells edited while the save IPC was in flight were not in the request;
 /// the swapped-in session must keep them pending (and show them: range
 /// installs overlay the journal) or the reopen silently drops them.
+///
+/// Returns false only when the reopen itself failed. The file is already on
+/// disk at that point — callers must still report the save as successful
+/// (a "save failed" message would make the user retry a save that already
+/// landed) and only use the return value to decide whether the in-memory
+/// session is usable.
 async function reopenCarryingLateEdits(
   ctx: SaveContext,
   state: LazyWorkbookState,
   cellsAtSave: JournalCellSnapshot,
   file: WorkbookFile,
 ): Promise<boolean> {
-  if ((await ctx.openLazyWorkbook(file, { continueChat: true })) === false) return false
+  let opened = false
+  try {
+    opened = (await ctx.openLazyWorkbook(file, { continueChat: true })) !== false
+  } catch (error: unknown) {
+    console.error('[sheets] reopen after save failed:', error)
+  }
   const next = ctx.lazyWorkbookRef.current
-  if (!next || next === state) return true
-  if (carryLateJournalCells(state.editJournal, cellsAtSave, next.editJournal) > 0) {
+  if (!opened || !next || next === state) {
+    if (!opened) {
+      const message = t('appSaveReopenFailed')
+      ctx.setMessage(message)
+      showToast(message, 'error')
+    }
+    return false
+  }
+  const { carried, dropped } = carryLateJournalCells(state.editJournal, cellsAtSave, next.editJournal)
+  if (carried > 0) {
     ctx.setPendingEdits?.(journalSize(next.editJournal))
+  }
+  if (dropped > 0) {
+    // Edits that could not be carried (e.g. entries on a sheet the reopened
+    // file no longer has) must not vanish without a word.
+    const message = t('appSaveDroppedLateEdits')
+    ctx.setMessage(message)
+    showToast(message, 'error')
   }
   return true
 }

@@ -1,0 +1,14 @@
+{
+  // Compiler options shared by both sides of the app (workspace paths, strictness).
+  // The main/renderer split below only adds lib, types and file sets.
+
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "paths": {
+      "@yiioffice/file-parse": ["./src/types/file-parse.d.ts"],
+      "@yiioffice/docx-engine/math": ["./src/types/docx-engine-math.d.ts"]
+    }
+  }
+}

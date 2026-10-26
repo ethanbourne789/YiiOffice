@@ -3,7 +3,7 @@
  * the same data. Coordinates are normalized 0..1 relative to the slide frame; each side restores
  * them at its own frame size.
  */
-import React, { useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 
 export interface InkStroke {
   color: string

@@ -1,9 +1,19 @@
 import { readFileSync } from 'node:fs'
 import { hbSubsetWasmPath } from './wasm-path'
 
+/**
+ * Node exposes `WebAssembly` at runtime, but TypeScript declares it only in the
+ * DOM/worker libs — and this main-process program deliberately runs without
+ * them. Name the two members we touch instead of pulling in lib.dom.
+ */
+type WasmModule = {
+  instantiate(bytes: Uint8Array): Promise<{ instance: { exports: unknown } }>
+}
+const webAssembly = (globalThis as unknown as { WebAssembly: WasmModule }).WebAssembly
+
 /** hb-subset.wasm exports we call (numbers are pointers into its linear memory) */
 interface HbSubset {
-  memory: WebAssembly.Memory
+  memory: { readonly buffer: ArrayBufferLike }
   malloc(size: number): number
   free(ptr: number): void
   hb_blob_create(data: number, len: number, mode: number, userData: number, destroy: number): number
@@ -31,7 +41,7 @@ let hbPromise: Promise<HbSubset> | null = null
 function loadHb(): Promise<HbSubset> {
   hbPromise ??= (async () => {
     const wasmBytes = readFileSync(hbSubsetWasmPath())
-    const { instance } = await WebAssembly.instantiate(wasmBytes)
+    const { instance } = await webAssembly.instantiate(wasmBytes)
     return instance.exports as unknown as HbSubset
   })()
   return hbPromise

@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { openPptx, savePptx, listSlideLayouts, insertSlideWithLayout } from '../src/index'
-import { resolveTarget, relsPathFor } from '../src/zip'
+import { resolveTarget } from '../src/zip'
 import { parseLayoutPlaceholders } from '../src/layout'
 import { parsePlaceholderMap, resolvePlaceholderTransform } from '../src/placeholder'
 
@@ -95,8 +95,6 @@ describe('insertSlideWithLayout', () => {
 
     // Verify the new slide's rels point to the chosen layout
     const newPath = reopened.deck.slides[1]!.path
-    const relsPath = relsPathFor(newPath)
-    const _relsXml = reopened.archive.readText(relsPath) ?? ''
     // The Target in rels has the form '../../ppt/slideLayouts/slideLayoutN.xml';
     // resolving it from the slide path should equal layoutPath
     const relEntries = [...reopened.archive.readRels(newPath).values()]

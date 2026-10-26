@@ -40,19 +40,6 @@ export function numberPresetLevels(
   }))
 }
 
-export const BULLET_LIBRARY = ['•', '○', '■', '◆', '➢', '✦']
-
-export const NUMBER_LIBRARY: Array<{ numFmt: string; pattern: string }> = [
-  { numFmt: 'decimal', pattern: '%1.' },
-  { numFmt: 'decimal', pattern: '%1)' },
-  { numFmt: 'upperRoman', pattern: '%1.' },
-  { numFmt: 'upperLetter', pattern: '%1.' },
-  { numFmt: 'lowerLetter', pattern: '%1)' },
-  { numFmt: 'lowerRoman', pattern: '%1.' },
-  { numFmt: 'chineseCountingThousand', pattern: '%1、' },
-  { numFmt: 'decimalEnclosedCircle', pattern: '%1' },
-]
-
 const nine = (make: (i: number) => CustomNumberingLevel) =>
   Array.from({ length: 9 }, (_, i) => make(i))
 const legal = (i: number) => `${Array.from({ length: i + 1 }, (_, k) => `%${k + 1}`).join('.')}.`

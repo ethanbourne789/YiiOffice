@@ -138,6 +138,7 @@ describe('EditorContextMenu', () => {
     unmount()
     editor.destroy()
   })
+})
 
 describe('FontDialog', () => {
   it('applies font marks to the selection on OK', () => {

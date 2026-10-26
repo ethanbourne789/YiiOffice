@@ -4,6 +4,7 @@
 /// counts every anchor element in document order, matching visuals.rs.
 
 import type { WorkbookVisualEdit } from '../shared/edit-schemas'
+import { escapeXmlAttribute } from '../shared/xml'
 import {
   appendRelationship,
   outlineXml,
@@ -391,9 +392,6 @@ function xmlHasAttributeValue(xml: string, value: string): boolean {
 }
 
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-
-const escapeXmlAttribute = (value: string): string =>
-  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
 /// Sets (or with null removes) one attribute on an opening tag string.
 export function setTagAttribute(tag: string, name: string, value: string | null): string {

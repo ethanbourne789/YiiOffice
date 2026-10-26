@@ -17,7 +17,7 @@ import type { PageEntry } from './search'
 import type { SearchIndexCache } from './search'
 import { measurePt } from './text-wrap'
 import { foldCase } from '@yiioffice/ui'
-import { isNoSpaceScript, scriptOf } from '../../../../packages/pdf2docx/src/script'
+import { isNoSpaceScript, scriptOf } from '@yiioffice/pdf2docx/script'
 
 export interface OcrWord {
   text: string

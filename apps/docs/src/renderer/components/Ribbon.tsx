@@ -15,7 +15,7 @@ import type { InkPenSettings } from './ribbon-tabs'
 import type { StyleInfo } from '@yiioffice/docx-engine'
 import type { RevisionDisplayMode, ViewMode } from './ribbon-tabs'
 import type { RibbonFormatState } from './ribbon-format-state'
-import { t, useI18n, type StringKey } from '../i18n/locale'
+import { useI18n, type StringKey } from '../i18n/locale'
 import { Dropdown } from '@yiioffice/ui'
 import {
   ReviewTab,
@@ -244,33 +244,6 @@ const FONT_LIST = [
 
 const FONT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72]
 
-/* ================= Size step helpers ================= */
-
-function nextFontSize(current: number): number {
-  const idx = FONT_SIZES.indexOf(current)
-  if (idx === -1) {
-    // find next size >= current
-    for (let i = 0; i < FONT_SIZES.length; i++) {
-      if (FONT_SIZES[i] >= current) return FONT_SIZES[i] ?? current + 2
-    }
-    return current + 2
-  }
-  return FONT_SIZES[Math.min(idx + 1, FONT_SIZES.length - 1)] ?? current + 2
-}
-
-function prevFontSize(current: number): number {
-  const idx = FONT_SIZES.indexOf(current)
-  if (idx === -1) {
-    let best = FONT_SIZES[0]
-    for (const s of FONT_SIZES) {
-      if (s <= current) best = s
-      else break
-    }
-    return best
-  }
-  return FONT_SIZES[Math.max(idx - 1, 0)]
-}
-
 /* ================= Main Ribbon ================= */
 
 export function Ribbon({
@@ -283,17 +256,17 @@ export function Ribbon({
   onReplace,
   blocks,
   styles,
-  docDefaults,
-  documentListPresets,
-  recentListPresets,
+  docDefaults: _docDefaults,
+  documentListPresets: _documentListPresets,
+  recentListPresets: _recentListPresets,
   section,
-  tableGridlines,
+  tableGridlines: _tableGridlines,
   activeSection,
   mirrorMargins,
   pageColor,
   watermark,
   themeFonts,
-  themeColors,
+  themeColors: _themeColors,
   inkTool,
   inkPen,
   inkHighlighter,
@@ -305,7 +278,7 @@ export function Ribbon({
   header,
   footer,
   hfEditing,
-  showMarks,
+  showMarks: _showMarks,
   showRuler,
   showNav,
   showStylesPane,
@@ -330,15 +303,15 @@ export function Ribbon({
   splitView,
   // ribbonActions spread
   allocateNumId,
-  createListDef,
+  createListDef: _createListDef,
   onListDialog,
   onParagraphDialog,
-  onPasteDefaults,
-  onTableDialog,
-  onToggleTableGridlines,
-  onOpen,
-  onSave,
-  onSaveAs,
+  onPasteDefaults: _onPasteDefaults,
+  onTableDialog: _onTableDialog,
+  onToggleTableGridlines: _onToggleTableGridlines,
+  onOpen: _onOpen,
+  onSave: _onSave,
+  onSaveAs: _onSaveAs,
   onSection,
   onPaperSizeAll,
   onMirrorMargins,
@@ -364,7 +337,7 @@ export function Ribbon({
   onFooter,
   onHfAction,
   onHfEdit,
-  onShowMarks,
+  onShowMarks: _onShowMarks,
   onShowRuler,
   onShowNav,
   onShowComments,
@@ -390,9 +363,9 @@ export function Ribbon({
 
   const [tab, setTab] = useState<DocsTab | ContextTab>('home')
   const [dropdown, setDropdown] = useState<string | null>(null)
-  const [pasteOpen, setPasteOpen] = useState(false)
-  const [listOpen, setListOpen] = useState(false)
-  const [lineSpacingOpen, setLineSpacingOpen] = useState(false)
+  const [_pasteOpen, _setPasteOpen] = useState(false)
+  const [_listOpen, _setListOpen] = useState(false)
+  const [_lineSpacingOpen, _setLineSpacingOpen] = useState(false)
 
   const setDrop: SetDropdown = setDropdown
 

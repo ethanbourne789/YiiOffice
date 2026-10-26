@@ -1,5 +1,6 @@
+import { handleFromShell } from './ipc-guard'
 import { join } from 'node:path'
-import { BrowserWindow, ipcMain } from 'electron'
+import { BrowserWindow } from 'electron'
 import type { PdfPasswordUiState } from '../shared/pdf-password-api'
 import { PDF_PASSWORD_CHANNELS } from '../shared/pdf-password-api'
 
@@ -27,13 +28,13 @@ function settle(password: string | null): void {
 function registerIpc(): void {
   if (ipcRegistered) return
   ipcRegistered = true
-  ipcMain.handle(PDF_PASSWORD_CHANNELS.getState, () => currentState)
-  ipcMain.handle(PDF_PASSWORD_CHANNELS.submit, (_event, password: unknown) => {
+  handleFromShell(PDF_PASSWORD_CHANNELS.getState, () => currentState)
+  handleFromShell(PDF_PASSWORD_CHANNELS.submit, (_event, password: unknown) => {
     if (typeof password !== 'string') return
     pushState({ busy: true })
     settle(password)
   })
-  ipcMain.handle(PDF_PASSWORD_CHANNELS.cancel, () => {
+  handleFromShell(PDF_PASSWORD_CHANNELS.cancel, () => {
     settle(null)
     closePdfPasswordDialog()
   })

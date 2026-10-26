@@ -597,14 +597,23 @@ describe('closing tabs', () => {
     expect(view.webContents.close).toHaveBeenCalledTimes(1)
   })
 
-  it('detaches docs views without destroying the webContents (freeze workaround)', async () => {
-    const id = manager.openDocsTab()
-    const view = lastCreatedView(createDocsView)
-    await manager.closeTab(id)
-    expect(shellWindow.contentView.removeChildView).toHaveBeenCalledWith(view)
-    expect(view.webContents.close).not.toHaveBeenCalled()
-    // the orphaned renderer must be told to go inert (recovery-copy resurrection guard)
-    expect(teardownDocsRenderer).toHaveBeenCalledWith(view.webContents)
+  it('detaches docs views and defers the webContents destroy past the dialog stack', async () => {
+    vi.useFakeTimers()
+    try {
+      const id = manager.openDocsTab()
+      const view = lastCreatedView(createDocsView)
+      await manager.closeTab(id)
+      expect(shellWindow.contentView.removeChildView).toHaveBeenCalledWith(view)
+      // the orphaned renderer must be told to go inert (recovery-copy resurrection guard)
+      expect(teardownDocsRenderer).toHaveBeenCalledWith(view.webContents)
+      // not destroyed in the same turn as the save-prompt dialog's promise —
+      // that continuation still runs inside Electron's native modal loop
+      expect(view.webContents.close).not.toHaveBeenCalled()
+      await vi.runAllTimersAsync()
+      expect(view.webContents.close).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('closes a clean docs tab after the async dirty query says clean', async () => {
@@ -1007,11 +1016,18 @@ describe('detach / attach (Open in New Window, tear-off, dock)', () => {
   })
 
   it('a re-attached docs tab closes through the docs teardown path like any docs tab', async () => {
-    const record = manager.detachTab(manager.openDocsTab('/tmp/a.docx'))!
-    const newId = manager.attachTab(record)
-    await manager.closeTab(newId)
-    expect(teardownDocsRenderer).toHaveBeenCalledWith(record.view.webContents)
-    expect(record.view.webContents.close).not.toHaveBeenCalled()
-    expect(manager.list()).toHaveLength(1)
+    vi.useFakeTimers()
+    try {
+      const record = manager.detachTab(manager.openDocsTab('/tmp/a.docx'))!
+      const newId = manager.attachTab(record)
+      await manager.closeTab(newId)
+      expect(teardownDocsRenderer).toHaveBeenCalledWith(record.view.webContents)
+      expect(record.view.webContents.close).not.toHaveBeenCalled()
+      expect(manager.list()).toHaveLength(1)
+      await vi.runAllTimersAsync()
+      expect(record.view.webContents.close).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

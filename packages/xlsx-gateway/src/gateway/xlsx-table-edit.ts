@@ -1,4 +1,5 @@
 import { relsPathFor, resolveRelTarget, type MutablePackage } from './xlsx-drawing-add'
+import { escapeXmlAttribute, unescapeXml } from '../shared/xml'
 import { escapeRegExp, removeRelationshipById } from './xlsx-sheets'
 import {
   TABLE_REL_TYPE,
@@ -7,7 +8,6 @@ import {
   assertNameNotDefined,
   autoFilterRef,
   collectExistingTableNames,
-  escapeAttribute,
   parseRef,
   type TableArea,
   type TableStyleOptions,
@@ -85,7 +85,7 @@ function tableNames(xml: string): string[] {
   const names: string[] = []
   for (const attribute of ['displayName', 'name']) {
     const value = new RegExp(`\\b${attribute}="([^"]*)"`).exec(open)?.[1]
-    if (value) names.push(unescapeAttribute(value))
+    if (value) names.push(unescapeXml(value))
   }
   return names
 }
@@ -157,8 +157,8 @@ async function rewriteTable(
 
   if (edit.name !== undefined) {
     await assertRenameAllowed(pkg, edit, table)
-    attributes.set('name', escapeAttribute(edit.name))
-    attributes.set('displayName', escapeAttribute(edit.name))
+    attributes.set('name', escapeXmlAttribute(edit.name))
+    attributes.set('displayName', escapeXmlAttribute(edit.name))
   }
 
   const headerRows =
@@ -314,7 +314,7 @@ function rewriteColumns(
   const columns = edit.columnNames.map((name, index) => {
     const previousIndex = area.startColumn + index - previousArea.startColumn
     const element = previousIndex >= 0 ? existing[previousIndex] : undefined
-    const escaped = escapeAttribute(name)
+    const escaped = escapeXmlAttribute(name)
     if (element === undefined) {
       nextId += 1
       return `<tableColumn id="${nextId}" name="${escaped}"/>`
@@ -340,7 +340,7 @@ function rewriteStyleInfo(xml: string, edit: TableEdit): string {
         ['showRowStripes', '1'],
         ['showColumnStripes', '0'],
       ])
-  if (edit.style !== undefined) attributes.set('name', escapeAttribute(edit.style))
+  if (edit.style !== undefined) attributes.set('name', escapeXmlAttribute(edit.style))
   const flags: [keyof TableEdit, string][] = [
     ['firstColumn', 'showFirstColumn'],
     ['lastColumn', 'showLastColumn'],
@@ -371,10 +371,3 @@ function serializeAttributes(attributes: Map<string, string>): string {
   return [...attributes].map(([key, value]) => `${key}="${value}"`).join(' ')
 }
 
-function unescapeAttribute(input: string): string {
-  return input
-    .replace(/&quot;/g, '"')
-    .replace(/&gt;/g, '>')
-    .replace(/&lt;/g, '<')
-    .replace(/&amp;/g, '&')
-}

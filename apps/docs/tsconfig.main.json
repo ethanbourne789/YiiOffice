@@ -1,0 +1,23 @@
+{
+  // Main process. Every other app runs its main project without a DOM lib, so
+  // browser globals surface as errors instead of silently re-pointing Electron
+  // declarations. docs is the exception: it imports the DOM-based html2docx
+  // converter by path (src/main/docs-main.ts — convertHtmlToDocx and the
+  // ElectronBrowserDriver), whose sources need `document`/`window`. Until that
+  // conversion path moves behind a renderer/utilityProcess hop, this project
+  // keeps the DOM lib. Preload is not here: it is a browser context and lives
+  // in tsconfig.renderer.json.
+  "extends": "./tsconfig.shared.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"]
+  },
+  "include": [
+    "src/main",
+    "src/shared",
+    "src/renderer/bidi-js.d.ts",
+    "../../packages/html2docx/src/raw.d.ts",
+    "electron.vite.config.ts",
+    "vitest.config.ts"
+  ]
+}

@@ -13,7 +13,12 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useEscOverlay } from '../esc-overlay'
-import { removeBackground, sampleBackgroundColors, type PixelImage, type RGB } from '../cutout'
+import {
+  removeBackground,
+  sampleBackgroundColors,
+  type PixelImage,
+  type RGB,
+} from '@yiioffice/ui'
 import { useI18n, type StringKey } from '../i18n/locale'
 
 /** Longest side of the preview canvas (px) */

@@ -11,7 +11,7 @@
  * coordinates, the AiAskPopover pattern); repositions while the document
  * scrolls and hides on any other document change.
  */
-import React, { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/core'
 import type { EditorState, Transaction } from '@tiptap/pm/state'
 import { useI18n, type StringKey } from '../i18n/locale'

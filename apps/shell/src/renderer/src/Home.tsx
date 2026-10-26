@@ -867,7 +867,7 @@ export function Home() {
   const [searchPage, setSearchPage] = useState<FileSearchPage | null>(null)
   const [rerank, setRerank] = useState<{ key: string; result: FileSearchRerank } | null>(null)
   // bumped when the Jev settings change so the current results are judged again (or the order dropped)
-  const [rerankSettingsTick, setRerankSettingsTick] = useState(0)
+  const [rerankSettingsTick] = useState(0)
   const [settingsRequest, setSettingsRequest] = useState<SettingsTarget | null>(null)
   const [settingsModalOpen, setSettingsModalOpen] = useState(false)
   useEffect(
@@ -1102,14 +1102,16 @@ export function Home() {
 
   // Jev judges the top local hits once they settle; the main process answers null when reranking is off.
   // The key changes only with the query, filter or candidate set, so index polls do not restart the timer.
+  // JSON, not join('\n'): a query can itself contain newlines, and splitting the
+  // joined key back apart would then shift the path list by one or more slots.
   const rerankKey =
     q && searchPage && searchPage.hits.length >= 2
-      ? [q, filter, ...searchPage.hits.slice(0, 20).map((h) => h.path)].join('\n')
+      ? JSON.stringify([q, filter, searchPage.hits.slice(0, 20).map((h) => h.path)])
       : ''
   useEffect(() => {
     if (!rerankKey) return
     const key = rerankKey
-    const paths = key.split('\n').slice(2)
+    const paths = (JSON.parse(key) as [string, string, string[]])[2]
     const timer = window.setTimeout(() => {
       void window.aiOffice.rerankSearch({ q, paths }).then((result) => {
         if (result) setRerank({ key, result })

@@ -97,7 +97,7 @@ test.describe('docs web-HTML paste fonts', () => {
           return out
         })
 
-      const paste = async (html: string, text: string): Promise<void> => {
+      const paste = async (_html: string, _text: string): Promise<void> => {
         await app.evaluate(
           async ({ clipboard, ClipboardItem }, payload) => {
             await clipboard.write([

@@ -202,7 +202,7 @@ export function setUpdateCheckInvoker(fn: (() => void) | undefined): void {
 }
 
 /** Help > Check for Updates… menu item (no-op when no invoker is wired). */
-export function checkUpdatesMenuItem(labels: AppMenuLabels): MenuItemConstructorOptions {
+export function checkUpdatesMenuItem(_labels: AppMenuLabels): MenuItemConstructorOptions {
   return {
     label: 'Check for Updates…',
     click: () => {

@@ -2,10 +2,10 @@
 
 **本地优先的开源 Office 套件 —— 原生读写 Word、Excel、PPT、PDF，不登录、不上传、无广告。**
 
-![Electron](https://img.shields.io/badge/Electron-43-47848F?logo=electron\&logoColor=white)
+![Electron](https://img.shields.io/badge/Electron-45-47848F?logo=electron\&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react\&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript\&logoColor=white)
-![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
+![TypeScript](https://img.shields.io/badge/TypeScript-7.0-3178C6?logo=typescript\&logoColor=white)
+![Platform](https://img.shields.io/badge/platform-Windows-0078D4?logo=windows\&logoColor=white)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 ![No Login](https://img.shields.io/badge/no%20login-%E2%9C%93-brightgreen)
 ![No Ads](https://img.shields.io/badge/no%20ads-%E2%9C%93-brightgreen)
@@ -54,7 +54,7 @@
 | ------------ | ------------------------------------ | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | **Docs**     | `.docx`                              | Tiptap 3 + `docx-engine`                           | 分页/多页视图、页眉页脚、页码与分节、样式库、标尺与页面设置、脚注尾注、批注、文档比较、公式与域、墨迹、查找替换、字数统计、文档保护、加密文档、打印与导出 PDF                             |
 | **Sheets**   | `.xlsx` `.xlsm` `.xls` `.csv` `.tsv` | Univer 0.25 + `xlsx-gateway` + Rust `xlsx-sidecar` | 公式与函数库（插入函数、参数提示）、格式单元格、条件格式、数据验证、排序/筛选/高级筛选、分级显示、数据透视、图表、合并与冻结、定位、单变量求解、合并计算、填充序列、选择性粘贴、名称管理器、工作表保护、分页打印、CSV |
-| **Slides**   | `.pptx`                              | Konva 9 + `pptx-engine` / `pptx-render`            | 母版与版式、文本/形状/图片/图表编辑、动画与切换（含 Morph）、放映与演讲者视图、备注与批注、自定义放映、非破坏性裁剪、墨迹、导出 SVG/图片                                   |
+| **Slides**   | `.pptx`                              | Konva 10 + `pptx-engine` / `pptx-render`           | 母版与版式、文本/形状/图片/图表编辑、动画与切换（含 Morph）、放映与演讲者视图、备注与批注、自定义放映、非破坏性裁剪、墨迹、导出 SVG/图片                                   |
 | **PDF**      | `.pdf`                               | pdf.js 6 + PDFium WASM + pdf-lib                   | 文本与图像就地编辑、批注与标注、表单设计与填写、密文涂黑（Redaction）、签名与图章、大纲导航、页面操作、密码保护、PDF → Word/PPT/Excel 本地转换                        |
 | **Markdown** | `.md` `.markdown` `.txt` `.json`     | Tiptap + CodeMirror 6                              | 所见即所得与源码双视图、表格/代码块/图片、Mermaid 图表、KaTeX 公式、导出 DOCX / PDF / 图片、打印                                               |
 
@@ -72,16 +72,16 @@
 
 | 层     | 选型                                                                    |
 | ----- | --------------------------------------------------------------------- |
-| 桌面运行时 | **Electron 43** + electron-vite 5，electron-builder 26 打包              |
+| 桌面运行时 | **Electron 45** + electron-vite 6，electron-builder 26 打包              |
 | 后端    | Node 主进程（TypeScript），`WebContentsView` 多标签宿主，`node:sqlite` FTS5 索引    |
-| 前端    | React 19 + TypeScript 5.9，每个 app 独立 Vite 7 构建                         |
+| 前端    | React 19 + TypeScript 7.0，每个 app 独立 Vite 8 构建                         |
 | 文档    | Tiptap 3（Docs / Markdown）                                             |
 | 表格    | Univer 0.25；`.xlsx` 解析与公式计算走 Rust sidecar（calamine + IronCalc）        |
-| 幻灯片   | Konva 9 / react-konva 19                                              |
+| 幻灯片   | Konva 10 / react-konva 19                                             |
 | PDF   | pdf.js 6、PDFium WASM（`@embedpdf/pdfium`）、pdf-lib                      |
 | 代码编辑  | CodeMirror 6（HTML / Markdown 源码视图）                                    |
-| 渲染辅助  | harfbuzzjs（复杂文字整形）、Mermaid、KaTeX                                      |
-| 工程化   | npm workspaces（monorepo）、ESLint 10、Prettier、Vitest 4、Playwright、Cargo |
+| 渲染辅助  | harfbuzzjs 1.6（复杂文字整形 / 字体子集化）、Mermaid、KaTeX                        |
+| 工程化   | npm workspaces（monorepo）、ESLint 10、Prettier、Vitest 5、Playwright、Cargo |
 
 ***
 
@@ -97,12 +97,10 @@ npm run build:all
 npm run shell
 
 # 完整安装包
-npm run dist:mac      # dmg + zip（含 universal sidecar）
 npm run dist:win      # zip（便携包，暂未出 NSIS 安装器）
-npm run dist:linux    # AppImage + deb + rpm
 ```
 
-打包前会自动生成第三方许可证清单（`npm run notices`）。Sheets 的 sidecar 由 `npm run build -w @yiioffice/sheets` 触发 `cargo build --release` 编译；macOS 上 `dist:mac` 会把两个架构的二进制合并成 universal。
+打包前会自动生成第三方许可证清单（`npm run notices`）。Sheets 的 sidecar 由 `npm run build -w @yiioffice/sheets` 触发 `cargo build --release` 编译。
 
 ***
 

@@ -4,6 +4,7 @@
 /// [Content_Types].xml entries. Non-note VML shapes (checkboxes, buttons)
 /// survive a rewrite untouched.
 
+import { escapeXmlText, toA1 } from '../shared/xml'
 import { encodeXlsxEscapes } from './xlsx-escapes'
 import { resolveRelTarget } from './xlsx-drawing-add'
 import { ensureRelationshipNamespace } from './xlsx-namespace'
@@ -47,22 +48,6 @@ const COMMENTS_CONTENT_TYPE =
   'application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml'
 const CONTENT_TYPES_PATH = '[Content_Types].xml'
 
-function escapeXml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
-function columnName(index: number): string {
-  let label = ''
-  for (let i = index; i >= 0; i = Math.floor(i / 26) - 1) {
-    label = String.fromCharCode(65 + (i % 26)) + label
-  }
-  return label
-}
-
 function worksheetRelsPath(worksheetPath: string): string {
   return worksheetPath.replace(/^(xl\/worksheets\/)([^/]+)$/, '$1_rels/$2.rels')
 }
@@ -87,7 +72,7 @@ async function nextFreePath(
 }
 
 function cellRef(note: SheetNote): string {
-  return `${columnName(note.column)}${note.row + 1}`
+  return toA1(note.row, note.column)
 }
 
 function buildCommentsXml(
@@ -107,14 +92,14 @@ function buildCommentsXml(
       const entry = overrides.get(ref) ?? note
       return (
         `<comment ref="${ref}" authorId="${authorId(entry.author)}">` +
-        `<text><t xml:space="preserve">${escapeXml(encodeXlsxEscapes(entry.text))}</t></text></comment>`
+        `<text><t xml:space="preserve">${escapeXmlText(encodeXlsxEscapes(entry.text))}</t></text></comment>`
       )
     })
     .join('')
   return (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
     '<comments xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
-    `<authors>${authors.map((author) => `<author>${escapeXml(encodeXlsxEscapes(author))}</author>`).join('')}</authors>` +
+    `<authors>${authors.map((author) => `<author>${escapeXmlText(encodeXlsxEscapes(author))}</author>`).join('')}</authors>` +
     `<commentList>${comments}</commentList></comments>`
   )
 }

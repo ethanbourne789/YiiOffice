@@ -18,6 +18,12 @@ import type {
   WorkbookStyleEdit,
   WorkbookVisualEdit,
 } from '../shared/edit-schemas'
+import {
+  escapeXmlAttribute,
+  escapeXmlText,
+  lettersToColumn,
+  unescapeXml,
+} from '../shared/xml'
 import { spillsDynamicArray, withFutureFunctionMarkers } from './future-functions'
 import { decodeXlsxEscapes, encodeXlsxEscapes } from './xlsx-escapes'
 import { MINIMAL_STYLESHEET_XML } from './xlsx-default-styles'
@@ -514,7 +520,7 @@ export async function readBasicWorkbook(buffer: Buffer): Promise<ImportedXlsx> {
     const name = readXmlAttribute(attributes, 'name')
     const sheetNumber = readXmlAttribute(attributes, 'sheetId')
     if (!name || !sheetNumber) continue
-    const decodedName = decodeXmlText(name)
+    const decodedName = unescapeXml(name)
     const id = `sheet-${sheetNumber}`
     let worksheetXml: string
     try {
@@ -1106,7 +1112,7 @@ export async function planCellEditsToXlsx(
       let tableXml = await pkg.readText(sync.partPath)
       const names = new Set<string>()
       for (const match of tableXml.matchAll(/<tableColumn\b[^>]*?\bname="([^"]*)"/g)) {
-        names.add(decodeXmlText(match[1] ?? '').toLowerCase())
+        names.add(unescapeXml(match[1] ?? '').toLowerCase())
       }
       for (const insertion of sync.insertions) {
         if (insertion.headerRow === null) continue
@@ -1528,8 +1534,16 @@ async function applySheetPlanToPackage(
       .map((name) => renameByOriginal.get(name) ?? name),
     ...additions.map((addition) => addition.name),
   ]
-  if (new Set(finalNames).size !== finalNames.length) {
-    throw new SheetEditError('Two sheets would end up with the same name — aborted.')
+  // Excel treats sheet names as case-insensitive for uniqueness, so `Sheet1`
+  // and `sheet1` collide. A case-sensitive Set would let both through and
+  // Excel would then report "unreadable content" on open.
+  const seenNames = new Set<string>()
+  for (const name of finalNames) {
+    const key = name.toLowerCase()
+    if (seenNames.has(key)) {
+      throw new SheetEditError('Two sheets would end up with the same name — aborted.')
+    }
+    seenNames.add(key)
   }
 
   const removalPaths = new Map<string, string>()
@@ -2026,7 +2040,7 @@ async function resolveWorksheetPath(
   const targetMatch =
     relationshipXml === undefined ? undefined : /\bTarget="([^"]+)"/.exec(relationshipXml)?.[1]
   if (!targetMatch) throw new Error(`Relationship ${relationshipId} was not found.`)
-  const target = decodeXmlText(targetMatch).replace(/^\/?xl\//, '')
+  const target = unescapeXml(targetMatch).replace(/^\/?xl\//, '')
   return resolveRelTarget('xl/workbook.xml', target)
 }
 
@@ -2100,9 +2114,7 @@ function readHeaderCellText(
   const type = readXmlAttribute(attributes, 't')
   if (type === 'e') return { kind: 'opaque' }
   if (type === 'inlineStr') {
-    const text = [...body.matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g)]
-      .map((textMatch) => decodeCellText(textMatch[1] ?? ''))
-      .join('')
+    const text = cellTextOf(body)
     return text === '' ? { kind: 'blank' } : { kind: 'text', text, plain: true }
   }
   const rawValue = /<v(?:\s[^>]*)?>([\s\S]*?)<\/v>/.exec(body)?.[1]
@@ -2112,7 +2124,7 @@ function readHeaderCellText(
     return text === '' ? { kind: 'blank' } : { kind: 'text', text, plain: true }
   }
   if (type === 'b') return { kind: 'text', text: rawValue === '1' ? 'TRUE' : 'FALSE', plain: false }
-  const text = type === 'str' ? decodeCellText(rawValue) : decodeXmlText(rawValue)
+  const text = type === 'str' ? decodeCellText(rawValue) : unescapeXml(rawValue)
   if (text === '') return { kind: 'blank' }
   return { kind: 'text', text, plain: type === 'str' }
 }
@@ -2432,7 +2444,7 @@ function materializeEditedSharedFormulaGroups(
       continue
     }
     const translated = translateSharedFormula(
-      decodeXmlText(master.body),
+      unescapeXml(master.body),
       fragment.row - master.row,
       fragment.column - master.column,
     )
@@ -2942,14 +2954,6 @@ function parseA1Column(address: string): number {
   return lettersToColumn(letters)
 }
 
-function lettersToColumn(letters: string): number {
-  let column = 0
-  for (const character of letters) {
-    column = column * 26 + character.charCodeAt(0) - 64
-  }
-  return column - 1
-}
-
 /// The `ref` of an existing `<f t="array" ref="…">` master, or undefined when
 /// the cell holds no array formula. `spillsDynamicArray` only recognises modern
 /// spilling functions, so a legacy CSE master such as `=SUM(A1:C1*A2:C2)` has
@@ -3000,7 +3004,7 @@ function parseCell(worksheetXml: string, address: string): CellState {
   const attributes = `${match[1] ?? ''}${match[2] ?? ''}`
   const body = match[3] ?? ''
   const formula = /<f(?:\s[^>]*[^/>])?>([\s\S]*?)<\/f>/.exec(body)?.[1]
-  if (formula !== undefined) return { value: null, formula: `=${decodeXmlText(formula)}` }
+  if (formula !== undefined) return { value: null, formula: `=${unescapeXml(formula)}` }
   const type = /\bt="([^"]+)"/.exec(attributes)?.[1]
   if (type === 's') throw new Error(`Shared-string cell ${address} is not writable in this PoC.`)
   if (type === 'inlineStr') {
@@ -3030,15 +3034,12 @@ function parseWorksheetCells(
     const body = match[2] ?? ''
     const formula = /<f(?:\s[^>]*[^/>])?>([\s\S]*?)<\/f>/.exec(body)?.[1]
     if (formula !== undefined) {
-      cells[address] = { value: null, formula: `=${decodeXmlText(formula)}` }
+      cells[address] = { value: null, formula: `=${unescapeXml(formula)}` }
       continue
     }
     const type = readXmlAttribute(attributes, 't')
     if (type === 'inlineStr') {
-      const text = [...body.matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g)]
-        .map((textMatch) => decodeCellText(textMatch[1] ?? ''))
-        .join('')
-      cells[address] = { value: text }
+      cells[address] = { value: cellTextOf(body) }
       continue
     }
     const rawValue = /<v(?:\s[^>]*)?>([\s\S]*?)<\/v>/.exec(body)?.[1]
@@ -3054,7 +3055,7 @@ function parseWorksheetCells(
     } else {
       const numericValue = Number(rawValue)
       cells[address] = {
-        value: Number.isFinite(numericValue) ? numericValue : decodeXmlText(rawValue),
+        value: Number.isFinite(numericValue) ? numericValue : unescapeXml(rawValue),
       }
     }
   }
@@ -3069,10 +3070,28 @@ async function readSharedStrings(source: EntrySource): Promise<readonly string[]
 
 export function parseSharedStringsXml(xml: string): string[] {
   return [...xml.matchAll(/<si(?:\s[^>]*)?>([\s\S]*?)<\/si>/g)].map((itemMatch) =>
-    [...(itemMatch[1] ?? '').matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g)]
-      .map((textMatch) => decodeCellText(textMatch[1] ?? ''))
-      .join(''),
+    cellTextOf(itemMatch[1] ?? ''),
   )
+}
+
+/**
+ * Phonetic (furigana / ruby) runs are a reading hint, not cell content:
+ * `<si><t>東京</t><rPh sb="0" eb="2"><t>トウキョウ</t></rPh></si>` must read as
+ * 東京. Their `<t>` children otherwise get concatenated into the value and then
+ * written back on the next save.
+ */
+function stripPhoneticRuns(fragment: string): string {
+  return fragment
+    .replace(/<rPh\b[^>]*>[\s\S]*?<\/rPh>/g, '')
+    .replace(/<rPh\b[^>]*\/>/g, '')
+    .replace(/<phoneticPr\b[^>]*\/>/g, '')
+}
+
+/** concatenated text of an `<si>` / `<is>` body, skipping phonetic runs */
+function cellTextOf(fragment: string): string {
+  return [...stripPhoneticRuns(fragment).matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g)]
+    .map((textMatch) => decodeCellText(textMatch[1] ?? ''))
+    .join('')
 }
 
 /** Cell addresses outside the Excel grid cannot exist in a valid file; skip them. Exported for tests. */
@@ -3092,10 +3111,6 @@ function cellsEqual(left: CellState, right: CellState): boolean {
   return left.value === right.value && left.formula === right.formula
 }
 
-function escapeXmlText(input: string): string {
-  return input.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
-}
-
 function escapeCellText(input: string): string {
   return escapeXmlText(encodeXlsxEscapes(input))
 }
@@ -3103,34 +3118,10 @@ function escapeCellText(input: string): string {
 /// Mirrors the sidecar: raw CRLF folds first so `_x000D_` + LF (Excel's CR LF)
 /// ends up as one line break.
 function decodeCellText(input: string): string {
-  const text = decodeXmlText(input).replace(/\r\n?/g, '\n')
+  const text = unescapeXml(input).replace(/\r\n?/g, '\n')
   return decodeXlsxEscapes(text).replace(/\r\n?/g, '\n')
 }
 
-const XML_NAMED_ENTITIES: Record<string, string> = {
-  quot: '"',
-  apos: "'",
-  lt: '<',
-  gt: '>',
-  amp: '&',
-}
-
-/// Single-pass decode of the XML named entities plus numeric character
-/// references (&#dd; / &#xhh;), which some producers use for non-ASCII text.
-function decodeXmlText(input: string): string {
-  return input.replace(
-    /&(?:#x([0-9A-Fa-f]+)|#([0-9]+)|(quot|apos|lt|gt|amp));/g,
-    (match, hex: string | undefined, dec: string | undefined, named: string | undefined) => {
-      if (named !== undefined) return XML_NAMED_ENTITIES[named] ?? match
-      const code = hex !== undefined ? Number.parseInt(hex, 16) : Number(dec)
-      return code <= 0x10ffff ? String.fromCodePoint(code) : match
-    },
-  )
-}
-
-function escapeXmlAttribute(input: string): string {
-  return escapeXmlText(input).replaceAll('"', '&quot;').replaceAll("'", '&apos;')
-}
 
 function readXmlAttribute(attributes: string, name: string): string | undefined {
   return new RegExp(`(?:^|\\s)${escapeRegExp(name)}="([^"]*)"`).exec(attributes)?.[1]
