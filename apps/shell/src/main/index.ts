@@ -62,6 +62,7 @@ import {
   checkUpdatesMenuItem,
   setUpdateCheckInvoker,
   installRendererProtocol,
+  registerRendererScheme,
 } from '@yiioffice/electron-utils'
 import {
   readAppSettings,
@@ -3006,6 +3007,9 @@ async function runHeadlessExportEntry(
   // every teardown this run owns has already happened.
   app.exit(headlessExitCode(outcome))
 }
+
+// Custom scheme registration must happen before app ready.
+registerRendererScheme()
 
 app.whenReady().then(async () => {
   // first scan waits for the windows to come up; later ones follow folder changes
