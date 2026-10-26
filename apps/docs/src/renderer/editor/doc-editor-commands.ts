@@ -36,20 +36,20 @@ declare module '@tiptap/core' {
 /** Block node names that carry paragraph-level attributes */
 const PARA_BLOCK_NAMES = new Set(['docParagraph', 'docHeading', 'docListItem'])
 
-/** Iterate over every top-level block position covered by a range */
-function* paraPositionsInRange(
+/** Collect every top-level block position covered by a range */
+function paraPositionsInRange(
   doc: EditorState['doc'],
   from: number,
   to: number,
-): Generator<number> {
-  let pos = from
+): number[] {
+  const positions: number[] = []
   doc.nodesBetween(from, to, (node, p, parent) => {
     if (parent && PARA_BLOCK_NAMES.has(node.type.name)) {
-      yield p
+      positions.push(p)
     }
-    pos = p + node.nodeSize
     return false
   })
+  return positions
 }
 
 // ── Command implementations ─────────────────────────────────────────────────
