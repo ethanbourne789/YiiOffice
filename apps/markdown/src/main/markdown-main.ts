@@ -562,7 +562,9 @@ function registerMarkdownIpc(): void {
         try {
           await writeTextAtomic(target, textToWrite)
         } catch (error) {
-          if (prepared) await rollbackPreparedSaveAsAssets(prepared).catch(() => {})
+          if (prepared) await rollbackPreparedSaveAsAssets(prepared).catch((err) => {
+            console.warn('[markdown] Failed to rollback save-as assets:', err)
+          })
           throw error
         }
         savePathByWc.set(e.sender.id, target)
@@ -829,7 +831,9 @@ function registerMarkdownIpc(): void {
         if (e.sender.isDestroyed()) throw new Error('Document closed during export')
         return { ok: true, id, pdfBase64: pdf.toString('base64') }
       } catch (err) {
-        if (id) await imageExports.finish(e.sender.id, id, false).catch(() => {})
+        if (id) await imageExports.finish(e.sender.id, id, false).catch((err) => {
+          console.warn('[markdown] Failed to cleanup image export:', err)
+        })
         return { ok: false, error: err instanceof Error ? err.message : String(err) }
       }
     },

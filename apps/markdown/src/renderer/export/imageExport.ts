@@ -35,7 +35,9 @@ export async function exportImages(
     const result = await window.markdownApi.finishImageExport(target.id, true)
     return { ...result, count: pdf.numPages }
   } catch (err) {
-    await window.markdownApi.finishImageExport(target.id, false).catch(() => {})
+    await window.markdownApi.finishImageExport(target.id, false).catch((err) => {
+      console.warn('[markdown] Failed to cleanup image export:', err)
+    })
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
   } finally {
     if (canvas) canvas.width = canvas.height = 0

@@ -31,7 +31,7 @@ async function main(): Promise<void> {
     configFile: false,
     logLevel: 'error',
     server: { middlewareMode: true, hmr: false },
-    optimizeDeps: { noDiscovery: true },
+    optimizeDeps: { discover: { deps: false } },
   })
   try {
     const lib = (await vite.ssrLoadModule('/src/index.ts')) as {

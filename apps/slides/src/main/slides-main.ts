@@ -572,6 +572,7 @@ function sessionDirty(session: Session): boolean {
 const autosaveBackoff = new Map<string, number>()
 const AUTOSAVE_BACKOFF_TICKS = 10
 let autosaveRunning = false
+let autosaveTimer: ReturnType<typeof setTimeout> | null = null
 
 /**
  * Recovery drafts for never-saved decks (wcId → visible path in <Documents>/YiiOffice):
@@ -582,49 +583,76 @@ const untitledRecovery = new Map<number, string>()
 
 function dropUntitledRecovery(wcId: number): void {
   const draft = untitledRecovery.get(wcId)
-  if (draft) void rm(draft, { force: true }).catch(() => {})
+  if (draft) void rm(draft, { force: true }).catch((err) => { console.warn('[slides] Failed to remove untitled recovery draft:', err) })
   untitledRecovery.delete(wcId)
 }
 
-setInterval(() => {
-  if (autosaveRunning) return
-  autosaveRunning = true
-  void (async () => {
-    const seen = new Set<Session>() // aliased entries share the session; save it once
-    for (const [wcId, session] of sessions.entries()) {
-      if (seen.has(session)) continue
-      seen.add(session)
-      if (session.masterEdit || !sessionDirty(session)) continue
-      let target: string
-      if (session.path) {
-        target = autosavePathFor(session.path)
-      } else {
-        let draft = untitledRecovery.get(wcId)
-        if (!draft) {
-          draft = join(getDraftsDir(), newDraftFilename())
-          untitledRecovery.set(wcId, draft)
+/**
+ * Self-scheduling autosave loop. Runs once every 30s only while there are dirty
+ * sessions. Naturally stops when all sessions are clean or when no sessions exist.
+ */
+function scheduleAutosave(): void {
+  // Avoid stacking timers: if one is already pending, no need to add another
+  if (autosaveTimer) return
+  autosaveTimer = setTimeout(() => {
+    autosaveTimer = null
+    if (autosaveRunning) return
+    autosaveRunning = true
+    void (async () => {
+      const seen = new Set<Session>() // aliased entries share the session; save it once
+      for (const [wcId, session] of sessions.entries()) {
+        if (seen.has(session)) continue
+        seen.add(session)
+        if (session.masterEdit || !sessionDirty(session)) continue
+        let target: string
+        if (session.path) {
+          target = autosavePathFor(session.path)
+        } else {
+          let draft = untitledRecovery.get(wcId)
+          if (!draft) {
+            draft = join(getDraftsDir(), newDraftFilename())
+            untitledRecovery.set(wcId, draft)
+          }
+          target = draft
         }
-        target = draft
+        const backoffKey = session.path ?? target
+        const skip = autosaveBackoff.get(backoffKey) ?? 0
+        if (skip > 0) {
+          autosaveBackoff.set(backoffKey, skip - 1)
+          continue
+        }
+        try {
+          await mkdir(dirname(target), { recursive: true })
+          await savePptxToFile(session.opened, target)
+          autosaveBackoff.delete(backoffKey)
+        } catch (error) {
+          autosaveBackoff.set(backoffKey, AUTOSAVE_BACKOFF_TICKS)
+          console.warn('[slides] autosave failed, retrying in ~5 min:', error)
+        }
       }
-      const backoffKey = session.path ?? target
-      const skip = autosaveBackoff.get(backoffKey) ?? 0
-      if (skip > 0) {
-        autosaveBackoff.set(backoffKey, skip - 1)
-        continue
+    })().finally(() => {
+      autosaveRunning = false
+      // Re-schedule only if there are still dirty sessions
+      if (hasDirtySessions()) {
+        scheduleAutosave()
       }
-      try {
-        await mkdir(dirname(target), { recursive: true })
-        await savePptxToFile(session.opened, target)
-        autosaveBackoff.delete(backoffKey)
-      } catch (error) {
-        autosaveBackoff.set(backoffKey, AUTOSAVE_BACKOFF_TICKS)
-        console.warn('[slides] autosave failed, retrying in ~5 min:', error)
-      }
-    }
-  })().finally(() => {
-    autosaveRunning = false
-  })
-}, 30_000)
+    })
+  }, 30_000)
+}
+
+function hasDirtySessions(): boolean {
+  for (const session of sessions.values()) {
+    if (!session.masterEdit && sessionDirty(session)) return true
+  }
+  return false
+}
+
+/** Start the autosave loop if there are dirty sessions. */
+function startAutosaveLoop(): void {
+  if (hasDirtySessions()) {
+    scheduleAutosave()
+  }
+}
 
 // ── Close guard (aligned with sheets/pdf): dirty sessions prompt Save/Don't Save/Cancel before closing a tab/window ──
 const closeSaveWaiters = new Map<number, (ok: boolean) => void>()
@@ -699,7 +727,7 @@ export async function requestSlidesClose(
   if (response === 1) {
     // User explicitly discarded changes: also delete the recovery copy, so the next open does not show a pointless recovery prompt
     const session = sessions.get(contents.id)
-    if (session?.path) void rm(autosavePathFor(session.path), { force: true }).catch(() => {})
+    if (session?.path) void rm(autosavePathFor(session.path), { force: true }).catch((err) => { console.warn('[slides] Failed to remove autosave file on discard:', err) })
     dropUntitledRecovery(contents.id)
     return true
   }
@@ -715,7 +743,7 @@ export async function requestSlidesClose(
  */
 export function discardSlidesRecovery(contents: WebContents): void {
   const session = sessions.get(contents.id)
-  if (session?.path) void rm(autosavePathFor(session.path), { force: true }).catch(() => {})
+  if (session?.path) void rm(autosavePathFor(session.path), { force: true }).catch((err) => { console.warn('[slides] Failed to remove autosave file on recovery discard:', err) })
   dropUntitledRecovery(contents.id)
 }
 
@@ -857,6 +885,7 @@ async function openAndBuild(
     ...(recovered ? { metaDirty: true } : {}),
   })
   scheduleHistoryNotify(sessions.get(wc.id)!)
+  startAutosaveLoop()
   await pushRecent(path)
   slidesOpenedHook?.(wc, path)
   let slides = buildAllRenderSlides(opened, fitWidthPx)
@@ -980,6 +1009,7 @@ function journaledTxn(
   if (r.applied) {
     journalOps(session, source, r.records ?? [])
     scheduleDeckBroadcast(session)
+    startAutosaveLoop()
   }
   return r
 }
@@ -4245,6 +4275,7 @@ export function registerSlidesIpc(): void {
     if (!session || session.masterEdit || session.historyBatch) return null
     if (!restoreAiSnapshot(session, id)) return null
     scheduleDeckBroadcast(session)
+    startAutosaveLoop()
     return buildAllRenderSlides(session.opened, session.fitWidthPx)
   })
 
@@ -4258,6 +4289,7 @@ export function registerSlidesIpc(): void {
     restoreSnapshot(session, session.undoStack.pop()!)
     scheduleHistoryNotify(session)
     scheduleDeckBroadcast(session)
+    startAutosaveLoop()
     return buildAllRenderSlides(session.opened, session.fitWidthPx)
   })
 
@@ -4270,6 +4302,7 @@ export function registerSlidesIpc(): void {
     restoreSnapshot(session, session.redoStack.pop()!)
     scheduleHistoryNotify(session)
     scheduleDeckBroadcast(session)
+    startAutosaveLoop()
     return buildAllRenderSlides(session.opened, session.fitWidthPx)
   })
 
@@ -4299,7 +4332,7 @@ export function registerSlidesIpc(): void {
       const metaRevAtSave = session.metaRev ?? 0
       await savePptxToFile(session.opened, session.path)
       autosaveBackoff.delete(session.path)
-      void rm(autosavePathFor(session.path), { force: true }).catch(() => {})
+      void rm(autosavePathFor(session.path), { force: true }).catch((err) => { console.warn('[slides] Failed to remove autosave file after save:', err) })
       dropUntitledRecovery(e.sender.id)
       // Bake the saved patches back into the in-memory model (clears dirty, syncs
       // anchor.originalXml with disk) — a full reopen would re-read and unzip the
@@ -4613,7 +4646,7 @@ export function createSlidesWindow(openPath?: string | null): BrowserWindow {
   trackSlidesWebContents(win.webContents)
   standaloneWindows.set(win.webContents.id, win)
   const standaloneWcId = win.webContents.id
-  win.on('closed', () => standaloneWindows.delete(standaloneWcId))
+  win.on('close', () => standaloneWindows.delete(standaloneWcId))
   // The focused window owns the process-global menu-command target and the app
   // menu (the shell's tab manager re-claims both on its own window's focus)
   win.on('focus', () => {

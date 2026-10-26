@@ -928,7 +928,7 @@ export async function createSheetsWindow(
       else resetSheetsShuttingDown()
     })
   })
-  window.on('closed', () => {
+  window.on('close', () => {
     mainWindow = null
   })
 

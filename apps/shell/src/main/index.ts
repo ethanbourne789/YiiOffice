@@ -1112,7 +1112,7 @@ function createShellWindow(): void {
   // all-clean close is left untouched, so ⌘Q keeps quitting the app.
   installShellCloseGuard(win, manager)
 
-  win.on('closed', () => {
+  win.on('close', () => {
     if (shellWindow === win) shellWindow = null
     if (tabManager === manager) {
       tabManager = null

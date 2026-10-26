@@ -143,7 +143,7 @@ export function installContextMenu(app: App, getLabels: () => ContextMenuLabels)
       } catch {
         // the interceptor did not handle it after all: show the native menu
       }
-      void popupMenu(contents, params, getLabels()).catch(() => {})
+      void popupMenu(contents, params, getLabels()).catch((err) => { console.warn('[context-menu] Failed to popup context menu:', err) })
     })
   })
 }

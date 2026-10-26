@@ -115,9 +115,9 @@ export function setParaAttrs(
 ): void {
   const size = editor.state.doc.content.size
   if (range) {
-    (editor.chain() as any).setTextSelection(Math.min(range.from, size)).setParagraphAttrs(attrs).run()
+    editor.chain().setTextSelection(Math.min(range.from, size)).setParagraphAttrs(attrs).run()
   } else {
-    (editor.chain() as any).focus().setParagraphAttrs(attrs).run()
+    editor.chain().focus().setParagraphAttrs(attrs).run()
   }
 }
 

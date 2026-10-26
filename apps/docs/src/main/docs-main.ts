@@ -2724,7 +2724,7 @@ export function createDocsWindow(openPath?: string): BrowserWindow {
       }
     })
   })
-  win.on('closed', () => {
+  win.on('close', () => {
     pendingWindowOpens.delete(webContentsId)
     dropDocWriter(webContentsId)
     // release any close-guard waiter still keyed on the gone webContents

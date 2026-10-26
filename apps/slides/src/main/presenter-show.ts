@@ -90,7 +90,7 @@ export function registerPresenterIpc(): void {
       win.show()
       fullScreenOnDisplay(win, external.bounds)
     })
-    win.on('closed', () => {
+    win.on('close', () => {
       sessions.delete(audienceWcId)
       viewerWcIds.delete(audienceWcId)
       audiencePresenter.delete(audienceWcId)

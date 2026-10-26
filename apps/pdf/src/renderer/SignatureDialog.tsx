@@ -170,7 +170,7 @@ export function SignatureDialog({
       .then((list) => {
         if (alive) setSaved(list)
       })
-      .catch(() => {})
+      .catch((err) => { console.warn('[pdf] Failed to list saved signatures:', err) })
     return () => {
       alive = false
     }
@@ -178,7 +178,7 @@ export function SignatureDialog({
 
   const removeSaved = (id: string) => {
     setSaved((prev) => prev.filter((s) => s.id !== id))
-    window.pdfApi.removeSavedSignature(id).catch(() => {})
+    window.pdfApi.removeSavedSignature(id).catch((err) => { console.warn('[pdf] Failed to remove saved signature:', err) })
   }
 
   /** Processed image + preview data URL, recomputed when the source or the B&W toggle changes */
@@ -242,7 +242,7 @@ export function SignatureDialog({
 
   /** New signature confirmed: persist it for reuse (unless opted out), then hand off to placement */
   const finish = (sig: SignatureData) => {
-    if (saveForReuse) window.pdfApi.addSavedSignature(sig).catch(() => {})
+    if (saveForReuse) window.pdfApi.addSavedSignature(sig).catch((err) => { console.warn('[pdf] Failed to save signature for reuse:', err) })
     onConfirm(sig)
   }
 

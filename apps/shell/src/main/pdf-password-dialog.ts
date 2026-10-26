@@ -93,7 +93,7 @@ export function promptPdfPassword(
 
   win.once('ready-to-show', () => win.show())
   // closing the window any other way (Alt+F4…) counts as cancel
-  win.on('closed', () => {
+  win.on('close', () => {
     pwWin = null
     settle(null)
   })

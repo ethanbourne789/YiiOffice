@@ -177,7 +177,7 @@ export function ParagraphDialog({
       ...changed,
     })
     if (initOutline.editable && outline !== initOutline.level)
-      (editor.chain() as any).focus().setParagraphAttrs({ outlineLevel: outline }).run()
+      editor.chain().focus().setParagraphAttrs({ outlineLevel: outline }).run()
     onClose()
   }
 

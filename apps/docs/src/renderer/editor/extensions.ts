@@ -1,5 +1,6 @@
 import { ScriptFonts } from './script-fonts'
 import { Editor, Extension, Node } from '@tiptap/core'
+import { DocEditorCommands } from './doc-editor-commands'
 import { SHAPE_INLINE_WRAP } from './floating-z-order'
 import { StreamingTailGuardExtension } from './streaming-tail-guard'
 import type { ChainedCommands, RawCommands } from '@tiptap/core'
@@ -6764,6 +6765,7 @@ export const AutoLinkOnDelimiter = Extension.create({
 })
 
 export const editorExtensions = [
+  DocEditorCommands,
   StreamingTailGuardExtension,
   ScriptFonts,
   DocDocument,

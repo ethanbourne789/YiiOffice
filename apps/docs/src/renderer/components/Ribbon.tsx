@@ -541,7 +541,7 @@ export function Ribbon({
                     <div data-rb-panel="" className="layout-menu">
                       <button
                         onClick={() => {
-                          ;(editor?.chain().focus() as any)?.paste()?.run()
+                          if (editor) editor.chain().focus().run()
                           setDropdown(null)
                         }}
                       >
@@ -550,7 +550,7 @@ export function Ribbon({
                       <button
                         onClick={() => {
                           // Keep source formatting paste
-                          ;(editor?.chain().focus() as any)?.paste()?.run()
+                          if (editor) editor.chain().focus().run()
                           setDropdown(null)
                         }}
                       >
@@ -559,7 +559,7 @@ export function Ribbon({
                       <button
                         onClick={() => {
                           // Merge formatting paste
-                          ;(editor?.chain().focus() as any)?.paste()?.run()
+                          if (editor) editor.chain().focus().run()
                           setDropdown(null)
                         }}
                       >
@@ -580,8 +580,8 @@ export function Ribbon({
                     </div>
                   )}
                 </div>
-                {fmtBtn(<IconCut size={14} />, t('ribbonCutTip'), '', () => { if (!editor) return; (editor.chain().focus() as any).cut(0, 0).run() })}
-                {fmtBtn(<IconCopy size={14} />, t('ribbonCopyTip'), '', () => { if (!editor) return; (editor.chain().focus() as any).copy().run() })}
+                {fmtBtn(<IconCut size={14} />, t('ribbonCutTip'), '', () => { if (!editor) return; document.execCommand('cut') })}
+                {fmtBtn(<IconCopy size={14} />, t('ribbonCopyTip'), '', () => { if (!editor) return; document.execCommand('copy') })}
                 {fmtBtn(
                   <IconFormatPainter size={14} />,
                   t('ribbonFormatPainterTip'),
@@ -793,10 +793,10 @@ export function Ribbon({
                     () => {
                       if (!editor) return
                       if (formatState.listBullet) {
-                        (editor.chain().focus() as any).unsetList().run()
+                        editor.chain().focus().unsetList().run()
                       } else {
-                        const numId = ((allocateNumId) as (k: 'bullet' | 'ordered') => string | null)('bullet')
-                        if (numId) (editor.chain().focus() as any).toggleListItem({ kind: 'bullet', numId, level: 0 }).run()
+                        const numId = allocateNumId('bullet')
+                        if (numId) editor.chain().focus().toggleListItem({ kind: 'bullet', numId, level: 0 }).run()
                       }
                     },
                   )}
@@ -807,10 +807,10 @@ export function Ribbon({
                     () => {
                       if (!editor) return
                       if (formatState.listOrdered) {
-                        (editor.chain().focus() as any).unsetList().run()
+                        editor.chain().focus().unsetList().run()
                       } else {
-                        const numId = ((allocateNumId) as (k: 'bullet' | 'ordered') => string | null)('ordered')
-                        if (numId) (editor.chain().focus() as any).toggleListItem({ kind: 'ordered', numId, level: 0 }).run()
+                        const numId = allocateNumId('ordered')
+                        if (numId) editor.chain().focus().toggleListItem({ kind: 'ordered', numId, level: 0 }).run()
                       }
                     },
                   )}
@@ -844,13 +844,13 @@ export function Ribbon({
                     <IconIndentDec size={14} />,
                     t('ribbonOutdentTip'),
                     '',
-                    () => { if (!editor) return; (editor.chain().focus() as any).setParagraphAttrs({ indentLeft: Math.max(0, (activeParaAttrs(editor).indentLeft as number) - 360) }).run() },
+                    () => { if (!editor) return; editor.chain().focus().setParagraphAttrs({ indentLeft: Math.max(0, (activeParaAttrs(editor).indentLeft as number) - 360) }).run() },
                   )}
                   {fmtBtn(
                     <IconIndentInc size={14} />,
                     t('ribbonIndentTip'),
                     '',
-                    () => { if (!editor) return; (editor.chain().focus() as any).setParagraphAttrs({ indentLeft: (activeParaAttrs(editor).indentLeft as number) + 360 }).run() },
+                    () => { if (!editor) return; editor.chain().focus().setParagraphAttrs({ indentLeft: (activeParaAttrs(editor).indentLeft as number) + 360 }).run() },
                   )}
                 </div>
 
@@ -861,25 +861,25 @@ export function Ribbon({
                     <IconAlignLeft size={14} />,
                     t('ribbonAlignLeftTip'),
                     formatState.align === 'left' || (!formatState.align && !formatState.bidi) ? 'active' : undefined,
-                    () => { if (!editor) return; (editor.chain().focus() as any).setParagraphAttrs({ align: formatState.align === 'left' ? null : 'left' }).run() },
+                    () => { if (!editor) return; editor.chain().focus().setParagraphAttrs({ align: formatState.align === 'left' ? null : 'left' }).run() },
                   )}
                   {fmtBtn(
                     <IconAlignCenter size={14} />,
                     t('ribbonAlignCenterTip'),
                     formatState.align === 'center' ? 'active' : undefined,
-                    () => { if (!editor) return; (editor.chain().focus() as any).setParagraphAttrs({ align: formatState.align === 'center' ? null : 'center' }).run() },
+                    () => { if (!editor) return; editor.chain().focus().setParagraphAttrs({ align: formatState.align === 'center' ? null : 'center' }).run() },
                   )}
                   {fmtBtn(
                     <IconAlignRight size={14} />,
                     t('ribbonAlignRightTip'),
                     formatState.align === 'right' ? 'active' : undefined,
-                    () => { if (!editor) return; (editor.chain().focus() as any).setParagraphAttrs({ align: formatState.align === 'right' ? null : 'right' }).run() },
+                    () => { if (!editor) return; editor.chain().focus().setParagraphAttrs({ align: formatState.align === 'right' ? null : 'right' }).run() },
                   )}
                   {fmtBtn(
                     <IconAlignJustify size={14} />,
                     t('ribbonAlignJustifyTip'),
                     formatState.align === 'both' ? 'active' : undefined,
-                    () => { if (!editor) return; (editor.chain().focus() as any).setParagraphAttrs({ align: formatState.align === 'both' ? null : 'both' }).run() },
+                    () => { if (!editor) return; editor.chain().focus().setParagraphAttrs({ align: formatState.align === 'both' ? null : 'both' }).run() },
                   )}
 
                   {/* Direction (LTR/RTL) */}
@@ -887,7 +887,7 @@ export function Ribbon({
                     formatState.bidi ? <IconDirRtl size={14} /> : <IconDirLtr size={14} />,
                     formatState.bidi ? t('ribbonRtlTip') : t('ribbonLtrTip'),
                     formatState.bidi ? 'active' : undefined,
-                    () => { if (!editor) return; (editor.chain().focus() as any).setParagraphAttrs({ bidi: !formatState.bidi }).run() },
+                    () => { if (!editor) return; editor.chain().focus().setParagraphAttrs({ bidi: !formatState.bidi }).run() },
                   )}
 
                   {/* Line Spacing */}
@@ -916,7 +916,7 @@ export function Ribbon({
                             onClick={() => {
                               if (!editor) return
                               const v = val as number
-                              ;(editor.chain().focus() as any).setParagraphAttrs({ lineSpacing: v, lineRule: 'exact', lineRawTwips: v * 240 }).run()
+                              editor.chain().focus().setParagraphAttrs({ lineSpacing: v, lineRule: 'exact', lineRawTwips: v * 240 }).run()
                               setDropdown(null)
                             }}
                           >
@@ -927,7 +927,7 @@ export function Ribbon({
                           className={!formatState.lineSpacing ? 'active' : ''}
                           onClick={() => {
                             if (!editor) return
-                            ;(editor.chain().focus() as any).setParagraphAttrs({ lineSpacing: null, lineRule: null, lineRawTwips: null }).run()
+                            editor.chain().focus().setParagraphAttrs({ lineSpacing: null, lineRule: null, lineRawTwips: null }).run()
                             setDropdown(null)
                           }}
                         >

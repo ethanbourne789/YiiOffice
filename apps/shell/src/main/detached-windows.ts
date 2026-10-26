@@ -522,7 +522,7 @@ export function createDetachedEditorWindow(options: {
       }
     })()
   })
-  win.on('closed', () => {
+  win.on('close', () => {
     clearDockHover(rec)
     if (torn?.rec === rec) torn = null
     detached.delete(wcId)
