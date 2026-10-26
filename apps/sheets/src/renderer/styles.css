@@ -307,8 +307,14 @@
   box-sizing: border-box;
 }
 
-body {
+html,
+body,
+#root {
+  height: 100%;
   margin: 0;
+}
+
+body {
   min-width: 720px;
   min-height: 100vh;
   overflow: hidden;
