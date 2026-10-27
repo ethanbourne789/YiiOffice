@@ -121,6 +121,7 @@ import {
   useMergeDialog,
   useTextEntry,
 } from './PageOpDialogs'
+import { PrintDialog, usePrintDialog } from './PrintDialog'
 import { PasswordDialog } from './PasswordDialog'
 import { PropertiesDialog } from './PropertiesDialog'
 import { SignatureDialog, fileToCanvas } from './SignatureDialog'
@@ -806,12 +807,9 @@ export default function App() {
   const splitDialog = useTextEntry()
   const replaceDialog = useTextEntry()
   const mergeDialog = useMergeDialog()
+  const printDialog = usePrintDialog()
   const [pageSizeDlg, setPageSizeDlg] = useState(false)
   const [splitPagesDlg, setSplitPagesDlg] = useState(false)
-  const [printDlg, setPrintDlg] = useState(false)
-  const [printMode, setPrintMode] = useState<'all' | 'current' | 'custom'>('all')
-  const [printInput, setPrintInput] = useState('')
-  const [printInvalid, setPrintInvalid] = useState(false)
   /** Page-crop dialog: rendered page bitmap + which page it shows */
   const [pageCropDlg, setPageCropDlg] = useState<{ png: string; origIdx: number } | null>(null)
   const [cropAllPages, setCropAllPages] = useState(false)
@@ -5818,12 +5816,7 @@ export default function App() {
 
   // currentPage only tracks scroll, so it can outlive a page deletion
   const printCurrentPage = Math.max(1, Math.min(currentPage, pageCount))
-  const openPrintDlg = () => {
-    setPrintMode('all')
-    setPrintInput(String(printCurrentPage))
-    setPrintInvalid(false)
-    setPrintDlg(true)
-  }
+  const openPrintDlg = () => printDialog.show(printCurrentPage)
 
   /** Print: save first (markups/forms/page ops all into the file), then reload from the file to render, avoiding a destroyed old doc */
   // Synchronous re-entry guard: the menu accelerator and the renderer's own ⌘P can both
@@ -5858,22 +5851,22 @@ export default function App() {
 
   /** Print dialog confirm: visible page numbers → 1-based file pages */
   const confirmPrint = () => {
-    if (printMode === 'all') {
-      setPrintDlg(false)
+    if (printDialog.mode === 'all') {
+      printDialog.close()
       void printDoc()
       return
     }
-    if (printMode === 'current') {
-      setPrintDlg(false)
+    if (printDialog.mode === 'current') {
+      printDialog.close()
       void printDoc([printCurrentPage])
       return
     }
-    const pages = parsePageRanges(printInput, pageCount)
+    const pages = parsePageRanges(printDialog.input, pageCount)
     if (!pages || pages.length === 0) {
-      setPrintInvalid(true)
+      printDialog.fail()
       return
     }
-    setPrintDlg(false)
+    printDialog.close()
     void printDoc(pages)
   }
 
@@ -9456,65 +9449,13 @@ export default function App() {
                 onCancel={splitDialog.close}
               />
             )}
-            {printDlg && (
-              <div className="pdf-modal-mask" onClick={() => setPrintDlg(false)}>
-                <div className="pdf-modal" onClick={(e) => e.stopPropagation()}>
-                  <div className="pdf-modal-title">{t('print')}</div>
-                  <label className="pdf-modal-row">
-                    <input
-                      type="radio"
-                      name="print-range"
-                      checked={printMode === 'all'}
-                      onChange={() => setPrintMode('all')}
-                    />
-                    <span>{t('printRangeAll')}</span>
-                  </label>
-                  <label className="pdf-modal-row">
-                    <input
-                      type="radio"
-                      name="print-range"
-                      checked={printMode === 'current'}
-                      onChange={() => setPrintMode('current')}
-                    />
-                    <span>
-                      {t('printRangeCurrent')} ({printCurrentPage})
-                    </span>
-                  </label>
-                  <label className="pdf-modal-row">
-                    <input
-                      type="radio"
-                      name="print-range"
-                      checked={printMode === 'custom'}
-                      onChange={() => setPrintMode('custom')}
-                    />
-                    <span>{t('printRangeCustom')}</span>
-                  </label>
-                  {printMode === 'custom' && (
-                    <input
-                      className={`pdf-modal-input${printInvalid ? ' invalid' : ''}`}
-                      value={printInput}
-                      placeholder={t('printRangeHint')}
-                      autoFocus
-                      onChange={(e) => {
-                        setPrintInput(e.target.value)
-                        setPrintInvalid(false)
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') confirmPrint()
-                        else if (e.key === 'Escape') setPrintDlg(false)
-                      }}
-                    />
-                  )}
-                  <div className="pdf-modal-actions">
-                    <button className="pdf-modal-btn" onClick={() => setPrintDlg(false)}>
-                      {t('cancel')}
-                    </button>
-                    <button className="pdf-modal-btn primary" onClick={confirmPrint}>
-                      {t('print')}
-                    </button>
-                  </div>
-                </div>
-              </div>
+            {printDialog.isOpen && (
+              <PrintDialog
+                t={t}
+                currentPage={printCurrentPage}
+                state={printDialog}
+                onConfirm={confirmPrint}
+              />
             )}
             {mergeDialog.isOpen && (
               <MergePagesDialog

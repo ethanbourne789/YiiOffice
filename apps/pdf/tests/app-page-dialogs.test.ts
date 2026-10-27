@@ -115,4 +115,26 @@ describe('page-operation dialogs from the ribbon', () => {
     // confirmed dialogs close
     expect(root.querySelector('[role="dialog"]')).toBeNull()
   })
+
+  it('opens print on all pages and only asks for a range when custom is picked', async () => {
+    const { root } = await openEditor()
+    await clickCmd(root, 'print')
+
+    const radios = root.querySelectorAll<HTMLInputElement>('input[type="radio"]')
+    expect(radios).toHaveLength(3)
+    expect(radios[0]!.checked).toBe(true)
+    expect(root.querySelector('[data-cmd="dialogInput"]')).toBeNull()
+
+    await clickCmd(root, 'printRange-custom')
+    const input = root.querySelector<HTMLInputElement>('[data-cmd="dialogInput"]')
+    expect(input).not.toBeNull()
+
+    // past the last page of a one-page document
+    await type(input!, '99')
+    await clickCmd(root, 'dialogOk')
+    expect(root.querySelector('[role="dialog"]')).not.toBeNull()
+    expect(root.querySelector<HTMLInputElement>('[data-cmd="dialogInput"]')!.className).toContain(
+      'invalid',
+    )
+  })
 })

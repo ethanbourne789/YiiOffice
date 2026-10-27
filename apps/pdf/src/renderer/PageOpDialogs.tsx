@@ -18,9 +18,9 @@
     second handler would fire the cancel twice. */
 
 import { useState } from 'react'
-import type { ReactElement, ReactNode } from 'react'
+import type { ReactElement } from 'react'
 import type { TFunc } from './i18n/locale'
-import { useModalDialog } from './modal-dialog'
+import { ModalActions, ModalCard } from './ModalCard'
 import { PAPER_SIZES } from './view-config'
 
 /** Open + value + invalid, the state every text-entry dialog needs. */
@@ -105,54 +105,6 @@ export function useMergeDialog(): MergeDialogState {
   }
 }
 
-/** Mask + card + dialog semantics. One copy instead of one per dialog. */
-function ModalCard({
-  label,
-  onCancel,
-  children,
-}: {
-  label: string
-  onCancel: () => void
-  children: ReactNode
-}): ReactElement {
-  const dialogRef = useModalDialog(onCancel)
-  return (
-    <div className="pdf-modal-mask" onClick={onCancel}>
-      <div
-        ref={dialogRef}
-        className="pdf-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label={label}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {children}
-      </div>
-    </div>
-  )
-}
-
-function Actions({
-  t,
-  onCancel,
-  onConfirm,
-}: {
-  t: TFunc
-  onCancel: () => void
-  onConfirm: () => void
-}): ReactElement {
-  return (
-    <div className="pdf-modal-actions">
-      <button className="pdf-modal-btn" data-cmd="dialogCancel" onClick={onCancel}>
-        {t('cancel')}
-      </button>
-      <button className="pdf-modal-btn primary" data-cmd="dialogOk" onClick={onConfirm}>
-        {t('ok')}
-      </button>
-    </div>
-  )
-}
-
 export interface RangeDialogProps {
   t: TFunc
   /** Already-translated title (also the accessible name) */
@@ -191,7 +143,7 @@ export function RangeDialog({
           if (e.key === 'Enter') onConfirm()
         }}
       />
-      <Actions t={t} onCancel={onCancel} onConfirm={onConfirm} />
+      <ModalActions t={t} onCancel={onCancel} onConfirm={onConfirm} />
     </ModalCard>
   )
 }
@@ -256,7 +208,7 @@ export function MergePagesDialog({
         />
         {t('mergePagesSeparator')}
       </label>
-      <Actions t={t} onCancel={state.close} onConfirm={onConfirm} />
+      <ModalActions t={t} onCancel={state.close} onConfirm={onConfirm} />
     </ModalCard>
   )
 }
@@ -288,11 +240,7 @@ export function PageSizeDialog({
       <div className="pdf-modal-hint">{hint}</div>
       {row(PAPER_SIZES.slice(0, 3))}
       {row(PAPER_SIZES.slice(3))}
-      <div className="pdf-modal-actions">
-        <button className="pdf-modal-btn" data-cmd="dialogCancel" onClick={onCancel}>
-          {t('cancel')}
-        </button>
-      </div>
+      <ModalActions t={t} onCancel={onCancel} />
     </ModalCard>
   )
 }
@@ -320,11 +268,7 @@ export function SplitPagesDialog({
           </button>
         ))}
       </div>
-      <div className="pdf-modal-actions">
-        <button className="pdf-modal-btn" data-cmd="dialogCancel" onClick={onCancel}>
-          {t('cancel')}
-        </button>
-      </div>
+      <ModalActions t={t} onCancel={onCancel} />
     </ModalCard>
   )
 }
