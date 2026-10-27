@@ -9,7 +9,7 @@
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 ![No Login](https://img.shields.io/badge/no%20login-%E2%9C%93-brightgreen)
 ![No Ads](https://img.shields.io/badge/no%20ads-%E2%9C%93-brightgreen)
-![Offline](https://img.shields.io/badge/offline--first-%E2%9C%93-brightgreen)
+![Offline](https://img.shields.io/badge/offline--only-%E2%9C%93-brightgreen)
 
 <p align="center"><a href="README.md">简体中文</a> · <b>English</b></p>
 
