@@ -55,19 +55,6 @@ import type { DesignField, FormDesignTool } from './FormDesignLayer'
 import { collectDetectInput, detectFormFields } from './form-detect'
 import { checkboxWidgetAt, markRectForBox, printedBoxAt } from './form-mark-target'
 
-type Arrange =
-  | 'left'
-  | 'right'
-  | 'top'
-  | 'bottom'
-  | 'centerH'
-  | 'centerV'
-  | 'distributeH'
-  | 'distributeV'
-  | 'sameWidth'
-  | 'sameHeight'
-  | 'sameSize'
-
 const PASTE_OFFSET_PTS = 12
 /** What the text dialog is editing: a label already baked into the page, one still
     pending as an image edit, or an inserted text object */
@@ -145,6 +132,8 @@ import type { HeaderFooterConfig, WatermarkConfig } from './stamps'
 import { createSearchIndexCache } from './search'
 import type { SearchIndex, SearchMatch } from './search'
 import { SearchBar, usePdfSearch } from './SearchBar'
+import { FormDesignRibbon, FormFieldMenu, useFormDesign } from './FormDesignBar'
+import type { Arrange, FormDesign, FormFieldMenuRequest } from './FormDesignBar'
 import { mapDocFont, type DocFontStyle } from './doc-font'
 import { groupPageBlocks, reflowOverflows, type TextBlock } from './text-block'
 import {
@@ -254,16 +243,6 @@ import {
   IconNextField,
   IconCompleteForm,
   IconFormText,
-  IconFieldText,
-  IconFieldCheckbox,
-  IconFieldSignature,
-  IconFieldKeep,
-  IconFieldArrange,
-  IconFieldDetect,
-  IconFieldDate,
-  IconFieldRadio,
-  IconFieldChoice,
-  IconFieldPreview,
   IconFormCheck,
   IconFormCross,
   IconExportImg,
@@ -743,21 +722,8 @@ export default function App() {
   )
   const formWidgetEditsRef = useRef(formWidgetEdits)
   formWidgetEditsRef.current = formWidgetEdits
-  const [formDesignTool, setFormDesignTool] = useState<FormDesignTool | null>(null)
-  const [formDesignKeepTool, setFormDesignKeepTool] = useState(false)
-  const [formDesignPreview, setFormDesignPreview] = useState(false)
-  const [selectedFormFieldIds, setSelectedFormFieldIds] = useState<string[]>([])
-  const setSelectedFormFieldId = (id: string | null) => setSelectedFormFieldIds(id ? [id] : [])
-  const [formMenu, setFormMenu] = useState<{
-    x: number
-    y: number
-    fieldId: string | null
-    pageIndex: number
-  } | null>(null)
-  const formMenuRef = useRef<HTMLDivElement | null>(null)
-  const [arrangeOpen, setArrangeOpen] = useState(false)
-  const [detectingFields, setDetectingFields] = useState(false)
-  const arrangeWrapRef = useRef<HTMLDivElement | null>(null)
+  /** The open field menu; the menu itself (and its edge correction) is a component */
+  const [formMenu, setFormMenu] = useState<FormFieldMenuRequest | null>(null)
   const formClipboardRef = useRef<FormFieldInput[]>([])
   /** The field just placed: its card takes focus and offers Cancel */
   const [freshFormFieldId, setFreshFormFieldId] = useState<string | null>(null)
@@ -945,6 +911,10 @@ export default function App() {
     [],
   )
 
+  /** Form-design state for the load path: `loadDoc` is a []-deps callback, so it
+      reads the current hook rather than capturing one from the first render */
+  const formDesignRef = useRef<FormDesign | null>(null)
+
   const loadDoc = useCallback(
     async (
       path: string,
@@ -963,9 +933,7 @@ export default function App() {
         commitFormFields([])
         commitBlankPages([])
         setFormWidgetEdits(new Map())
-        setFormDesignTool(null)
-        setFormDesignPreview(false)
-        setSelectedFormFieldId(null)
+        formDesignRef.current?.reset()
         setFreshFormFieldId(null)
       }
       const task = getDocument({
@@ -1625,28 +1593,9 @@ export default function App() {
     }
     return out
   }, [liveFormCatalog, formFields])
-  const selectedDesignFields = useMemo(() => {
-    const all = [...designFieldsByPage.values()].flat()
-    return selectedFormFieldIds.flatMap((id) => all.filter((f) => f.id === id))
-  }, [designFieldsByPage, selectedFormFieldIds])
-  const selectedDesignField = selectedDesignFields.length === 1 ? selectedDesignFields[0]! : null
-  const selectedFormFieldIdSet = useMemo(
-    () => new Set(selectedFormFieldIds),
-    [selectedFormFieldIds],
-  )
-  const arrangeItems: [Arrange, string, number][] = [
-    ['left', t('formDesignAlignLeft'), 2],
-    ['centerH', t('formDesignAlignCenterH'), 2],
-    ['right', t('formDesignAlignRight'), 2],
-    ['top', t('formDesignAlignTop'), 2],
-    ['centerV', t('formDesignAlignCenterV'), 2],
-    ['bottom', t('formDesignAlignBottom'), 2],
-    ['distributeH', t('formDesignDistributeH'), 3],
-    ['distributeV', t('formDesignDistributeV'), 3],
-    ['sameWidth', t('formDesignSameWidth'), 2],
-    ['sameHeight', t('formDesignSameHeight'), 2],
-    ['sameSize', t('formDesignSameSize'), 2],
-  ]
+  /** Form-authoring mode and selection: the ribbon, the layer and the shortcuts share it */
+  const design = useFormDesign(designFieldsByPage)
+  formDesignRef.current = design
   const formWidgets = visibleFormWidgets(liveFormCatalog, visList)
   const signedFormWidgetIds = useMemo(
     () =>
@@ -1983,9 +1932,7 @@ export default function App() {
     commitTextInserts(s.textInserts)
     commitFormFields(s.formFields)
     commitBlankPages(s.blankPages)
-    setSelectedFormFieldIds((cur) =>
-      cur.filter((id) => designWidgetId(id) || s.formFields.some((f) => f.id === id)),
-    )
+    design.retain((id) => !!designWidgetId(id) || s.formFields.some((f) => f.id === id))
     setFreshFormFieldId((cur) => (cur && s.formFields.some((f) => f.id === cur) ? cur : null))
     updateImageEdits(() => s.imageEdits)
     setTextDraft(null)
@@ -3373,20 +3320,16 @@ export default function App() {
 
   // ── Form Design: author new AcroForm fields (pending until saved) ──
 
+  const resetFormDesign = design.reset
   useEffect(() => {
-    if (ribbonTab !== 'formDesign') {
-      setFormDesignTool(null)
-      setFormDesignPreview(false)
-      setSelectedFormFieldId(null)
-      setFreshFormFieldId(null)
-    }
-  }, [ribbonTab])
+    if (ribbonTab === 'formDesign') return
+    resetFormDesign()
+    setFreshFormFieldId(null)
+  }, [ribbonTab, resetFormDesign])
 
   const startFormDesignTool = (kind: FormDesignTool) => {
-    if (formDesignTool === kind) {
-      setFormDesignTool(null)
-      return
-    }
+    // Pressing the armed tool disarms it; everything below only runs when arming
+    if (!design.toggleTool(kind)) return
     setEditTextMode(false)
     setTextDraft(null)
     setPendingTextInsert(null)
@@ -3397,10 +3340,12 @@ export default function App() {
     setImagePick(null)
     setPendingStaticFill(null)
     setSelected(null)
-    setSelectedFormFieldId(null)
     setFreshFormFieldId(null)
-    setFormDesignPreview(false)
-    setFormDesignTool(kind)
+  }
+
+  const toggleFormPreview = () => {
+    design.togglePreview()
+    setFreshFormFieldId(null)
   }
 
   const nextFieldName = (prefix: string): string => {
@@ -3450,10 +3395,10 @@ export default function App() {
       return
     }
     const created = plan.records[0]?.created?.[0] ?? null
-    setSelectedFormFieldId(created)
+    design.selectOne(created)
     setFreshFormFieldId(created)
     // One placement per arming, like WPS/Acrobat; Ctrl/⌘ or the ribbon toggle keeps the tool
-    if (!keepTool && !formDesignKeepTool) setFormDesignTool(null)
+    if (!keepTool && !design.keepTool) design.disarm()
   }
 
   const patchFormField = (id: string, input: Partial<FormFieldInput>, coalesceKey?: string) => {
@@ -3518,7 +3463,7 @@ export default function App() {
       applyEditOps([{ op: 'removeFormField', id }])
       showNotice(t('formDesignDeleted'))
     }
-    setSelectedFormFieldIds((cur) => cur.filter((x) => x !== id))
+    design.deselect(id)
     setFreshFormFieldId((cur) => (cur === id ? null : cur))
   }
 
@@ -3542,7 +3487,7 @@ export default function App() {
   /** Align/distribute/size the selection in display space (what the user sees), per page */
   const arrangeSelected = (how: Arrange) => {
     const byPage = new Map<number, DesignField[]>()
-    for (const f of selectedDesignFields)
+    for (const f of design.selected)
       byPage.set(f.pageIndex, [...(byPage.get(f.pageIndex) ?? []), f])
     const changes: { field: DesignField; rect: FormFieldInput['rect'] }[] = []
     for (const [pageIndex, fields] of byPage) {
@@ -3649,7 +3594,7 @@ export default function App() {
   }
 
   const copySelectedFormFields = () => {
-    const inputs = selectedDesignFields.flatMap((f) => designFieldInput(f) ?? [])
+    const inputs = design.selected.flatMap((f) => designFieldInput(f) ?? [])
     if (inputs.length === 0) return false
     formClipboardRef.current = inputs
     return true
@@ -3698,7 +3643,10 @@ export default function App() {
       showNotice(plan.failures[0]!.error)
       return
     }
-    setSelectedFormFieldIds(plan.records.flatMap((r) => r.created ?? []))
+    design.select(
+      plan.records.flatMap((r) => r.created ?? []),
+      'replace',
+    )
     setFreshFormFieldId(null)
   }
 
@@ -3712,7 +3660,7 @@ export default function App() {
   const deleteSelectedFormFields = () => {
     const ops: Op[] = []
     let locked = false
-    for (const id of selectedFormFieldIds) {
+    for (const id of design.selectedIds) {
       const widgetId = designWidgetId(id)
       if (widgetId) {
         const w = formCatalog?.widgets.find((x) => x.id === widgetId)
@@ -3732,15 +3680,15 @@ export default function App() {
     if (locked) showNotice(t('formDesignSignedLocked'))
     if (ops.length === 0) return
     applyEditOps(ops)
-    setSelectedFormFieldIds([])
+    design.clearSelection()
     setFreshFormFieldId(null)
     showNotice(t('formDesignDeleted'))
   }
 
   /** Scan every page for blanks a reader would fill (underscores, boxes, "Label:" gaps) and add them as pending fields */
   const detectFields = async () => {
-    if (!doc || detectingFields) return
-    setDetectingFields(true)
+    if (!doc || design.detecting) return
+    design.setDetecting(true)
     try {
       const taken = new Set(editOpContext().fieldNames ?? [])
       const found: FormFieldInput[] = []
@@ -3780,12 +3728,15 @@ export default function App() {
         showNotice(plan.failures[0]!.error)
         return
       }
-      setFormDesignTool(null)
+      design.disarm()
       setFreshFormFieldId(null)
-      setSelectedFormFieldIds(plan.records.flatMap((r) => r.created ?? []))
+      design.select(
+        plan.records.flatMap((r) => r.created ?? []),
+        'replace',
+      )
       showNotice(t('formDesignDetected', { count: plan.records.length }))
     } finally {
-      setDetectingFields(false)
+      design.setDetecting(false)
     }
   }
 
@@ -3797,7 +3748,7 @@ export default function App() {
   /** Arrow keys move on screen; the display delta goes through each page's rotation */
   const nudgeSelectedFormFields = (vx: number, vy: number) => {
     applyDesignRects(
-      selectedDesignFields.map((field) => {
+      design.selected.map((field) => {
         const geom = pageGeom(field.pageIndex)
         const size = dispSize(field.pageIndex)
         const [ax, ay] = viewToPdf(geom, 0, 0)
@@ -3814,7 +3765,7 @@ export default function App() {
           ),
         }
       }),
-      `formFields:nudge:${selectedFormFieldIds.join(',')}`,
+      `formFields:nudge:${design.selectedIds.join(',')}`,
     )
   }
 
@@ -5847,21 +5798,6 @@ export default function App() {
   useDismissablePopover(thumbMenu != null, () => setThumbMenu(null), {
     inside: () => [thumbMenuRef.current],
   })
-  useDismissablePopover(formMenu != null, () => setFormMenu(null), {
-    inside: () => [formMenuRef.current],
-  })
-  // The field menu is tall; keep it inside the window when opened near the bottom/right edge
-  useLayoutEffect(() => {
-    const el = formMenuRef.current
-    if (!formMenu || !el) return
-    const r = el.getBoundingClientRect()
-    const left = Math.max(0, Math.min(formMenu.x, window.innerWidth - r.width - 4))
-    const top = Math.max(0, Math.min(formMenu.y, window.innerHeight - r.height - 4))
-    if (left !== formMenu.x || top !== formMenu.y) setFormMenu({ ...formMenu, x: left, y: top })
-  }, [formMenu])
-  useDismissablePopover(arrangeOpen, () => setArrangeOpen(false), {
-    inside: () => [arrangeWrapRef.current],
-  })
 
   // Draw-color palette (Annotate tab). Guarded by its own wrap ref — the
   // generic `.rb-drop-wrap` class is shared with the highlight split button,
@@ -5936,8 +5872,8 @@ export default function App() {
       if (!shouldHandleDocumentUndo(e.target, e.key, e.metaKey || e.ctrlKey)) return
       if (e.metaKey || e.ctrlKey) {
         const k = e.key.toLowerCase()
-        if (ribbonTab === 'formDesign' && !formDesignPreview && !inEditable) {
-          if (k === 'c' && selectedFormFieldIds.length > 0) {
+        if (ribbonTab === 'formDesign' && !design.preview && !inEditable) {
+          if (k === 'c' && design.selectedIds.length > 0) {
             e.preventDefault()
             copySelectedFormFields()
             return
@@ -5947,17 +5883,14 @@ export default function App() {
             pasteFormFields()
             return
           }
-          if (k === 'd' && selectedFormFieldIds.length > 0) {
+          if (k === 'd' && design.selectedIds.length > 0) {
             e.preventDefault()
             duplicateSelectedFormFields()
             return
           }
           if (k === 'a') {
             e.preventDefault()
-            const page = selectedDesignFields[0]?.pageIndex ?? visList[currentPage - 1]
-            setSelectedFormFieldIds(
-              page === undefined ? [] : (designFieldsByPage.get(page) ?? []).map((f) => f.id),
-            )
+            design.selectPage(design.selected[0]?.pageIndex ?? visList[currentPage - 1])
             return
           }
         }
@@ -6000,20 +5933,20 @@ export default function App() {
         else if (activeNote) setActiveNote(null)
         else if (drawTool) setDrawTool(null)
         else if (formMenu) setFormMenu(null)
-        else if (formDesignTool) setFormDesignTool(null)
-        else if (selectedFormFieldIds.length > 0) setSelectedFormFieldIds([])
+        else if (design.tool) design.disarm()
+        else if (design.selectedIds.length > 0) design.clearSelection()
         else if (selected) setSelected(null)
         else if (search.open) search.close()
         return
       }
       if (inEditable) return
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedFormFieldIds.length > 0) {
+      if ((e.key === 'Delete' || e.key === 'Backspace') && design.selectedIds.length > 0) {
         e.preventDefault()
         deleteSelectedFormFields()
         return
       }
       if (
-        selectedDesignFields.length > 0 &&
+        design.selected.length > 0 &&
         ribbonTab === 'formDesign' &&
         e.key.startsWith('Arrow')
       ) {
@@ -6945,150 +6878,18 @@ export default function App() {
             </>
           )}
           {ribbonTab === 'formDesign' && (
-            <>
-              <div className="ribbon-group">
-                <div className="ribbon-group-items">
-                  {(
-                    [
-                      ['text', IconFieldText, 'formDesignText', 'formDesignTextHint'],
-                      ['date', IconFieldDate, 'formDesignDate', 'formDesignDateHint'],
-                      [
-                        'checkbox',
-                        IconFieldCheckbox,
-                        'formDesignCheckbox',
-                        'formDesignCheckboxHint',
-                      ],
-                      ['radio', IconFieldRadio, 'formDesignRadio', 'formDesignRadioHint'],
-                      ['choice', IconFieldChoice, 'formDesignChoice', 'formDesignChoiceHint'],
-                      [
-                        'signature',
-                        IconFieldSignature,
-                        'formDesignSignature',
-                        'formDesignSignatureHint',
-                      ],
-                    ] as const
-                  ).map(([kind, FieldIcon, labelKey, hintKey]) => (
-                    <button
-                      key={kind}
-                      className={`rb-big${formDesignTool === kind ? ' active' : ''}`}
-                      data-cmd={labelKey}
-                      disabled={readOnly}
-                      data-tip={t(hintKey)}
-                      aria-pressed={formDesignTool === kind}
-                      onClick={() => startFormDesignTool(kind)}
-                    >
-                      <span className="rb-big-icon">
-                        <FieldIcon />
-                      </span>
-                      {t(labelKey)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="ribbon-sep" />
-              <div className="ribbon-group">
-                <div className="ribbon-group-items">
-                  <button
-                    className={`rb-big${formDesignKeepTool ? ' active' : ''}`}
-                    data-cmd="formDesignKeepTool"
-                    disabled={readOnly}
-                    data-tip={t('formDesignKeepToolHint')}
-                    aria-pressed={formDesignKeepTool}
-                    onClick={() => setFormDesignKeepTool((v) => !v)}
-                  >
-                    <span className="rb-big-icon">
-                      <IconFieldKeep />
-                    </span>
-                    {t('formDesignKeepTool')}
-                  </button>
-                  <button
-                    className={`rb-big${formDesignPreview ? ' active' : ''}`}
-                    data-cmd="formDesignPreview"
-                    disabled={readOnly}
-                    data-tip={t('formDesignPreviewHint')}
-                    aria-pressed={formDesignPreview}
-                    onClick={() => {
-                      setFormDesignTool(null)
-                      setSelectedFormFieldId(null)
-                      setFreshFormFieldId(null)
-                      setFormDesignPreview((v) => !v)
-                    }}
-                  >
-                    <span className="rb-big-icon">
-                      <IconFieldPreview />
-                    </span>
-                    {t('formDesignPreview')}
-                  </button>
-                  <button
-                    className="rb-big"
-                    data-cmd="formDesignDetect"
-                    disabled={readOnly || detectingFields || !doc}
-                    data-tip={t('formDesignDetectHint')}
-                    onClick={() => void detectFields()}
-                  >
-                    <span className="rb-big-icon">
-                      <IconFieldDetect />
-                    </span>
-                    {detectingFields ? t('formDesignDetecting') : t('formDesignDetect')}
-                  </button>
-                  <div className="rb-drop-wrap" ref={arrangeWrapRef}>
-                    <button
-                      className={`rb-big${arrangeOpen ? ' active' : ''}`}
-                      data-cmd="formDesignArrange"
-                      disabled={selectedFormFieldIds.length < 2}
-                      data-tip={t('formDesignArrangeHint')}
-                      onClick={() => setArrangeOpen((v) => !v)}
-                    >
-                      <span className="rb-big-icon">
-                        <IconFieldArrange />
-                        <RbCaret />
-                      </span>
-                      {t('formDesignArrange')}
-                    </button>
-                    {arrangeOpen && (
-                      <div className="rb-drop rb-menu">
-                        {arrangeItems.map(([how, label, min]) => (
-                          <button
-                            key={how}
-                            data-cmd={`formDesignArrange-${how}`}
-                            disabled={selectedFormFieldIds.length < min}
-                            onClick={() => {
-                              setArrangeOpen(false)
-                              arrangeSelected(how)
-                            }}
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    className="rb-big"
-                    data-cmd="formDesignDelete"
-                    disabled={selectedFormFieldIds.length === 0}
-                    data-tip={t('formDesignDelete')}
-                    onClick={deleteSelectedFormFields}
-                  >
-                    <span className="rb-big-icon">
-                      <IconTrash />
-                    </span>
-                    {t('formDesignDelete')}
-                  </button>
-                  <span className="form-ribbon-progress">
-                    {formDesignPreview
-                      ? t('formDesignPreviewOn')
-                      : formDesignTool
-                        ? t('formDesignPlaceHint')
-                        : formFields.length + formWidgetEdits.size > 0
-                          ? t('formDesignPending', {
-                              count: formFields.length + formWidgetEdits.size,
-                            })
-                          : t('formDesignEmptyHint')}
-                  </span>
-                </div>
-              </div>
-            </>
+            <FormDesignRibbon
+              t={t}
+              readOnly={readOnly}
+              canDetect={!!doc}
+              pendingCount={formFields.length + formWidgetEdits.size}
+              design={design}
+              onTool={startFormDesignTool}
+              onPreview={toggleFormPreview}
+              onDetect={() => void detectFields()}
+              onArrange={arrangeSelected}
+              onDelete={deleteSelectedFormFields}
+            />
           )}
           {ribbonTab === 'page' && (
             <>
@@ -8582,28 +8383,21 @@ export default function App() {
                               />
                               <FormDesignLayer
                                 designing={
-                                  ribbonTab === 'formDesign' && !readOnly && !formDesignPreview
+                                  ribbonTab === 'formDesign' && !readOnly && !design.preview
                                 }
-                                preview={ribbonTab === 'formDesign' && formDesignPreview}
-                                tool={
-                                  ribbonTab === 'formDesign' && !readOnly ? formDesignTool : null
-                                }
+                                preview={ribbonTab === 'formDesign' && design.preview}
+                                tool={ribbonTab === 'formDesign' && !readOnly ? design.tool : null}
                                 geom={geom}
                                 scale={scale}
                                 pageWidth={size.width}
                                 pageHeight={size.height}
                                 fields={designFieldsByPage.get(origIdx) ?? []}
-                                selectedIds={selectedFormFieldIdSet}
+                                selectedIds={design.selectedIdSet}
                                 onCreate={(kind, rect, keep) =>
                                   addFormField(kind, origIdx, rect, keep)
                                 }
                                 onSelect={(ids, mode) => {
-                                  setSelectedFormFieldIds((cur) => {
-                                    if (mode === 'replace') return ids
-                                    const next = cur.filter((x) => !ids.includes(x))
-                                    for (const id of ids) if (!cur.includes(id)) next.push(id)
-                                    return next
-                                  })
+                                  design.select(ids, mode)
                                   setFreshFormFieldId((cur) =>
                                     ids.length === 1 && cur === ids[0] ? cur : null,
                                   )
@@ -8627,11 +8421,11 @@ export default function App() {
                                 }
                               />
                               {ribbonTab === 'formDesign' &&
-                                !formDesignPreview &&
-                                selectedDesignField &&
-                                selectedDesignField.pageIndex === origIdx &&
+                                !design.preview &&
+                                design.selectedOne &&
+                                design.selectedOne.pageIndex === origIdx &&
                                 (() => {
-                                  const f = selectedDesignField
+                                  const f = design.selectedOne
                                   const box = pdfRectToCss(geom, f.rect, scale)
                                   return (
                                     <FormFieldProps
@@ -8657,13 +8451,13 @@ export default function App() {
                                       onPatch={(input, key) => patchDesignField(f, input, key)}
                                       onDelete={() => deleteFormField(f.id)}
                                       onDone={() => {
-                                        setSelectedFormFieldId(null)
+                                        design.clearSelection()
                                         setFreshFormFieldId(null)
                                       }}
                                       onCancel={() => {
                                         if (!f.existing)
                                           applyEditOps([{ op: 'removeFormField', id: f.id }])
-                                        setSelectedFormFieldId(null)
+                                        design.clearSelection()
                                         setFreshFormFieldId(null)
                                       }}
                                     />
@@ -9082,76 +8876,19 @@ export default function App() {
               </div>
             )}
             {formMenu && (
-              <div
-                ref={formMenuRef}
-                className="thumb-menu file-menu"
-                style={{ left: formMenu.x, top: formMenu.y }}
-              >
-                {formMenu.fieldId && (
-                  <>
-                    <button
-                      disabled={selectedFormFieldIds.length !== 1}
-                      onClick={() => {
-                        setFormMenu(null)
-                        setSelectedFormFieldId(formMenu.fieldId)
-                      }}
-                    >
-                      {t('formDesignProperties')}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setFormMenu(null)
-                        copySelectedFormFields()
-                      }}
-                    >
-                      {t('formDesignCopy')}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setFormMenu(null)
-                        duplicateSelectedFormFields()
-                      }}
-                    >
-                      {t('formDesignDuplicate')}
-                    </button>
-                  </>
-                )}
-                <button
-                  disabled={formClipboardRef.current.length === 0}
-                  onClick={() => {
-                    setFormMenu(null)
-                    pasteFormFields(formMenu.pageIndex)
-                  }}
-                >
-                  {t('formDesignPaste')}
-                </button>
-                {formMenu.fieldId && (
-                  <>
-                    <div className="thumb-menu-sep" />
-                    {arrangeItems.map(([how, label, min]) => (
-                      <button
-                        key={how}
-                        disabled={selectedFormFieldIds.length < min}
-                        onClick={() => {
-                          setFormMenu(null)
-                          arrangeSelected(how)
-                        }}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                    <div className="thumb-menu-sep" />
-                    <button
-                      onClick={() => {
-                        setFormMenu(null)
-                        deleteSelectedFormFields()
-                      }}
-                    >
-                      {t('formDesignDelete')}
-                    </button>
-                  </>
-                )}
-              </div>
+              <FormFieldMenu
+                t={t}
+                menu={formMenu}
+                selectedCount={design.selectedIds.length}
+                clipboardEmpty={formClipboardRef.current.length === 0}
+                onClose={() => setFormMenu(null)}
+                onProperties={design.selectOne}
+                onCopy={copySelectedFormFields}
+                onDuplicate={duplicateSelectedFormFields}
+                onPaste={pasteFormFields}
+                onArrange={arrangeSelected}
+                onDelete={deleteSelectedFormFields}
+              />
             )}
             {stampDlg && (
               <StampDialog t={t} onCancel={() => setStampDlg(false)} onApply={applyStamps} />
