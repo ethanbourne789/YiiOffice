@@ -95,7 +95,7 @@
 | Node.js | ≥ 22.12（见根 `package.json` 的 `engines`）                        |
 | npm     | ≥ 10                                                         |
 | Rust    | stable，仅 Sheets 的 `xlsx-sidecar` 需要，`cargo` 需在 PATH 中          |
-| 操作系统    | Windows 10/11（x64 / arm64）；macOS 与 Linux 的打包脚本也已就位但未做日常验证           |
+| 操作系统    | Windows 10/11（x64 / arm64）                                     |
 
 ### 安装与运行
 
@@ -124,8 +124,6 @@ npm run shell
 # 完整安装包
 npm run dist:win              # zip 便携包
 npm run dist:win:installer    # NSIS 安装器（向导默认装到 D:\YiiOffice，可改）
-npm run dist:mac              # macOS
-npm run dist:linux            # Linux
 ```
 
 打包前会自动生成第三方许可证清单（`npm run notices`）。Sheets 的 sidecar 由 `npm run build -w @yiioffice/sheets` 触发 `cargo build --release` 编译。
@@ -201,18 +199,6 @@ npm run test:e2e                # Playwright 端到端，需先跑过 build:all
 
 ***
 
-## 项目状态
-
-当前版本 `0.13.0`（`@yiioffice/shell`，根 `package.json` 同步）。内部包刻意停在 `0.1.0`：它们不对外发布，靠 `"*"` 互相引用。
-
-| 状态     | 内容                                                                                                         |
-| ------ | ---------------------------------------------------------------------------------------------------------- |
-| ✅ 已完成  | monorepo 结构；Shell 主流程（首页、标签、文件新建/重命名/移动/删除、设置持久化、全文搜索）；五个编辑器的渲染端与主进程功能；Rust xlsx sidecar；无界面 PDF 导出；Windows 打包脚本 |
-| 🚧 进行中 | 清理 AI 子系统移除后残留的桩代码；收敛 IPC 信任模型（路径授权 + `senderFrame` 校验）；原子写入时保留文件权限；渲染端 `ErrorBoundary` 与主进程崩溃处理；把测试与类型检查提升为门禁   |
-| 🗺️ 计划中 | ODF 导入（`.odt` / `.ods` / `.odp`）、PDF 证书签名、Markdown 反向链接、更多界面语言                                              |
-
-***
-
 ## 常见问题
 
 **Q：需要联网或注册账号吗？**
@@ -229,18 +215,6 @@ A：能。FTS5 的 `unicode61` 不切分连续中文，所以索引额外产出 
 
 **Q：`npm run dev` 起来了，但编辑器标签是白屏？**
 A：先确认五个渲染端 dev server（:5173–:5177）都活着 —— 每个编辑器标签加载自己的 dev server，端口被占或渲染端崩掉就会白屏。只想调一个编辑器时用 `npm run dev:docs` 这类独立模式，它会自己开窗口、不经过 Shell。
-
-***
-
-## 贡献
-
-1. Fork 并开分支：`git checkout -b feat/your-feature`
-2. 提交前在受影响的 workspace 跑：`npm run lint && npm run typecheck && npm test`
-3. 动到 Rust 代码要跑 `cargo test`（在 `apps/sheets/native/xlsx-engine` 下）
-4. 用户可见的行为变更要同步更新文档：本文件（中文为准）与英文版 `README.en.md`
-5. 提 PR 时说明动机，以及你是怎么验证的
-
-约定：TypeScript 严格模式；代码注释与日志文案用英文；界面文案一律走 `@yiioffice/i18n`（中英两份）；颜色只能通过主题 CSS 变量使用。
 
 ***
 

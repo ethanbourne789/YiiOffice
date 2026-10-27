@@ -95,7 +95,7 @@ One window hosting every editor as a tab — the first thing you see when the ap
 | Node.js | ≥ 22.12 (see `engines` in the root `package.json`) |
 | npm | ≥ 10 |
 | Rust | stable — only for the Sheets `xlsx-sidecar`; `cargo` must be on PATH |
-| OS | Windows 10/11 (x64 or arm64); macOS and Linux packaging scripts exist but are not exercised regularly |
+| OS | Windows 10/11 (x64 or arm64) |
 
 ### Install and run
 
@@ -124,8 +124,6 @@ npm run shell
 # Full packages
 npm run dist:win              # portable zip
 npm run dist:win:installer    # NSIS installer (defaults to D:\YiiOffice, changeable)
-npm run dist:mac              # macOS
-npm run dist:linux            # Linux
 ```
 
 Packaging regenerates the bundled third-party licence list (`npm run notices`) first. The Sheets sidecar is compiled by `npm run build -w @yiioffice/sheets`, which runs `cargo build --release`.
@@ -201,18 +199,6 @@ The repository currently has **no CI configuration**, so every gate above is loc
 
 ---
 
-## Status
-
-The app is at `0.13.0` (`@yiioffice/shell`), and the root `package.json` carries the same number. The workspace packages stay at `0.1.0` on purpose: they are internal, never published, and pulled in through `"*"` ranges.
-
-| State | Content |
-|-------|---------|
-| ✅ Done | Monorepo structure; shell main flow (home, tabs, file create/rename/move/delete, persisted settings, full-text search); renderer and main-process features of all five editors; Rust xlsx sidecar; headless PDF export; packaging scripts |
-| 🚧 In progress | Removing the stubs left behind when the AI subsystem went away; unifying the IPC trust model (path grants plus `senderFrame` checks); preserving file permissions on atomic writes; `ErrorBoundary` in renderers and a main-process crash handler; promoting the test and typecheck gates |
-| 🗺️ Planned | ODF import (`.odt/.ods/.odp`), PDF certificate signatures, Markdown backlinks, more UI languages |
-
----
-
 ## FAQ
 
 **Do I need an account or a network connection?**
@@ -229,18 +215,6 @@ Yes. The index emits bigram and unigram streams for CJK, working around the fact
 
 **`npm run dev` started, but editor tabs are blank?**
 Check that all five renderer dev servers are alive (:5173–:5177) — each editor tab loads its own dev server, so a busy port or a crashed renderer leaves that tab blank. To debug one editor alone, use a standalone mode such as `npm run dev:docs`, which opens its own window without the shell.
-
----
-
-## Contributing
-
-1. Fork and branch: `git checkout -b feat/your-feature`
-2. Before committing, in the affected workspaces: `npm run lint && npm run typecheck && npm test`
-3. Rust changes need `cargo test` (in `apps/sheets/native/xlsx-engine`)
-4. User-visible behaviour changes should update the docs: `README.md` (Chinese, source of truth) and this English mirror
-5. Open a PR describing the motivation and how you verified it
-
-Conventions: TypeScript strict mode, comments and log messages in English, UI strings through `@yiioffice/i18n` (English and Chinese), colours only via theme CSS variables.
 
 ---
 
