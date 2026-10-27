@@ -1597,12 +1597,6 @@ export function Home() {
       sub: '.md',
       action: () => window.aiOffice.newMarkdown(newFileOpts),
     },
-    {
-      ext: 'pdf',
-      title: t('newPdf'),
-      sub: '.pdf',
-      action: () => window.aiOffice.newPdf(newFileOpts),
-    },
   ]
 
   function renderQuickCards() {
