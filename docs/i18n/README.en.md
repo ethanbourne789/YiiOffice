@@ -219,7 +219,7 @@ A single app can be checked on its own: `npm test -w @yiioffice/docs`, `npm run 
 
 ## Status
 
-The app is at `0.11.0` (`@yiioffice/shell`), the root `package.json` still says `0.1.0` and the CLI is `0.10.0`; the three version numbers are not aligned yet. A Windows portable zip can be built locally (`apps/shell/release-build/YiiOffice-0.11.0-win.zip`).
+The app is at `0.13.0` (`@yiioffice/shell`), and the root `package.json` carries the same number. The workspace packages stay at `0.1.0` on purpose: they are internal, never published, and pulled in through `"*"` ranges. A Windows portable zip can be built locally (`apps/shell/release-build/YiiOffice-0.13.0-win.zip`).
 
 | State | Content |
 |-------|---------|

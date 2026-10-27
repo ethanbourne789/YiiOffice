@@ -1,6 +1,6 @@
 {
   "name": "yiioffice",
-  "version": "0.1.0",
+  "version": "0.13.0",
   "private": true,
   "description": "Office suite (docs, sheets, slides, pdf, markdown)",
   "license": "Apache-2.0",
