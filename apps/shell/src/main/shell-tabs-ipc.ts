@@ -23,7 +23,6 @@ import {
 import {
   newDocTab,
   newMarkdownTab,
-  newPdfTab,
   newSheetTab,
   newSlideTab,
 } from './shell-routing'
@@ -176,11 +175,6 @@ function registerTabsIpc(): void {
         label: tm('menuNewMarkdown'),
         icon: menuIcons().md,
         click: () => newMarkdownTab(),
-      },
-      {
-        label: tm('menuNewPdf'),
-        icon: menuIcons().pdf,
-        click: () => void newPdfTab(),
       },
       { type: 'separator' },
       { label: tm('menuOpen'), click: () => void openFileViaDialog() },

@@ -44,7 +44,6 @@ import { currentLang, tm } from './shell-i18n'
 import {
   newDocTab,
   newMarkdownTab,
-  newPdfTab,
   newSheetTab,
   newSlideTab,
   openDocumentPath,
@@ -161,7 +160,6 @@ function buildHomeMenu(): void {
         },
         { label: tm('menuNewSlide'), click: () => newSlideTab() },
         { label: tm('menuNewMarkdown'), click: () => newMarkdownTab() },
-        { label: tm('menuNewPdf'), click: () => void newPdfTab() },
         { type: 'separator' },
         {
           label: tm('menuOpen'),
@@ -401,7 +399,6 @@ function installDockMenu(): void {
       },
       { label: tm('menuNewSlide'), click: () => newSlideTab() },
       { label: tm('menuNewMarkdown'), click: () => newMarkdownTab() },
-      { label: tm('menuNewPdf'), click: () => void newPdfTab() },
     ]),
   )
 }
