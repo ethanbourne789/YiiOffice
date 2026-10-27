@@ -135,8 +135,9 @@ import {
 import { StampDialog } from './StampDialog'
 import { buildStamps } from './stamps'
 import type { HeaderFooterConfig, WatermarkConfig } from './stamps'
-import { createSearchIndexCache, searchInIndex } from './search'
+import { createSearchIndexCache } from './search'
 import type { SearchIndex, SearchMatch } from './search'
+import { SearchBar, usePdfSearch } from './SearchBar'
 import { mapDocFont, type DocFontStyle } from './doc-font'
 import { groupPageBlocks, reflowOverflows, type TextBlock } from './text-block'
 import {
@@ -793,10 +794,6 @@ export default function App() {
   const noticeTimerRef = useRef<number | null>(null)
   /** Autosave gate: this file was saved explicitly at least once */
   const savedOnceRef = useRef(false)
-  const [searchOpen, setSearchOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchMatches, setSearchMatches] = useState<SearchMatch[]>([])
-  const [searchCur, setSearchCur] = useState(0)
   const [printing, setPrinting] = useState(false)
   const [undoStack, setUndoStack] = useState<EditSnapshot[]>([])
   const [redoStack, setRedoStack] = useState<EditSnapshot[]>([])
@@ -820,7 +817,6 @@ export default function App() {
   const pendingViewRestoreRef = useRef<PdfViewState | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const thumbsRef = useRef<HTMLDivElement>(null)
-  const searchInputRef = useRef<HTMLInputElement>(null)
   /** Local approximations of document fonts by pdf.js font id (see doc-font.ts);
       grows as edits/blocks touch pages, reset with the doc */
   const [docFonts, setDocFonts] = useState<Map<string, DocFontStyle>>(new Map())
@@ -2205,36 +2201,14 @@ export default function App() {
     }
   }, [doc, visibleRows, rows, savedMarkups])
 
-  useEffect(() => {
-    if (!searchOpen || !searchQuery.trim()) {
-      setSearchMatches([])
-      setSearchCur(0)
-      return
-    }
-    let cancelled = false
-    const timer = setTimeout(() => {
-      void getSearchIndex()?.then((idx) => {
-        if (cancelled) return
-        setSearchMatches(searchInIndex(idx, searchQuery.trim()))
-        setSearchCur(0)
-      })
-    }, 200)
-    return () => {
-      cancelled = true
-      clearTimeout(timer)
-    }
-  }, [searchOpen, searchQuery, getSearchIndex])
-
-  /** Pages with unsaved deletion are excluded from match navigation */
-  const activeMatches = useMemo(
-    () => searchMatches.filter((m) => !deleted.has(m.pageIndex)),
-    [searchMatches, deleted],
-  )
-  const searchCurClamped = Math.min(searchCur, Math.max(0, activeMatches.length - 1))
+  const search = usePdfSearch({ index: getSearchIndex, hidden: deleted })
+  // Destructured for the scroll effect below: it must re-run when the hit list moves,
+  // not on every render, and depending on `search` would make it do the latter
+  const { open: searchOpen, matches: searchMatches, current: searchHit } = search
 
   const gotoMatch = useCallback(
     (idx: number) => {
-      const m = activeMatches[idx]
+      const m = searchMatches[idx]
       const el = scrollRef.current
       if (!m || !el) return
       const visIdx = visList.indexOf(m.pageIndex)
@@ -2242,33 +2216,17 @@ export default function App() {
       const box = pdfRectToCss(pageGeom(m.pageIndex), m.rects[0] ?? [0, 0, 0, 0], scale)
       el.scrollTop = Math.max(0, pageTop(visIdx) + box.top - el.clientHeight * 0.35)
     },
-    [activeMatches, visList, pageGeom, scale, pageTop],
+    [searchMatches, visList, pageGeom, scale, pageTop],
   )
 
-  // Scroll to the current match on new results or position changes (unrelated changes like zoom don't re-scroll)
+  // Scroll to the current hit on new results or position changes (zoom alone must not re-scroll)
   useEffect(() => {
-    if (!searchOpen || activeMatches.length === 0) return
+    if (!searchOpen || searchMatches.length === 0) return
     const last = searchJumpRef.current
-    if (last && last.matches === activeMatches && last.cur === searchCurClamped) return
-    searchJumpRef.current = { matches: activeMatches, cur: searchCurClamped }
-    gotoMatch(searchCurClamped)
-  }, [searchOpen, activeMatches, searchCurClamped, gotoMatch])
-
-  const searchStep = (dir: 1 | -1) => {
-    const n = activeMatches.length
-    if (n === 0) return
-    setSearchCur((searchCurClamped + dir + n) % n)
-  }
-
-  const openSearch = () => {
-    setSearchOpen(true)
-    requestAnimationFrame(() => {
-      searchInputRef.current?.focus()
-      searchInputRef.current?.select()
-    })
-  }
-
-  const closeSearch = () => setSearchOpen(false)
+    if (last && last.matches === searchMatches && last.cur === searchHit) return
+    searchJumpRef.current = { matches: searchMatches, cur: searchHit }
+    gotoMatch(searchHit)
+  }, [searchOpen, searchMatches, searchHit, gotoMatch])
 
   /** Selection quads in PDF space keyed by original page index; null when nothing usable */
   const selectionQuads = (): Map<number, number[][]> | null => {
@@ -4228,8 +4186,7 @@ export default function App() {
         await loadDoc(targetPath, doc)
         // loadDoc leaves the text index and hits alone; both still hold the removed text
         searchIndexCache.clear()
-        setSearchMatches([])
-        setSearchCur(0)
+        search.clear()
         setStatus('ready')
         requestAnimationFrame(() => {
           if (scrollRef.current) scrollRef.current.scrollTop = scrollTop
@@ -6035,7 +5992,7 @@ export default function App() {
           else undo()
         } else if (k === 'f') {
           e.preventDefault()
-          openSearch()
+          search.openSearch()
         } else if (k === 'p' && !e.shiftKey) {
           e.preventDefault()
           openPrintDlg()
@@ -6068,7 +6025,7 @@ export default function App() {
         else if (formDesignTool) setFormDesignTool(null)
         else if (selectedFormFieldIds.length > 0) setSelectedFormFieldIds([])
         else if (selected) setSelected(null)
-        else if (searchOpen) closeSearch()
+        else if (search.open) search.close()
         return
       }
       if (inEditable) return
@@ -6373,10 +6330,10 @@ export default function App() {
 
   const searchBtn = (
     <button
-      className={`rb-big${searchOpen ? ' active' : ''}`}
+      className={`rb-big${search.open ? ' active' : ''}`}
       data-cmd="search"
       data-tip={`${t('search')} (${platformShortcuts('⌘F')})`}
-      onClick={() => (searchOpen ? closeSearch() : openSearch())}
+      onClick={search.toggle}
     >
       <span className="rb-big-icon">
         <IconSearch />
@@ -8559,14 +8516,14 @@ export default function App() {
                                   }
                                 />
                               ))}
-                              {searchOpen && (
+                              {search.open && (
                                 <div className="pdf-search-layer">
-                                  {activeMatches.flatMap((m, mi) =>
+                                  {search.matches.flatMap((m, mi) =>
                                     m.pageIndex === origIdx
                                       ? m.rects.map((r, ri) => (
                                           <div
                                             key={`${mi}-${ri}`}
-                                            className={`pdf-search-hit${mi === searchCurClamped ? ' pdf-search-hit-cur' : ''}`}
+                                            className={`pdf-search-hit${mi === search.current ? ' pdf-search-hit-cur' : ''}`}
                                             style={pdfRectToCss(geom, r, scale)}
                                           />
                                         ))
@@ -8850,52 +8807,7 @@ export default function App() {
                 )
               })}
             </div>
-            {searchOpen && (
-              <div className="pdf-search-bar">
-                <input
-                  ref={searchInputRef}
-                  className="pdf-search-input"
-                  placeholder={t('search')}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') searchStep(e.shiftKey ? -1 : 1)
-                    else if (e.key === 'Escape') closeSearch()
-                  }}
-                />
-                <span className="pdf-search-count">
-                  {searchQuery.trim()
-                    ? activeMatches.length > 0
-                      ? t('searchCount', {
-                          current: searchCurClamped + 1,
-                          total: activeMatches.length,
-                        })
-                      : t('searchNoResults')
-                    : ''}
-                </span>
-                <button
-                  className="rb-icon"
-                  data-tip={t('searchPrev')}
-                  aria-label={t('searchPrev')}
-                  disabled={activeMatches.length === 0}
-                  onClick={() => searchStep(-1)}
-                >
-                  ‹
-                </button>
-                <button
-                  className="rb-icon"
-                  data-tip={t('searchNext')}
-                  aria-label={t('searchNext')}
-                  disabled={activeMatches.length === 0}
-                  onClick={() => searchStep(1)}
-                >
-                  ›
-                </button>
-                <button className="rb-icon" onClick={closeSearch}>
-                  ×
-                </button>
-              </div>
-            )}
+            <SearchBar search={search} t={t} />
             {selPopup && (
               <div
                 className="pdf-sel-popup"
