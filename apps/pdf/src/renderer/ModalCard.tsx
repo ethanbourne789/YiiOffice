@@ -49,11 +49,14 @@ export function ModalActions({
   onCancel,
   onConfirm,
   okLabel,
+  confirmDisabled = false,
 }: {
   t: TFunc
   onCancel: () => void
   onConfirm?: () => void
   okLabel?: string
+  /** For dialogs whose OK is meaningless until something is filled in */
+  confirmDisabled?: boolean
 }): ReactElement {
   return (
     <div className="pdf-modal-actions">
@@ -61,7 +64,12 @@ export function ModalActions({
         {t('cancel')}
       </button>
       {onConfirm && (
-        <button className="pdf-modal-btn primary" data-cmd="dialogOk" onClick={onConfirm}>
+        <button
+          className="pdf-modal-btn primary"
+          data-cmd="dialogOk"
+          disabled={confirmDisabled}
+          onClick={onConfirm}
+        >
           {okLabel ?? t('ok')}
         </button>
       )}

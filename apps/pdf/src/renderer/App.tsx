@@ -69,6 +69,12 @@ type Arrange =
   | 'sameSize'
 
 const PASTE_OFFSET_PTS = 12
+/** What the text dialog is editing: a label already baked into the page, one still
+    pending as an image edit, or an inserted text object */
+type StaticTextEditTarget =
+  | { kind: 'saved'; ref: PageImageRef; record: StaticFormFillRecord }
+  | { kind: 'pending'; editId: string; record: StaticFormFillRecord }
+  | { kind: 'insert'; editId: string }
 /** Auto-detect stops here so a long scanned form cannot flood the document with fields */
 const DETECT_FIELD_CAP = 300
 
@@ -122,6 +128,7 @@ import {
   useTextEntry,
 } from './PageOpDialogs'
 import { PrintDialog, usePrintDialog } from './PrintDialog'
+import { StaticTextDialog, useStaticTextDialog } from './StaticTextDialog'
 import { PasswordDialog } from './PasswordDialog'
 import { PropertiesDialog } from './PropertiesDialog'
 import { SignatureDialog, fileToCanvas } from './SignatureDialog'
@@ -633,22 +640,9 @@ export default function App() {
   /** Picked image awaiting click-to-place (same overlay flow as signatures) */
   const [imagePick, setImagePick] = useState<Extract<SignatureData, { kind: 'image' }> | null>(null)
   const [pendingStaticFill, setPendingStaticFill] = useState<StaticFormFillKind | null>(null)
-  const [staticTextDialog, setStaticTextDialog] = useState(false)
-  const [staticTextPurpose, setStaticTextPurpose] = useState<'form' | 'insert'>('form')
-  const [textInsertEditId, setTextInsertEditId] = useState<string | null>(null)
-  const [staticText, setStaticText] = useState('')
-  const [staticTextSize, setStaticTextSize] = useState(14)
-  const [staticTextColor, setStaticTextColor] = useState('#111111')
-  const [staticTextColorOpen, setStaticTextColorOpen] = useState(false)
-  const [staticTextAlign, setStaticTextAlign] = useState<'left' | 'center' | 'right'>('left')
-  useEffect(() => {
-    if (!staticTextDialog) setStaticTextColorOpen(false)
-  }, [staticTextDialog])
-  const [staticTextEditTarget, setStaticTextEditTarget] = useState<
-    | { kind: 'saved'; ref: PageImageRef; record: StaticFormFillRecord }
-    | { kind: 'pending'; editId: string; record: StaticFormFillRecord }
-    | null
-  >(null)
+  /** Text-entry dialog: the draft and whatever it is editing (a baked label, a
+      pending one, or an inserted text object) */
+  const textDialog = useStaticTextDialog<StaticTextEditTarget>()
   const imageFileRef = useRef<HTMLInputElement>(null)
   useEffect(() => {
     if (!imagePick) setPendingStaticFill(null)
@@ -4467,8 +4461,9 @@ export default function App() {
   const textInsertConfirmBusy = useRef(false)
 
   const confirmTextInsert = async () => {
-    const text = staticText.trim()
-    if (!text) return
+    const { text, size, color, align } = textDialog.draft
+    const trimmed = text.trim()
+    if (!trimmed) return
     if (textInsertConfirmBusy.current) return
     textInsertConfirmBusy.current = true
     try {
@@ -4476,21 +4471,16 @@ export default function App() {
       // proves nothing about save: gate on an embeddable face NOW, keeping the dialog
       // open, instead of failing at save time ("could not be saved" long after typing).
       // An IPC error must not block inserting — the save path re-checks anyway.
-      const drawable = await window.pdfApi.canDrawText(text).catch(() => true)
+      const drawable = await window.pdfApi.canDrawText(trimmed).catch(() => true)
       if (!drawable) {
         showNotice(t('textInsertNoFont'))
         return
       }
-      const config = textInsertConfig(
-        text,
-        staticTextSize,
-        hexTo255(staticTextColor),
-        staticTextAlign,
-      )
-      setStaticTextDialog(false)
-      if (textInsertEditId) {
-        patchTextInsert(textInsertEditId, config)
-        setTextInsertEditId(null)
+      const config = textInsertConfig(trimmed, size, hexTo255(color), align)
+      const target = textDialog.target
+      textDialog.close()
+      if (target?.kind === 'insert') {
+        patchTextInsert(target.editId, config)
         return
       }
       setPendingTextInsert(config)
@@ -4499,24 +4489,18 @@ export default function App() {
     }
   }
 
-  const confirmStaticFormText = () => {
-    if (staticTextPurpose === 'insert') {
+  const confirmStaticText = () => {
+    if (textDialog.purpose === 'insert') {
       void confirmTextInsert()
       return
     }
-    const image = renderStaticFormText(staticText, staticTextSize, staticTextColor, staticTextAlign)
+    const { text, size, color, align } = textDialog.draft
+    const image = renderStaticFormText(text, size, color, align)
     if (!image) return
-    setStaticTextDialog(false)
-    const target = staticTextEditTarget
-    if (target) {
-      const updated: StaticFormFillRecord = {
-        ...target.record,
-        text: staticText,
-        fontSize: staticTextSize,
-        color: staticTextColor,
-        align: staticTextAlign,
-      }
-      setStaticTextEditTarget(null)
+    const target = textDialog.target
+    textDialog.close()
+    if (target && target.kind !== 'insert') {
+      const updated: StaticFormFillRecord = { ...target.record, text, fontSize: size, color, align }
       if (target.kind === 'saved') {
         replaceExisting(target.ref, image.image, updated)
       } else {
@@ -4677,10 +4661,10 @@ export default function App() {
           rect,
           ...(fill === 'text'
             ? {
-                text: staticText,
-                fontSize: staticTextSize,
-                color: staticTextColor,
-                align: staticTextAlign,
+                text: textDialog.draft.text,
+                fontSize: textDialog.draft.size,
+                color: textDialog.draft.color,
+                align: textDialog.draft.align,
               }
             : {}),
         }
@@ -4763,15 +4747,15 @@ export default function App() {
   const startEditStaticText = () => {
     const target = selectedStaticTextTarget()
     if (!target) return
-    setStaticText(target.record.text ?? '')
-    setStaticTextSize(target.record.fontSize ?? 14)
-    setStaticTextColor(target.record.color ?? '#111111')
-    setStaticTextAlign(target.record.align ?? 'left')
-    setStaticTextEditTarget(target)
-    setStaticTextPurpose('form')
-    setTextInsertEditId(null)
+    textDialog.show({
+      purpose: 'form',
+      target,
+      text: target.record.text ?? '',
+      size: target.record.fontSize ?? 14,
+      color: target.record.color ?? '#111111',
+      align: target.record.align ?? 'left',
+    })
     setSelected(null)
-    setStaticTextDialog(true)
   }
 
   /** First touch of an existing image (drag/resize/layer/rotate) becomes a pending transform
@@ -5857,7 +5841,6 @@ export default function App() {
   const highlightWrapRef = useRef<HTMLDivElement | null>(null)
   const opacityBtnRef = useRef<HTMLButtonElement | null>(null)
   const opacityMenuRef = useRef<HTMLDivElement | null>(null)
-  const staticColorFieldRef = useRef<HTMLDivElement | null>(null)
   const convertWrapRef = useRef<HTMLDivElement | null>(null)
 
   // Thumbnail context menu
@@ -5903,11 +5886,6 @@ export default function App() {
   // Transparency presets fold-out inside the image selection popup
   useDismissablePopover(opacityMenu, () => setOpacityMenu(false), {
     inside: () => [opacityBtnRef.current, opacityMenuRef.current],
-  })
-
-  // Color popover inside the static-text dialog (the dialog itself stays open)
-  useDismissablePopover(staticTextColorOpen, () => setStaticTextColorOpen(false), {
-    inside: () => [staticColorFieldRef.current],
   })
 
   // Converter dropdown (Home tab)
@@ -6384,10 +6362,7 @@ export default function App() {
         setImagePick(null)
         setPendingStaticFill(null)
         setEditImageMode(false)
-        setTextInsertEditId(null)
-        setStaticTextPurpose('insert')
-        setStaticText('')
-        setStaticTextDialog(true)
+        textDialog.show({ purpose: 'insert', text: '' })
       }}
     >
       <span className="rb-big-icon">
@@ -6849,10 +6824,7 @@ export default function App() {
                     onClick={() => {
                       setImagePick(null)
                       setPendingTextInsert(null)
-                      setStaticTextEditTarget(null)
-                      setStaticTextPurpose('form')
-                      setStaticText('')
-                      setStaticTextDialog(true)
+                      textDialog.show({ purpose: 'form', text: '' })
                     }}
                   >
                     <span className="rb-big-icon">
@@ -7936,13 +7908,14 @@ export default function App() {
                                         e.stopPropagation()
                                         setSelected(null)
                                         setPendingTextInsert(null)
-                                        setTextInsertEditId(insert.id)
-                                        setStaticTextPurpose('insert')
-                                        setStaticText(insert.input.text)
-                                        setStaticTextSize(insert.input.fontSize)
-                                        setStaticTextColor(rgb255ToHex(insert.input.color))
-                                        setStaticTextAlign(insert.input.align ?? 'left')
-                                        setStaticTextDialog(true)
+                                        textDialog.show({
+                                          purpose: 'insert',
+                                          target: { kind: 'insert', editId: insert.id },
+                                          text: insert.input.text,
+                                          size: insert.input.fontSize,
+                                          color: rgb255ToHex(insert.input.color),
+                                          align: insert.input.align ?? 'left',
+                                        })
                                       }}
                                     >
                                       {insert.input.text}
@@ -9236,107 +9209,21 @@ export default function App() {
                 }}
               />
             )}
-            {staticTextDialog && (
-              <div
-                className="pdf-modal-mask"
-                onClick={() => {
-                  setStaticTextDialog(false)
-                  setStaticTextEditTarget(null)
-                  setTextInsertEditId(null)
-                }}
-              >
-                <div className="pdf-modal" onClick={(e) => e.stopPropagation()}>
-                  <div className="pdf-modal-title">
-                    {t(
-                      staticTextPurpose === 'insert'
-                        ? textInsertEditId
-                          ? 'editInsertedText'
-                          : 'insertTextTitle'
-                        : staticTextEditTarget
-                          ? 'formEditText'
-                          : 'formAddTextTitle',
-                    )}
-                  </div>
-                  <textarea
-                    className="pdf-modal-textarea"
-                    value={staticText}
-                    placeholder={t('formAddTextPlaceholder')}
-                    autoFocus
-                    onChange={(e) => setStaticText(e.target.value)}
-                  />
-                  <label className="pdf-field">
-                    <span>{t('formTextSize')}</span>
-                    <input
-                      className="pdf-modal-input"
-                      type="number"
-                      min={6}
-                      max={72}
-                      value={staticTextSize}
-                      onChange={(e) =>
-                        setStaticTextSize(Math.min(72, Math.max(6, Number(e.target.value) || 14)))
-                      }
-                    />
-                  </label>
-                  <div className="pdf-field-grid">
-                    <div ref={staticColorFieldRef} className="pdf-field pdf-color-field">
-                      <span>{t('formTextColor')}</span>
-                      <button
-                        type="button"
-                        className="pdf-color-trigger"
-                        aria-expanded={staticTextColorOpen}
-                        onClick={() => setStaticTextColorOpen((open) => !open)}
-                      >
-                        <span
-                          className="pdf-color-trigger-swatch"
-                          style={{ background: staticTextColor }}
-                        />
-                        <span>{staticTextColor.toUpperCase()}</span>
-                      </button>
-                      {staticTextColorOpen && (
-                        <ColorPickerPopover
-                          value={staticTextColor}
-                          onPick={setStaticTextColor}
-                          onClose={() => setStaticTextColorOpen(false)}
-                        />
-                      )}
-                    </div>
-                    <label className="pdf-field">
-                      <span>{t('formTextAlign')}</span>
-                      <Dropdown
-                        className="pdf-modal-dd"
-                        ariaLabel={t('formTextAlign')}
-                        value={staticTextAlign}
-                        options={[
-                          { value: 'left', label: t('formAlignLeft') },
-                          { value: 'center', label: t('formAlignCenter') },
-                          { value: 'right', label: t('formAlignRight') },
-                        ]}
-                        onPick={setStaticTextAlign}
-                      />
-                    </label>
-                  </div>
-                  <div className="pdf-modal-actions">
-                    <button
-                      className="pdf-modal-btn"
-                      onClick={() => {
-                        setStaticTextDialog(false)
-                        setStaticTextEditTarget(null)
-                        setTextInsertEditId(null)
-                      }}
-                    >
-                      {t('cancel')}
-                    </button>
-                    <button
-                      className="pdf-modal-btn primary"
-                      disabled={!staticText.trim()}
-                      onClick={confirmStaticFormText}
-                    >
-                      {t('ok')}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+            <StaticTextDialog
+              t={t}
+              state={textDialog}
+              title={t(
+                textDialog.purpose === 'insert'
+                  ? textDialog.target
+                    ? 'editInsertedText'
+                    : 'insertTextTitle'
+                  : textDialog.target
+                    ? 'formEditText'
+                    : 'formAddTextTitle',
+              )}
+              onConfirm={confirmStaticText}
+              onCancel={textDialog.close}
+            />
             {extractDialog.isOpen && (
               <RangeDialog
                 t={t}
