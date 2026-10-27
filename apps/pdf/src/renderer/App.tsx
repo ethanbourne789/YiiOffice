@@ -113,6 +113,14 @@ import { OutlinePanel } from './OutlinePanel'
 import type { OutlineNode } from './OutlinePanel'
 import { buildHeadingOutline, remapOutlinePages } from './heading-outline'
 import { printPdf } from './print'
+import {
+  MergePagesDialog,
+  PageSizeDialog,
+  RangeDialog,
+  SplitPagesDialog,
+  useMergeDialog,
+  useTextEntry,
+} from './PageOpDialogs'
 import { PasswordDialog } from './PasswordDialog'
 import { PropertiesDialog } from './PropertiesDialog'
 import { SignatureDialog, fileToCanvas } from './SignatureDialog'
@@ -195,7 +203,6 @@ import {
   clampSidebarW,
   loadSidebarW,
   DOC_OPTS,
-  PAPER_SIZES,
   STROKE_WIDTH,
   NOTE_MARGIN_W,
   parsePageRanges,
@@ -794,20 +801,11 @@ export default function App() {
   const [redoStack, setRedoStack] = useState<EditSnapshot[]>([])
   const [pwInput, setPwInput] = useState('')
   const [pwWrong, setPwWrong] = useState(false)
-  const [extractDlg, setExtractDlg] = useState(false)
-  const [extractInput, setExtractInput] = useState('')
-  const [extractInvalid, setExtractInvalid] = useState(false)
-  const [splitDlg, setSplitDlg] = useState(false)
-  const [splitInput, setSplitInput] = useState('1')
-  const [splitInvalid, setSplitInvalid] = useState(false)
-  const [mergePagesDlg, setMergePagesDlg] = useState(false)
-  const [mergeCount, setMergeCount] = useState('2')
-  const [mergeCountInvalid, setMergeCountInvalid] = useState(false)
-  const [mergeDirection, setMergeDirection] = useState<'horizontal' | 'vertical'>('vertical')
-  const [mergeSeparator, setMergeSeparator] = useState(false)
-  const [replaceDlg, setReplaceDlg] = useState(false)
-  const [replaceInput, setReplaceInput] = useState('')
-  const [replaceInvalid, setReplaceInvalid] = useState(false)
+  // Page-operation dialogs own their open/value/invalid state (see PageOpDialogs)
+  const extractDialog = useTextEntry()
+  const splitDialog = useTextEntry()
+  const replaceDialog = useTextEntry()
+  const mergeDialog = useMergeDialog()
   const [pageSizeDlg, setPageSizeDlg] = useState(false)
   const [splitPagesDlg, setSplitPagesDlg] = useState(false)
   const [printDlg, setPrintDlg] = useState(false)
@@ -5672,20 +5670,16 @@ export default function App() {
 
   const extractPage = (origIdx: number) => extractPagesToFile([visList.indexOf(origIdx)])
 
-  const openExtractDlg = () => {
-    setExtractInput(String(currentPage))
-    setExtractInvalid(false)
-    setExtractDlg(true)
-  }
+  const openExtractDlg = () => extractDialog.show(String(currentPage))
 
   /** Extract dialog confirm: visible page-number ranges → original page indices */
   const confirmExtract = () => {
-    const pages = parsePageRanges(extractInput, pageCount)
+    const pages = parsePageRanges(extractDialog.value, pageCount)
     if (!pages) {
-      setExtractInvalid(true)
+      extractDialog.fail()
       return
     }
-    setExtractDlg(false)
+    extractDialog.close()
     void extractPagesToFile(pages.map((n) => n - 1))
   }
 
@@ -5725,20 +5719,16 @@ export default function App() {
     return { ok: true, pageIndex }
   }
 
-  const openSplitDlg = () => {
-    setSplitInput('1')
-    setSplitInvalid(false)
-    setSplitDlg(true)
-  }
+  const openSplitDlg = () => splitDialog.show('1')
 
   /** Split dialog confirm: every N pages becomes its own file (at least two output files) */
   const confirmSplit = () => {
-    const n = Number(splitInput.trim())
+    const n = Number(splitDialog.value.trim())
     if (!Number.isInteger(n) || n < 1 || n >= pageCount) {
-      setSplitInvalid(true)
+      splitDialog.fail()
       return
     }
-    setSplitDlg(false)
+    splitDialog.close()
     void splitPdfToFolder(n)
   }
 
@@ -5752,39 +5742,30 @@ export default function App() {
       if (!result.ok) opFailed(result.error)
     })
 
-  const openMergePagesDlg = () => {
-    setMergeCount('2')
-    setMergeCountInvalid(false)
-    setMergeDirection('vertical')
-    setMergeSeparator(false)
-    setMergePagesDlg(true)
-  }
+  const openMergePagesDlg = () => mergeDialog.show()
 
   /** N-up "merge pages" with WPS-style options; output written to a new file */
   const confirmMergePages = () => {
-    const n = Number(mergeCount.trim())
+    const n = Number(mergeDialog.count.trim())
     if (!Number.isInteger(n) || n < 2 || n > 16) {
-      setMergeCountInvalid(true)
+      mergeDialog.fail()
       return
     }
-    setMergePagesDlg(false)
-    void mergePagesToFile(n, mergeDirection, mergeSeparator)
+    const { direction, separator } = mergeDialog
+    mergeDialog.close()
+    void mergePagesToFile(n, direction, separator)
   }
 
-  const openReplaceDlg = () => {
-    setReplaceInput(String(currentPage))
-    setReplaceInvalid(false)
-    setReplaceDlg(true)
-  }
+  const openReplaceDlg = () => replaceDialog.show(String(currentPage))
 
   /** Replace dialog confirm: visible page-number ranges → original indices; main picks the source PDF */
   const confirmReplace = () => {
-    const pages = parsePageRanges(replaceInput, pageCount)
+    const pages = parsePageRanges(replaceDialog.value, pageCount)
     if (!pages) {
-      setReplaceInvalid(true)
+      replaceDialog.fail()
       return
     }
-    setReplaceDlg(false)
+    replaceDialog.close()
     void replacePagesOnDisk(pages.map((n) => n - 1))
   }
 
@@ -9451,63 +9432,29 @@ export default function App() {
                 </div>
               </div>
             )}
-            {extractDlg && (
-              <div className="pdf-modal-mask" onClick={() => setExtractDlg(false)}>
-                <div className="pdf-modal" onClick={(e) => e.stopPropagation()}>
-                  <div className="pdf-modal-title">{t('extractRangeTitle')}</div>
-                  <input
-                    className={`pdf-modal-input${extractInvalid ? ' invalid' : ''}`}
-                    value={extractInput}
-                    placeholder={t('extractRangeHint', { total: pageCount })}
-                    autoFocus
-                    onChange={(e) => {
-                      setExtractInput(e.target.value)
-                      setExtractInvalid(false)
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') confirmExtract()
-                      else if (e.key === 'Escape') setExtractDlg(false)
-                    }}
-                  />
-                  <div className="pdf-modal-actions">
-                    <button className="pdf-modal-btn" onClick={() => setExtractDlg(false)}>
-                      {t('cancel')}
-                    </button>
-                    <button className="pdf-modal-btn primary" onClick={confirmExtract}>
-                      {t('ok')}
-                    </button>
-                  </div>
-                </div>
-              </div>
+            {extractDialog.isOpen && (
+              <RangeDialog
+                t={t}
+                title={t('extractRangeTitle')}
+                hint={t('extractRangeHint', { total: pageCount })}
+                value={extractDialog.value}
+                invalid={extractDialog.invalid}
+                onChange={extractDialog.edit}
+                onConfirm={confirmExtract}
+                onCancel={extractDialog.close}
+              />
             )}
-            {splitDlg && (
-              <div className="pdf-modal-mask" onClick={() => setSplitDlg(false)}>
-                <div className="pdf-modal" onClick={(e) => e.stopPropagation()}>
-                  <div className="pdf-modal-title">{t('splitDlgTitle')}</div>
-                  <input
-                    className={`pdf-modal-input${splitInvalid ? ' invalid' : ''}`}
-                    value={splitInput}
-                    placeholder={t('splitDlgHint', { total: pageCount })}
-                    autoFocus
-                    onChange={(e) => {
-                      setSplitInput(e.target.value)
-                      setSplitInvalid(false)
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') confirmSplit()
-                      else if (e.key === 'Escape') setSplitDlg(false)
-                    }}
-                  />
-                  <div className="pdf-modal-actions">
-                    <button className="pdf-modal-btn" onClick={() => setSplitDlg(false)}>
-                      {t('cancel')}
-                    </button>
-                    <button className="pdf-modal-btn primary" onClick={confirmSplit}>
-                      {t('ok')}
-                    </button>
-                  </div>
-                </div>
-              </div>
+            {splitDialog.isOpen && (
+              <RangeDialog
+                t={t}
+                title={t('splitDlgTitle')}
+                hint={t('splitDlgHint', { total: pageCount })}
+                value={splitDialog.value}
+                invalid={splitDialog.invalid}
+                onChange={splitDialog.edit}
+                onConfirm={confirmSplit}
+                onCancel={splitDialog.close}
+              />
             )}
             {printDlg && (
               <div className="pdf-modal-mask" onClick={() => setPrintDlg(false)}>
@@ -9569,150 +9516,41 @@ export default function App() {
                 </div>
               </div>
             )}
-            {mergePagesDlg && (
-              <div className="pdf-modal-mask" onClick={() => setMergePagesDlg(false)}>
-                <div className="pdf-modal" onClick={(e) => e.stopPropagation()}>
-                  <div className="pdf-modal-title">{t('mergePages')}</div>
-                  <div className="pdf-modal-hint">{t('mergePagesHint', { total: pageCount })}</div>
-                  <label className="pdf-modal-row">
-                    <span>{t('mergePagesCount')}</span>
-                    <input
-                      className={`pdf-modal-input${mergeCountInvalid ? ' invalid' : ''}`}
-                      value={mergeCount}
-                      autoFocus
-                      onChange={(e) => {
-                        setMergeCount(e.target.value)
-                        setMergeCountInvalid(false)
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') confirmMergePages()
-                        else if (e.key === 'Escape') setMergePagesDlg(false)
-                      }}
-                    />
-                  </label>
-                  <div className="pdf-modal-row">
-                    <span>{t('mergePagesSeq')}</span>
-                    <label className="pdf-modal-check">
-                      <input
-                        type="radio"
-                        name="merge-seq"
-                        checked={mergeDirection === 'horizontal'}
-                        onChange={() => setMergeDirection('horizontal')}
-                      />
-                      {t('seqHorizontal')}
-                    </label>
-                    <label className="pdf-modal-check">
-                      <input
-                        type="radio"
-                        name="merge-seq"
-                        checked={mergeDirection === 'vertical'}
-                        onChange={() => setMergeDirection('vertical')}
-                      />
-                      {t('seqVertical')}
-                    </label>
-                  </div>
-                  <label className="pdf-modal-check">
-                    <input
-                      type="checkbox"
-                      checked={mergeSeparator}
-                      onChange={(e) => setMergeSeparator(e.target.checked)}
-                    />
-                    {t('mergePagesSeparator')}
-                  </label>
-                  <div className="pdf-modal-actions">
-                    <button className="pdf-modal-btn" onClick={() => setMergePagesDlg(false)}>
-                      {t('cancel')}
-                    </button>
-                    <button className="pdf-modal-btn primary" onClick={confirmMergePages}>
-                      {t('ok')}
-                    </button>
-                  </div>
-                </div>
-              </div>
+            {mergeDialog.isOpen && (
+              <MergePagesDialog
+                t={t}
+                hint={t('mergePagesHint', { total: pageCount })}
+                state={mergeDialog}
+                onConfirm={confirmMergePages}
+              />
             )}
-            {replaceDlg && (
-              <div className="pdf-modal-mask" onClick={() => setReplaceDlg(false)}>
-                <div className="pdf-modal" onClick={(e) => e.stopPropagation()}>
-                  <div className="pdf-modal-title">{t('replacePages')}</div>
-                  <input
-                    className={`pdf-modal-input${replaceInvalid ? ' invalid' : ''}`}
-                    value={replaceInput}
-                    placeholder={t('replaceRangeHint', { total: pageCount })}
-                    autoFocus
-                    onChange={(e) => {
-                      setReplaceInput(e.target.value)
-                      setReplaceInvalid(false)
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') confirmReplace()
-                      else if (e.key === 'Escape') setReplaceDlg(false)
-                    }}
-                  />
-                  <div className="pdf-modal-actions">
-                    <button className="pdf-modal-btn" onClick={() => setReplaceDlg(false)}>
-                      {t('cancel')}
-                    </button>
-                    <button className="pdf-modal-btn primary" onClick={confirmReplace}>
-                      {t('ok')}
-                    </button>
-                  </div>
-                </div>
-              </div>
+            {replaceDialog.isOpen && (
+              <RangeDialog
+                t={t}
+                title={t('replacePages')}
+                hint={t('replaceRangeHint', { total: pageCount })}
+                value={replaceDialog.value}
+                invalid={replaceDialog.invalid}
+                onChange={replaceDialog.edit}
+                onConfirm={confirmReplace}
+                onCancel={replaceDialog.close}
+              />
             )}
             {pageSizeDlg && (
-              <div className="pdf-modal-mask" onClick={() => setPageSizeDlg(false)}>
-                <div className="pdf-modal" onClick={(e) => e.stopPropagation()}>
-                  <div className="pdf-modal-title">{t('pageSize')}</div>
-                  <div className="pdf-modal-hint">{t('pageSizeHint', { total: pageCount })}</div>
-                  <div className="pdf-modal-actions merge-pages-options">
-                    {PAPER_SIZES.slice(0, 3).map((p) => (
-                      <button
-                        key={p.label}
-                        className="pdf-modal-btn"
-                        onClick={() => applyPageSize(p.w, p.h)}
-                      >
-                        {p.label}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="pdf-modal-actions merge-pages-options">
-                    {PAPER_SIZES.slice(3).map((p) => (
-                      <button
-                        key={p.label}
-                        className="pdf-modal-btn"
-                        onClick={() => applyPageSize(p.w, p.h)}
-                      >
-                        {p.label}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="pdf-modal-actions">
-                    <button className="pdf-modal-btn" onClick={() => setPageSizeDlg(false)}>
-                      {t('cancel')}
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <PageSizeDialog
+                t={t}
+                hint={t('pageSizeHint', { total: pageCount })}
+                onPick={applyPageSize}
+                onCancel={() => setPageSizeDlg(false)}
+              />
             )}
             {splitPagesDlg && (
-              <div className="pdf-modal-mask" onClick={() => setSplitPagesDlg(false)}>
-                <div className="pdf-modal" onClick={(e) => e.stopPropagation()}>
-                  <div className="pdf-modal-title">{t('splitPages')}</div>
-                  <div className="pdf-modal-hint">{t('splitPagesHint', { total: pageCount })}</div>
-                  <div className="pdf-modal-actions merge-pages-options">
-                    {([2, 4, 9] as const).map((n) => (
-                      <button key={n} className="pdf-modal-btn" onClick={() => runSplitPages(n)}>
-                        {t('splitNLabel', { n })}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="pdf-modal-actions">
-                    <button className="pdf-modal-btn" onClick={() => setSplitPagesDlg(false)}>
-                      {t('cancel')}
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <SplitPagesDialog
+                t={t}
+                hint={t('splitPagesHint', { total: pageCount })}
+                onPick={runSplitPages}
+                onCancel={() => setSplitPagesDlg(false)}
+              />
             )}
             {pageCropDlg && (
               <CropDialog
