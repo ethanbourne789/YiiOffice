@@ -42,6 +42,7 @@
     "licenses": "node tools/check-licenses.mjs",
     "dist:mac": "npm run notices && npm run build:all && npm run native:build:universal -w @yiioffice/sheets && npm run dist:mac -w @yiioffice/shell",
     "dist:win": "npm run notices && npm run build:all && npm run native:build -w @yiioffice/sheets && npm run dist:win -w @yiioffice/shell",
+    "dist:win:installer": "npm run notices && npm run build:all && npm run native:build -w @yiioffice/sheets && npm run dist:win:installer -w @yiioffice/shell",
     "dist:linux": "npm run notices && npm run build:all && npm run dist:linux -w @yiioffice/shell"
   },
   "dependencies": {},

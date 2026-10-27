@@ -97,7 +97,8 @@ npm run build:all
 npm run shell
 
 # 完整安装包
-npm run dist:win      # zip（便携包，暂未出 NSIS 安装器）
+npm run dist:win      # zip（便携包）
+npm run dist:win:installer   # NSIS 安装器（向导默认装到 D:\YiiOffice，可改）
 ```
 
 打包前会自动生成第三方许可证清单（`npm run notices`）。Sheets 的 sidecar 由 `npm run build -w @yiioffice/sheets` 触发 `cargo build --release` 编译。
