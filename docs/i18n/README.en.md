@@ -25,7 +25,7 @@ Four principles follow from that:
 
 | Principle | How it is done |
 |-----------|----------------|
-| **Local-first** | Open, edit, save and convert on your machine. No account system, no forced cloud sync; the only network call is the update check. |
+| **Local-first** | Open, edit, save and convert on your machine. No account system, no forced cloud sync, no background update check. |
 | **Actually usable** | Not a viewer. All five editors open, edit and save native Office formats, and **MS Office / WPS can still open what they save**. |
 | **Clean** | No login wall, no ads, no telemetry, no paid entry points hidden in the UI. |
 | **Format first** | Reads and writes standard `.docx` / `.xlsx` / `.pptx` / `.pdf` directly. No private formats, no "import, then edit". |
@@ -47,8 +47,7 @@ One window hosting every editor as a tab — the first thing you see when the ap
 - **Full-text search**: a local `node:sqlite` FTS5 index over names, paths and extracted text; CJK goes through bigram + unigram streams, so two-character Chinese words match inside longer runs
 - **Tabs**: a permanent Home tab; create, switch, drag to reorder, close (with an unsaved-changes guard); drag a tab out into its own window and dock it back; MRU fallback after closing
 - **State preservation**: every tab is its own `WebContentsView`, shown and hidden rather than destroyed — scroll position, caret, undo stack and unsaved content survive a tab switch
-- **Settings that stick**: UI language (English / Chinese), UI and document theme, default save behaviour, update channel; recent files, stars and window size are persisted locally
-- **Help centre**: 15 topics in both languages, shortcuts and walkthroughs follow the UI language
+- **Settings that stick**: UI language (English / Chinese), UI and document theme, default save behaviour; recent files, stars and window size are persisted locally
 
 ### Five editors
 
@@ -65,7 +64,7 @@ One window hosting every editor as a tab — the first thing you see when the ap
 - **Byte-preserving saves**: only the XML you touched is rewritten; everything else (styles, comments, embedded objects, macros) keeps its original bytes, so a file never loses formatting just by being opened
 - **Atomic writes**: every save goes through a temporary file plus `rename`, so a crash or power cut cannot leave half a document behind
 - **Local index**: indexing and search run entirely in `node:sqlite`; nothing is uploaded and no external service is involved
-- **Two languages**: UI and help ship in English and Chinese, strings live in `@yiioffice/i18n`
+- **Two languages**: the UI ships in English and Chinese, strings live in `@yiioffice/i18n`
 - **Command line**: the packaged app installs a `yiioffice` CLI that drives the same engines headlessly (see below)
 
 ---
@@ -153,9 +152,9 @@ Packaging regenerates the bundled third-party licence list (`npm run notices`) f
 YiiOffice-Electron/
 ├── apps/
 │   ├── shell/                  # Electron host: main process, home screen, tab bar, settings
-│   │   ├── src/main/           # Main process (tabs, windows, file index, updates, control channel…)
+│   │   ├── src/main/           # Main process (tabs, windows, file index, control channel…)
 │   │   ├── src/preload/        # Preload scripts (contextBridge)
-│   │   └── src/renderer/       # Home / tab bar / settings / help centre
+│   │   └── src/renderer/       # Home / tab bar / settings
 │   ├── docs/                   # Document editor (Tiptap + docx-engine)
 │   ├── sheets/                 # Spreadsheet editor (Univer + xlsx-gateway)
 │   │   └── native/xlsx-engine/ # Rust xlsx sidecar (calamine + IronCalc)
@@ -209,7 +208,6 @@ npm run lint                # ESLint
 npm run format:check        # Prettier, changed files only
 npm run check:theme-colors  # colours must go through CSS variables
 npm run check:english-comments # comments and log messages must be English
-npm run check:help-langs    # help topics must exist in both languages
 npm run test:e2e            # Playwright end to end (78 specs, requires build:all first)
 ```
 
@@ -239,7 +237,7 @@ Related documents:
 ## FAQ
 
 **Do I need an account or a network connection?**
-No. There is no account system and no upload; editing, saving, search and conversion all happen locally. The only automatic network activity is the update check.
+No. There is no account system and no upload; editing, saving, search and conversion all happen locally. The app never checks for updates; the only network activity is fetching images a document points at.
 
 **Can MS Office / WPS open the files after saving?**
 Yes. Saves are OOXML patches: only edited nodes change, the remaining bytes stay as they were, so structures and extended properties Office relies on are preserved.
@@ -247,8 +245,8 @@ Yes. Saves are OOXML patches: only edited nodes change, the remaining bytes stay
 **How does this relate to `YiiOffice-Tauri3`?**
 Two runtimes over the same product. The Tauri edition uses a Rust main process and the system WebView, so packages and memory are smaller; the Electron edition uses Chromium and Node, giving fully deterministic rendering plus a mature ecosystem and debugging tools, at the cost of size.
 
-**Why is there only a zip for Windows?**
-The `electron-builder` win target currently lists `zip` (portable) only. The NSIS installer and the auto-update chain are not finished — see audit §S3.
+**What do the Windows builds produce?**
+`npm run dist:win` builds the portable zip. `npm run dist:win:installer` builds the NSIS installer: the wizard defaults to `D:\YiiOffice` (it keeps an existing installation's path, and falls back to `%LOCALAPPDATA%\Programs\YiiOffice` when D: is not a fixed local volume), installs per user without a UAC prompt, and leaves the machine-wide choice available when an earlier release was installed that way. There is no auto-update chain — see audit §S3.
 
 **Does Chinese text search work?**
 Yes. The index emits bigram and unigram streams for CJK, working around the fact that FTS5 `unicode61` does not segment continuous CJK text.
@@ -263,7 +261,7 @@ Check that all five renderer dev servers are alive (:5173–:5177) — each edit
 1. Fork and branch: `git checkout -b feat/your-feature`
 2. Before committing, in the affected workspaces: `npm run lint && npm run typecheck && npm test`
 3. Rust changes need `cargo test` (in `apps/sheets/native/xlsx-engine`)
-4. User-visible behaviour changes should update the matching help topic (both languages) and the relevant docs
+4. User-visible behaviour changes should update the relevant docs — `README.md` (Chinese, source of truth) and this English mirror
 5. Open a PR describing the motivation and how you verified it
 
 Conventions: TypeScript strict mode, comments and log messages in English, UI strings through `@yiioffice/i18n` (English and Chinese), colours only via theme CSS variables.
