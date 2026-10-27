@@ -191,6 +191,29 @@ function assertModuleTreesPresent() {
   }
 }
 
+// Electron's unpacked dist carries two files that are dead weight once the app
+// is assembled:
+//
+//  - `LICENSES.chromium.html` at the app root. The copy under `resources/` is
+//    the one THIRD-PARTY-NOTICES.txt points at ("next to this file") and the
+//    two are byte-identical, so the root copy is pure duplication (~5.4 MB).
+//  - `resources/default_app.asar`, which Electron only loads when
+//    `resources/app.asar` is missing — never the case here.
+//
+// macOS keeps its copy inside `Electron Framework.framework`; the root-level
+// file does not exist there, so the removals below are no-ops on that platform.
+const DEAD_APP_ROOT_FILES = ['LICENSES.chromium.html']
+const DEAD_RESOURCE_FILES = ['default_app.asar']
+
+function dropRedundantRuntimeFiles(context) {
+  for (const rel of DEAD_APP_ROOT_FILES) {
+    rmSync(join(context.appOutDir, rel), { force: true })
+  }
+  for (const rel of DEAD_RESOURCE_FILES) {
+    rmSync(join(context.appOutDir, 'resources', rel), { force: true })
+  }
+}
+
 const NOTICE_PATH = join(__dirname, 'build/THIRD-PARTY-NOTICES.txt')
 const PDFIUM_NOTICE_TERMS = ['@embedpdf/pdfium', 'Copyright 2014 PDFium Authors', 'Apache License']
 
@@ -228,6 +251,12 @@ const config = {
     output: process.env.BUILD_DIR || 'release',
   },
   files: ['out/**'],
+  // Chromium ships ~55 locale paks (~49 MB) and the default keeps every one.
+  // They only supply Chromium's own UI strings (DevTools, built-in error pages);
+  // the app's own 19-language UI lives in the renderer bundles and is unaffected
+  // — a missing pak just makes Chromium fall back to en-US. Trimmed to the
+  // languages this product actually ships in, which reclaims ~46 MB.
+  electronLanguages: ['zh-CN', 'zh-TW', 'en-US'],
   extraResources: [
     {
       from: 'build/THIRD-PARTY-NOTICES.txt',
@@ -512,6 +541,9 @@ const config = {
         `win extraResources source missing: ${WIN_SIDECAR} (run npm run native:build -w @yiioffice/sheets first)`,
       )
     }
+  },
+  afterPack: async (context) => {
+    dropRedundantRuntimeFiles(context)
   },
   dmg: {
     sign: true,
