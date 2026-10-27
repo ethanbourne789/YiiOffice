@@ -38,6 +38,7 @@ import extractWorkerPath from './file-index/extract-worker?modulePath'
 import { FileIndexer } from './file-index/indexer'
 import { FileIndexStore } from './file-index/store'
 import { normalizeFileSearchSettings, SearchReranker } from './file-index/rerank'
+import { indexUnavailableReason, markIndexAvailable, markIndexUnavailable } from './file-index/status'
 
 // ---- folder roots ----
 
@@ -196,6 +197,11 @@ export let fileIndexStore: FileIndexStore | null = null
 export let fileIndexer: FileIndexer | null = null
 let searchReranker: SearchReranker | null = null
 
+/** the reason the file index is unavailable, or null when it works */
+export function fileIndexUnavailable(): string | null {
+  return indexUnavailableReason()
+}
+
 export function readFileSearchSettings(): FileSearchSettings {
   return normalizeFileSearchSettings(readAppSettings(APP_SETTINGS_PATH()).fileSearch)
 }
@@ -206,9 +212,15 @@ export function ensureFileIndexer(): FileIndexer | null {
   try {
     fileIndexStore = new FileIndexStore(join(app.getPath('userData'), 'file-index.db'))
   } catch (e) {
-    console.warn('[file-index] unavailable:', e instanceof Error ? e.message : e)
+    // node:sqlite is a Stability 1 API and the FTS5 extension may be missing:
+    // keep the reason so the UI can say "search is unavailable" instead of
+    // showing an empty result list that looks like "no matches".
+    const reason = e instanceof Error ? e.message : String(e)
+    markIndexUnavailable(reason)
+    console.warn('[file-index] unavailable:', reason)
     return null
   }
+  markIndexAvailable()
   fileIndexer = new FileIndexer(fileIndexStore, extractWorkerPath, {
     roots: () => folderRootPaths().filter((root) => existsSync(root)),
     extraPaths: () => [...readRecentFiles(), ...readStarredFiles()],

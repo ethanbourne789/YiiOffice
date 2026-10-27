@@ -75,7 +75,9 @@ describe('handleTableDesignCommand parsing', () => {
     expect(handleTableDesignCommand(ctx, 'table-create:A1:D10:0')).toBe(true)
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(messages).toEqual([t('appTablesNeedFile')])
-  })
+    // the command handler awaits the sidecar; the default timeout is not
+    // enough once the whole repo runs in parallel
+  }, 60_000)
 })
 
 describe('table names and columns', () => {

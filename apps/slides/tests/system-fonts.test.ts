@@ -4,17 +4,26 @@ import { describe, expect, it, vi } from 'vitest'
 import type { RunStyle } from '@yiioffice/pptx-render'
 
 // Vitest turns ?asset imports into /@fs URLs, while font metrics reads the files from disk.
+// Resolve against this file rather than process.cwd(): the root `vitest run` starts
+// every project from the repo root, so cwd is not the package directory.
+// import.meta.dirname (not import.meta.url) because Vitest rewrites the latter to a
+// virtual /@fs/ URL that no longer resolves on disk.
+const { fontPath } = vi.hoisted(() => ({
+  fontPath: (name: string): string =>
+    resolve(import.meta.dirname ?? '', '../../../packages/ui/src/fonts', name),
+}))
+
 vi.mock('@yiioffice/ui/fonts/Carlito-Regular.ttf?asset', () => ({
-  default: resolve(process.cwd(), '../../packages/ui/src/fonts/Carlito-Regular.ttf'),
+  default: fontPath('Carlito-Regular.ttf'),
 }))
 vi.mock('@yiioffice/ui/fonts/Carlito-Bold.ttf?asset', () => ({
-  default: resolve(process.cwd(), '../../packages/ui/src/fonts/Carlito-Bold.ttf'),
+  default: fontPath('Carlito-Bold.ttf'),
 }))
 vi.mock('@yiioffice/ui/fonts/Carlito-Italic.ttf?asset', () => ({
-  default: resolve(process.cwd(), '../../packages/ui/src/fonts/Carlito-Italic.ttf'),
+  default: fontPath('Carlito-Italic.ttf'),
 }))
 vi.mock('@yiioffice/ui/fonts/Carlito-BoldItalic.ttf?asset', () => ({
-  default: resolve(process.cwd(), '../../packages/ui/src/fonts/Carlito-BoldItalic.ttf'),
+  default: fontPath('Carlito-BoldItalic.ttf'),
 }))
 
 // shaped-metrics pulls in the harfbuzz wasm (?asset only resolves in electron builds); disconnected in unit tests

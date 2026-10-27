@@ -118,6 +118,13 @@ export interface FileSearchPage {
     pending: number
     scanning: boolean
   }
+  /**
+   * Set when the on-disk index could not be opened (e.g. node:sqlite is
+   * unavailable), so search returns nothing. Without it the UI would show an
+   * empty result list and the feature would look broken-but-working; with it
+   * the user is told the index is unavailable instead.
+   */
+  unavailable?: { reason: string }
 }
 
 /**

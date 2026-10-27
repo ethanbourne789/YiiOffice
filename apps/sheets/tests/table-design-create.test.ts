@@ -69,7 +69,9 @@ describe('Create Table completion signal', () => {
     expect(created).toHaveBeenCalledTimes(1)
     expect(activated).toHaveLength(1)
     expect(messages).toEqual([t('appTableCreated')])
-  })
+    // the create round-trips through the sidecar; the default timeout is not
+    // enough once the whole repo runs in parallel
+  }, 60_000)
 
   it('does not signal when the create fails', async () => {
     const { handleTableDesignCommand } = await import('../src/renderer/table-design-actions')

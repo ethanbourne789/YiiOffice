@@ -51,7 +51,9 @@ describe('deeply nested tables keep their content', () => {
     // untouched deep tables still save byte-identically
     const saved = await saveDocx(doc, [{ kind: 'original', docxIndex: 0 }])
     expect(saved).toEqual(source)
-  })
+    // 2000 levels of nesting is a lot of XML; the default timeout is not
+    // enough once the whole repo runs in parallel
+  }, 120_000)
 
   it('does not flatten tables nested within the cap', async () => {
     const doc = await parseDocx(await buildDocx({ bodyXml: deepTableXml(4) }))

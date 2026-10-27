@@ -34,15 +34,14 @@ import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { ColorDropdown } from '../src/renderer/ColorDropdown'
 import { SubtotalDialog } from '../src/renderer/SubtotalDialog'
 
-// jsdom rewrites import.meta.url to an http URL, so resolve from cwd instead.
+// Resolve the stylesheet against this file rather than process.cwd(): the root
+// `vitest run` starts every project from the repo root, so cwd is not the
+// package directory. import.meta.dirname (not import.meta.url) because jsdom
+// rewrites the latter to an http URL.
 const stylesheet = (): string => {
-  const candidates = [
-    resolve(process.cwd(), 'src/renderer/styles.css'),
-    resolve(process.cwd(), 'apps/sheets/src/renderer/styles.css'),
-  ]
-  const found = candidates.find((path) => existsSync(path))
-  if (!found) throw new Error(`styles.css not found; looked in ${candidates.join(', ')}`)
-  return readFileSync(found, 'utf8')
+  const path = resolve(import.meta.dirname ?? '', '../src/renderer/styles.css')
+  if (!existsSync(path)) throw new Error(`styles.css not found at ${path}`)
+  return readFileSync(path, 'utf8')
 }
 
 const css = stylesheet()

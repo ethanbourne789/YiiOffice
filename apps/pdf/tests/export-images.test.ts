@@ -15,7 +15,9 @@ vi.mock('electron', () => ({
   app: {
     on: vi.fn(),
     whenReady: vi.fn(() => new Promise(() => {})),
-    getPath: vi.fn(() => process.cwd()),
+    // a temp dir, not process.cwd(): the root `vitest run` starts every project
+    // from the repo root, so cwd is not the package directory
+    getPath: vi.fn(() => tmpdir()),
   },
   dialog: { showOpenDialog: state.showOpenDialog },
   shell: { showItemInFolder: state.showItemInFolder },

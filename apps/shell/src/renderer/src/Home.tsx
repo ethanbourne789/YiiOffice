@@ -21,6 +21,7 @@ import type {
 import { markText } from '../../shared/text-marks'
 import { useDismissablePopover } from '@yiioffice/ui'
 import { fileCountLabel, visiblePageCount } from './counts'
+import { searchViewState } from './search-state'
 import { useI18n } from './locale'
 import type { I18n, StringKey } from './locale'
 import { SettingsModal } from './SettingsModal'
@@ -2476,21 +2477,31 @@ export function Home() {
   )
 
   const renderSearchResults = () => {
-    const page = searchPage
-    const busy = !!page && (page.index.pending > 0 || page.index.scanning)
+    const state = searchViewState(searchPage, q)
     return (
       <div className="search-results" aria-live="polite">
-        {busy && (
+        {state.kind === 'indexing' && (
           <div className="search-status">
             <span className="load-more-spinner" />
-            {t('searchIndexing', { n: page.index.pending })}
+            {t('searchIndexing', { n: state.pending })}
           </div>
         )}
-        {page && page.hits.length === 0 && !busy
-          ? renderEmpty(t('searchNoResults', { q }))
-          : page && (
-              <ul className="search-list">{orderedSearchHits(page.hits).map(renderSearchRow)}</ul>
+        {state.kind === 'unavailable' ? (
+          <div className="search-unavailable" role="status">
+            <p className="search-unavailable-title">{t('searchUnavailable')}</p>
+            {state.reason && (
+              <p className="search-unavailable-reason">
+                {t('searchUnavailableReason', { reason: state.reason })}
+              </p>
             )}
+          </div>
+        ) : state.kind === 'no-results' ? (
+          renderEmpty(t('searchNoResults', { q: state.q }))
+        ) : state.kind === 'results' ? (
+          <ul className="search-list">
+            {orderedSearchHits(searchPage!.hits).map(renderSearchRow)}
+          </ul>
+        ) : null}
       </div>
     )
   }
@@ -2505,6 +2516,15 @@ export function Home() {
   }
 
   const renderSearchHeading = () => {
+    const state = searchViewState(searchPage, q)
+    // the index is down: "0 results" would state a fact we do not know
+    if (state.kind === 'unavailable') {
+      return (
+        <div className="recents-heading">
+          <span className="file-count">{t('searchUnavailable')}</span>
+        </div>
+      )
+    }
     const total = searchPage?.total ?? 0
     return (
       <div className="recents-heading">

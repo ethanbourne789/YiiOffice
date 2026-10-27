@@ -40,6 +40,7 @@ import { handleDroppedFiles } from './dropped-files'
 import { showErrorDialog } from './error-dialog'
 import { isMoveSource, isUserVisibleFile } from './file-targets'
 import { normalizeFileSearchSettings, probeDecision } from './file-index/rerank'
+import { emptySearchPage, unavailableSearchPage } from './file-index/search-page'
 import {
   FOLDER_ROOTS_KEY,
   describeExtraRoot,
@@ -71,11 +72,11 @@ import {
   extraFolderRoots,
   fileIndexer,
   fileIndexStore,
+  fileIndexUnavailable,
   fileTargetSources,
   insideAnyRoot,
   isAnyRoot,
-  readFileSearchSettings,
-  refreshFileIndex,
+  readFileSearchSettings,  refreshFileIndex,
   rememberPendingDir,
   SEARCH_EXT_FAMILY,
   statMaybeFile,
@@ -135,7 +136,10 @@ function registerHomeIpc(): void {
     const query = (raw && typeof raw === 'object' ? raw : {}) as Partial<FileSearchQuery>
     const indexer = ensureFileIndexer()
     if (!indexer || !fileIndexStore) {
-      return { hits: [], total: 0, index: { indexed: 0, pending: 0, scanning: false } }
+      // the index could not be opened: say so, otherwise the UI shows an empty
+      // list and the user reads it as "no files match"
+      const reason = fileIndexUnavailable()
+      return reason ? unavailableSearchPage(reason) : emptySearchPage()
     }
     // an open search box is the moment a stale index shows; rescan at most once a minute
     indexer.refreshIfStale(60_000)
