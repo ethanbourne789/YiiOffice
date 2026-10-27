@@ -159,8 +159,6 @@ function formatAttrs(format: ParaFormat | undefined, runs?: Run[]): Record<strin
 }
 
 /** Effective row-height ceiling: one page of section content (Word truncates taller rows within the page) */
-
-/** Effective row-height ceiling: one page of section content (Word truncates taller rows within the page) */
 function sectionRowCapTwips(
   sections: SectionInfo[] | undefined,
   docxIndex: number | null,
@@ -206,15 +204,11 @@ function sectionWidthBudget(
 }
 
 /** centered tables (w:jc or w:tblpXSpec) spill both margins, so their growth bound is the paper width */
-
-/** centered tables (w:jc or w:tblpXSpec) spill both margins, so their growth bound is the paper width */
 function budgetAvail(model: TableModel, budget: TableWidthBudget): number {
   return model.align === 'center' || model.floatPos?.xSpec === 'center'
     ? budget.paper
     : budget.avail
 }
-
-/** Cap declared row heights (incl. nested tables); returns the input model when nothing exceeds the cap */
 
 /** Cap declared row heights (incl. nested tables); returns the input model when nothing exceeds the cap */
 export function capTableRowHeights(model: TableModel, capTwips: number): TableModel {
@@ -239,8 +233,6 @@ export function capTableRowHeights(model: TableModel, capTwips: number): TableMo
 }
 
 const DEFAULT_CELL_MAR = 108
-/** compression floor for real columns (24px); sliver grid slots below it keep their width */
-
 /** compression floor for real columns (24px); sliver grid slots below it keep their width */
 const MIN_COL_TWIPS = 360
 
@@ -384,8 +376,6 @@ const MIN_CONTENT_SLACK = 1.08
 
 const MEASURED_SLACK = 1.02
 /** collapsed half-borders plus px rounding eat ~1px per side of the measured word (CI cap tables shattered "Board") */
-
-/** collapsed half-borders plus px rounding eat ~1px per side of the measured word (CI cap tables shattered "Board") */
 const MEASURED_EDGE_PX = 2
 
 /** per grid column (twips): widest unbreakable word in single-span cells, plus side
@@ -486,8 +476,6 @@ export function holdsDeclaredWidth(model: TableModel): boolean {
     !!model.colWidthsTwips?.length
   )
 }
-
-/** side cell margins of a table's own cells (twips) */
 
 /** side cell margins of a table's own cells (twips) */
 function sideMarginTwips(model: TableModel): number {
@@ -729,8 +717,6 @@ function marginHungFloat(model: TableModel): boolean {
   const pos = model.floatPos
   return model.floatSide === 'left' && pos?.horzAnchor === 'margin' && !pos.xSpec && !pos.xTwips
 }
-
-/** legacy tblInd (measured to the cell text) as a border-edge indent; display-only */
 
 /** legacy tblInd (measured to the cell text) as a border-edge indent; display-only */
 export function legacyIndentTable(model: TableModel): TableModel {
@@ -1004,8 +990,6 @@ export function cellClipTwips(
 }
 
 /** free side beside a text-anchored float below which Word's side text is only word fragments */
-
-/** free side beside a text-anchored float below which Word's side text is only word fragments */
 const FLOAT_SIDE_MIN_TWIPS = 1440
 
 export function tableModelToPmNode(
@@ -1188,8 +1172,6 @@ export function tableModelToPmNode(
   table.attrs!.originalFormatting = tableFormattingSignature(table)
   return table
 }
-
-/** cell paragraphs with nested tables (read-only atoms) spliced in at their anchors */
 
 /** cell paragraphs with nested tables (read-only atoms) spliced in at their anchors */
 function cellContentNodes(cell: TableCell): PmNode[] {

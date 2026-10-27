@@ -748,8 +748,6 @@ export function pmDocToSavePlan(inputDoc: PmNode, originalBlocks: Block[]): Save
 }
 
 /** rebuild a pasted image copy from its preview bytes; null when not materializable */
-
-/** rebuild a pasted image copy from its preview bytes; null when not materializable */
 function imageFromProtectedAttrs(node: PmNode): NewImage | null {
   if (node.attrs?.blockType !== 'image') return null
   const src = String(node.attrs?.imageDataUrl ?? '')
@@ -779,16 +777,12 @@ function imageFromProtectedAttrs(node: PmNode): NewImage | null {
 }
 
 /** cloned XML must not repeat the anchor's bookmark/comment ids */
-
-/** cloned XML must not repeat the anchor's bookmark/comment ids */
 function stripAnchorMarkers(xml: string): string {
   return xml.replace(
     /<w:(?:bookmarkStart|bookmarkEnd|commentRangeStart|commentRangeEnd|commentReference)\b[^>]*\/>/g,
     '',
   )
 }
-
-/** chart data changes vs the parsed model; null when untouched or unpatchable */
 
 /** chart data changes vs the parsed model; null when untouched or unpatchable */
 function chartPatchOf(
@@ -859,8 +853,6 @@ interface ImageBlockPatch {
 }
 
 /** size/align/wrap changes on an original image block; null when untouched */
-
-/** size/align/wrap changes on an original image block; null when untouched */
 function imagePatchOf(node: PmNode, original: Block): ImageBlockPatch | null {
   if (original.type !== 'image' || node.attrs?.blockType !== 'image') return null
   const patch: ImageBlockPatch = {}
@@ -922,8 +914,6 @@ function imagePatchOf(node: PmNode, original: Block): ImageBlockPatch | null {
 function patchableCells(row: TableCell[] | undefined): TableCell[] {
   return (row ?? []).filter((cell) => !cell.gridGap)
 }
-
-/** per-cell text changes on an original table block; null when untouched */
 
 /** per-cell text changes on an original table block; null when untouched */
 function tableTextsPatch(node: PmNode, original: Block): (string[] | null)[][] | null {
@@ -1024,8 +1014,6 @@ function parsedCellParaTexts(cell: TableCell): string[] {
 }
 
 /** per-cell text diff of one nested table; null = untouched cell, null entry = untouched paragraph */
-
-/** per-cell text diff of one nested table; null = untouched cell, null entry = untouched paragraph */
 function nestedTextsDiff(
   current: TableModel,
   original: TableModel,
@@ -1051,13 +1039,9 @@ function nestedTextsDiff(
 }
 
 /** rich-run signature of one textbox paragraph, for per-paragraph change detection */
-
-/** rich-run signature of one textbox paragraph, for per-paragraph change detection */
 export function textboxParaSignature(para: TextboxDisplay['paras'][number]): string {
   return JSON.stringify([para.align ?? null, normalizedRuns(para.runs)])
 }
-
-/** all-empty sub-editor content counts as "still no text" for a paras:[] box */
 
 /** all-empty sub-editor content counts as "still no text" for a paras:[] box */
 function boxStillEmpty(paras: TextboxDisplay['paras']): boolean {
@@ -1162,8 +1146,6 @@ interface ShapeWrapChange {
   z?: number
   zChanged: boolean
 }
-
-/** Per-box wrap/rank changes of a shape node vs its parsed original. */
 
 /** Per-box wrap/rank changes of a shape node vs its parsed original. */
 function shapeWrapPatchOf(
@@ -1403,8 +1385,6 @@ function normalizedRuns(runs: Run[]): unknown[] {
         ],
   )
 }
-
-/** same indent twips in two paragraph formats (an explicit 0 differs from unset, as emitted) */
 
 /** same indent twips in two paragraph formats (an explicit 0 differs from unset, as emitted) */
 function indentSame(a: ParaFormat | undefined, b: ParaFormat | undefined): boolean {

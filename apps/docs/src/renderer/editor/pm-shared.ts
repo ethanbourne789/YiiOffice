@@ -35,10 +35,6 @@ export interface PmNode {
   marks?: PmMark[]
 }
 
-// ---- Block[] -> ProseMirror doc ----
-
-/** document-level layout switches for the display models built here */
-
 export function tableStructureSignature(table: PmNode): string {
   return JSON.stringify({
     widths: table.attrs?.colWidthsPct ?? null,
@@ -138,8 +134,6 @@ export function unwrapBlockRevisionXml(xml: string): string {
   const match = /^<w:(ins|del)\b[^>]*>([\s\S]*)<\/w:\1>$/.exec(xml)
   return match ? match[2] : xml
 }
-
-/** Convert native table cells back to the physical OOXML-style TableModel grid. */
 
 /** Convert native table cells back to the physical OOXML-style TableModel grid. */
 export function pmTableToModel(table: PmNode): TableModel {
@@ -588,8 +582,6 @@ export function symDisplayText(run: Run): string {
 }
 
 /** a w:sym run is one glyph; text edited or merged under its mark goes back as plain runs */
-
-/** a w:sym run is one glyph; text edited or merged under its mark goes back as plain runs */
 export function symRuns(run: Run): Run[] {
   if (!run.sym) return [run]
   const glyph = symbolGlyph(run.sym.font, run.sym.char)
@@ -732,8 +724,6 @@ export function mergeRuns(runs: Run[]): Run[] {
   }
   return merged
 }
-
-/** Font-dialog fields that save from the model (mergeRPrModel rebuilds them when edited) */
 
 /** Font-dialog fields that save from the model (mergeRPrModel rebuilds them when edited) */
 export function charFormatKey(run: Run): unknown[] {
