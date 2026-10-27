@@ -8,6 +8,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./math": "./src/math.ts",
+    "./xml-text": "./src/parse-xml-text.ts",
     "./metafile": "./src/metafile.ts",
     "./zip-splice": "./src/zip-splice.ts",
     "./lazy-media": "./src/lazy-media.ts"

@@ -6,6 +6,7 @@ import {
   vmlStyleDimPx,
   vmlStyleProp,
 } from './parse-vml'
+import { decodeEntities } from './parse-xml-text'
 import type { HfImage, PictureWatermarkInfo } from './types'
 import { escapeXmlAttr } from './xml-utils'
 
@@ -26,12 +27,7 @@ export function readWatermarkText(headerXml: string): string | null {
   if (!headerXml.includes('<v:textpath')) return null
   const m = /<v:textpath[^>]*\bstring="([^"]*)"/.exec(headerXml)
   if (!m) return null
-  const text = m[1]
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, '&')
+  const text = decodeEntities(m[1])
   return text || null
 }
 

@@ -1,4 +1,5 @@
 import { sdtCheckboxGlyphs, sdtCheckboxIsChecked, syncSdtCheckbox } from './checkbox-control'
+import { decodeEntities } from './parse-xml-text'
 import type {
   CellMargins,
   CharIndents,
@@ -376,26 +377,6 @@ interface XmlTextNode {
   text: string
 }
 
-function decodeXmlText(text: string): string {
-  return text
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&#(\d+);/g, (_m, dec: string) => {
-      const cp = Number(dec)
-      if (!Number.isFinite(cp) || cp < 0 || cp > 0x10ffff || (cp >= 0xd800 && cp <= 0xdfff))
-        return _m
-      return String.fromCodePoint(cp)
-    })
-    .replace(/&#x([0-9a-fA-F]+);/g, (_m, hex: string) => {
-      const cp = parseInt(hex, 16)
-      if (!Number.isFinite(cp) || cp < 0 || cp > 0x10ffff || (cp >= 0xd800 && cp <= 0xdfff))
-        return _m
-      return String.fromCodePoint(cp)
-    })
-    .replace(/&amp;/g, '&')
-}
 
 function textNodes(xml: string, tag: 'w:t' | 'm:t'): XmlTextNode[] {
   const nodes: XmlTextNode[] = []
@@ -410,7 +391,7 @@ function textNodes(xml: string, tag: 'w:t' | 'm:t'): XmlTextNode[] {
       end: match.index + match[0].length,
       open: match[0].slice(0, openEnd),
       close: match[0].slice(closeStart),
-      text: decodeXmlText(match[1]),
+      text: decodeEntities(match[1]),
     })
   }
   // Self-closing empty <w:t/> (Word emits these for empty runs). Only for w:t:
@@ -877,12 +858,7 @@ function paraPlainText(pXml: string): string {
     if (m[0].startsWith('<w:tab')) out += '\t'
     else if (m[0] === '<w:br/>' || m[0] === '<w:cr/>') out += '\n'
     else {
-      out += m[1]
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&apos;/g, "'")
-        .replace(/&amp;/g, '&')
+      out += decodeEntities(m[1])
     }
   }
   return out

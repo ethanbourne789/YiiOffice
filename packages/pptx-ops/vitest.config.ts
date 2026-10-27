@@ -17,6 +17,7 @@ export default defineConfig({
       ),
       '@yiioffice/pptx-engine': resolve(here, '../pptx-engine/src/index.ts'),
       '@yiioffice/docx-engine/math': resolve(here, '../docx-engine/src/math.ts'),
+      '@yiioffice/docx-engine/xml-text': resolve(here, '../docx-engine/src/parse-xml-text.ts'),
     },
   },
   test: {

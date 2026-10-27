@@ -97,7 +97,7 @@ import {
   workbookSaveRequestSchema,
   type WorkbookSaveRequest,
 } from '../shared/desktop-api'
-import { IPC_CHANNELS } from '../shared/ipc-channels'
+import { APP_CHANNELS, IPC_CHANNELS } from '../shared/ipc-channels'
 import { atomicWriteFile } from './atomic-write'
 import { closeGuardDecision, ShutdownLatch } from './close-guard'
 import { SaveEditsTransferStore } from './save-edits-transfer'
@@ -905,7 +905,7 @@ export async function createSheetsWindow(
 
 /** hidden export windows: webContents id -> the PDF path the renderer must write */
 const headlessExportTargets = new Map<number, string>()
-/** settled by 'sheets:headless-export-done' (or by the renderer dying) */
+/** settled by IPC_CHANNELS.headlessExportDone (or by the renderer dying) */
 const headlessExportWaiters = new Map<number, (result: HeadlessSheetsReport) => void>()
 
 interface HeadlessSheetsReport {
@@ -1288,11 +1288,11 @@ export function registerSheetsIpc(): void {
   })
 
   // shared with the other editor modules — last (identical) registration wins
-  ipcMain.removeHandler('app:get-language')
-  ipcMain.handle('app:get-language', () => getUiLang())
+  ipcMain.removeHandler(APP_CHANNELS.getLanguage)
+  ipcMain.handle(APP_CHANNELS.getLanguage, () => getUiLang())
 
   /** returns true once when shell opened this tab for a new blank workbook */
-  ipcMain.handle('sheets:consume-new-blank', () => {
+  ipcMain.handle(IPC_CHANNELS.consumeNewBlank, () => {
     if (pendingNewBlank) {
       pendingNewBlank = false
       return true
@@ -1307,17 +1307,17 @@ export function registerSheetsIpc(): void {
    * would strand the tab as a blank in-memory workbook. The renderer polls
    * this once it is ready and triggers the open itself.
    */
-  ipcMain.handle('sheets:has-queued-workbook', (event) => queuedWorkbookPaths.has(event.sender.id))
+  ipcMain.handle(IPC_CHANNELS.hasQueuedWorkbook, (event) => queuedWorkbookPaths.has(event.sender.id))
 
   // ---- headless export mode (--headless-export) ----
 
-  ipcMain.handle('sheets:consume-headless-export', (event): string | null => {
+  ipcMain.handle(IPC_CHANNELS.consumeHeadlessExport, (event): string | null => {
     const target = headlessExportTargets.get(event.sender.id) ?? null
     headlessExportTargets.delete(event.sender.id)
     return target
   })
 
-  ipcMain.on('sheets:headless-export-done', (event, result: unknown) => {
+  ipcMain.on(IPC_CHANNELS.headlessExportDone, (event, result: unknown) => {
     const settle = headlessExportWaiters.get(event.sender.id)
     if (!settle) return
     headlessExportWaiters.delete(event.sender.id)

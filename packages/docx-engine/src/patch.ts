@@ -21,6 +21,7 @@ import {
   stripInkRuns,
 } from './ink'
 import { resolveRelationshipTargetPath } from './parse-package'
+import { decodeEntities } from './parse-xml-text'
 import { assertZipWithinLimits, resolveMainDocumentPath, type ParseExtras } from './parse'
 import { cleanupDocxOwnedResources } from './resource-cleanup'
 import { loadDocxZip } from './zip-load'
@@ -2183,15 +2184,7 @@ function commentPlainText(commentXml: string): string {
     const tRe = /<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>/g
     let t: RegExpExecArray | null
     while ((t = tRe.exec(p[0])) !== null) texts.push(t[1])
-    paras.push(
-      texts
-        .join('')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&apos;/g, "'")
-        .replace(/&amp;/g, '&'),
-    )
+    paras.push(decodeEntities(texts.join('')))
   }
   return paras.join('\n')
 }

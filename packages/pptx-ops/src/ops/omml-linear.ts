@@ -4,6 +4,8 @@
  * fractions as a/b, scripts as x^2 / x_i, radicals as √(x), n-ary operators
  * with their limits. Structure-only: anything unknown flattens to its text.
  */
+import { decodeEntities } from '@yiioffice/docx-engine/xml-text'
+
 interface Node {
   name: string
   attrs: string
@@ -32,12 +34,7 @@ function parse(xml: string): Node {
 }
 
 function unescape(s: string): string {
-  return s
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, '&')
+  return decodeEntities(s)
 }
 
 const child = (n: Node, name: string) => n.children.find((c) => c.name === name)

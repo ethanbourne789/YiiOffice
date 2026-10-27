@@ -103,4 +103,27 @@ export const IPC_CHANNELS = {
   filesAddPastedImage: 'sheets:files-add-pasted-image',
   filesRead: 'sheets:files-read',
   filesReadImage: 'sheets:files-read-image',
+  /** Shell opened this tab for a new blank workbook; consumes the pending flag */
+  consumeNewBlank: 'sheets:consume-new-blank',
+  /** Is a shell-queued workbook still waiting? Polled on slow cold starts. */
+  hasQueuedWorkbook: 'sheets:has-queued-workbook',
+  consumeHeadlessExport: 'sheets:consume-headless-export',
+  headlessExportDone: 'sheets:headless-export-done',
+} as const
+
+/// App-level channels whose handlers live in the shell main process. They are
+/// not this app's to register, but the preload still has to name them: every
+/// subscribe/unsubscribe pair here is two literals that must match exactly, and
+/// a typo in the second one leaks the listener silently. Keeping them in one
+/// object makes that pair impossible to split.
+export const APP_CHANNELS = {
+  getLanguage: 'app:get-language',
+  languageChanged: 'app:language-changed',
+  getTheme: 'app:get-theme',
+  themeChanged: 'app:theme-changed',
+  getDocumentTheme: 'app:get-document-theme',
+  documentThemeChanged: 'app:document-theme-changed',
+  getAutoSaveDefault: 'app:get-auto-save-default',
+  autoSaveDefaultChanged: 'app:auto-save-default-changed',
+  chromePressed: 'app:chrome-pressed',
 } as const

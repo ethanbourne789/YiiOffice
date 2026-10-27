@@ -32,6 +32,7 @@ import type {
   WorkbookVisualObject,
   } from '../shared/desktop-api'
 import {
+  APP_CHANNELS,
   HEADER_FOOTER_PICTURE_POSITION,
   IPC_CHANNELS,
   MAX_CREATE_DOCUMENT_CONTENT_CHARS,
@@ -45,40 +46,40 @@ import {
 import { installDropOpenBridge } from '@yiioffice/electron-utils/drop-open-bridge'
 
 const desktopApi: DesktopApi = {
-  getLanguage: () => ipcRenderer.invoke('app:get-language'),
+  getLanguage: () => ipcRenderer.invoke(APP_CHANNELS.getLanguage),
   onLanguageChanged(handler) {
     const listener = (
       _event: Electron.IpcRendererEvent,
       lang: 'zh' | 'en' | 'ja' | 'ko' | 'fr' | 'de' | 'es' | 'th' | 'id' | 'ru' | 'ar',
     ) => handler(lang)
-    ipcRenderer.on('app:language-changed', listener)
-    return () => ipcRenderer.removeListener('app:language-changed', listener)
+    ipcRenderer.on(APP_CHANNELS.languageChanged, listener)
+    return () => ipcRenderer.removeListener(APP_CHANNELS.languageChanged, listener)
   },
-  getTheme: () => ipcRenderer.invoke('app:get-theme'),
+  getTheme: () => ipcRenderer.invoke(APP_CHANNELS.getTheme),
   onThemeChanged(handler) {
     const listener = (_event: Electron.IpcRendererEvent, theme: UiTheme) => handler(theme)
-    ipcRenderer.on('app:theme-changed', listener)
-    return () => ipcRenderer.removeListener('app:theme-changed', listener)
+    ipcRenderer.on(APP_CHANNELS.themeChanged, listener)
+    return () => ipcRenderer.removeListener(APP_CHANNELS.themeChanged, listener)
   },
   getDocumentTheme: async () => {
-    const result: unknown = await ipcRenderer.invoke('app:get-document-theme')
+    const result: unknown = await ipcRenderer.invoke(APP_CHANNELS.getDocumentTheme)
     return result === 'dark' || result === 'light' ? result : 'follow'
   },
   onDocumentThemeChanged(handler) {
     const listener = (_event: Electron.IpcRendererEvent, theme: DocTheme) => handler(theme)
-    ipcRenderer.on('app:document-theme-changed', listener)
-    return () => ipcRenderer.removeListener('app:document-theme-changed', listener)
+    ipcRenderer.on(APP_CHANNELS.documentThemeChanged, listener)
+    return () => ipcRenderer.removeListener(APP_CHANNELS.documentThemeChanged, listener)
   },
-  getAutoSaveDefault: () => ipcRenderer.invoke('app:get-auto-save-default'),
+  getAutoSaveDefault: () => ipcRenderer.invoke(APP_CHANNELS.getAutoSaveDefault),
   onAutoSaveDefaultChanged(handler) {
     const listener = (_event: Electron.IpcRendererEvent, value: AutoSaveDefault) => handler(value)
-    ipcRenderer.on('app:auto-save-default-changed', listener)
-    return () => ipcRenderer.removeListener('app:auto-save-default-changed', listener)
+    ipcRenderer.on(APP_CHANNELS.autoSaveDefaultChanged, listener)
+    return () => ipcRenderer.removeListener(APP_CHANNELS.autoSaveDefaultChanged, listener)
   },
   onChromePressed(handler) {
     const listener = () => handler()
-    ipcRenderer.on('app:chrome-pressed', listener)
-    return () => ipcRenderer.removeListener('app:chrome-pressed', listener)
+    ipcRenderer.on(APP_CHANNELS.chromePressed, listener)
+    return () => ipcRenderer.removeListener(APP_CHANNELS.chromePressed, listener)
   },
   async selectWorkbook() {
     const result: unknown = await ipcRenderer.invoke(IPC_CHANNELS.selectWorkbook)
@@ -474,20 +475,20 @@ const desktopApi: DesktopApi = {
   },
   
   async consumeNewBlankWorkbook() {
-    const result: unknown = await ipcRenderer.invoke('sheets:consume-new-blank')
+    const result: unknown = await ipcRenderer.invoke(IPC_CHANNELS.consumeNewBlank)
     return result === true
   },
   
   async hasQueuedWorkbook() {
-    const result: unknown = await ipcRenderer.invoke('sheets:has-queued-workbook')
+    const result: unknown = await ipcRenderer.invoke(IPC_CHANNELS.hasQueuedWorkbook)
     return result === true
   },
   async consumeHeadlessExport() {
-    const result: unknown = await ipcRenderer.invoke('sheets:consume-headless-export')
+    const result: unknown = await ipcRenderer.invoke(IPC_CHANNELS.consumeHeadlessExport)
     return typeof result === 'string' ? result : null
   },
   headlessExportDone(result) {
-    ipcRenderer.send('sheets:headless-export-done', {
+    ipcRenderer.send(IPC_CHANNELS.headlessExportDone, {
       ok: result.ok === true,
       ...(typeof result.error === 'string' ? { error: result.error } : {}),
     })

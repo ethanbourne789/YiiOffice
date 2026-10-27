@@ -1,3 +1,4 @@
+import { mathTokens } from './parse-xml-text'
 import {
   attrsOf,
   childrenOf,
@@ -28,23 +29,14 @@ export function ommlFragmentsOf(paragraphXml: string): string[] {
   return paragraphXml.match(re) ?? []
 }
 
-/** visible <m:t> leaf texts in document order (the editable formula tokens) */
-export function mathTokensOf(xml: string): string[] {
-  const tokens: string[] = []
-  const re = /<m:t(?:\s[^>]*)?>([\s\S]*?)<\/m:t>/g
-  let match: RegExpExecArray | null
-  while ((match = re.exec(xml)) !== null) {
-    tokens.push(
-      match[1]
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&apos;/g, "'")
-        .replace(/&amp;/g, '&'),
-    )
-  }
-  return tokens
-}
+/**
+ * Visible <m:t> leaf texts in document order (the editable formula tokens).
+ * Delegates to the shared tokenizer: patchMathTokens maps this list back onto
+ * the <m:t> nodes it reads with decodeEntities, so both sides must decode
+ * numeric character references the same way or a token carrying one would be
+ * re-escaped as literal text on save.
+ */
+export const mathTokensOf = mathTokens
 
 // ---- OMML -> MathML ----
 

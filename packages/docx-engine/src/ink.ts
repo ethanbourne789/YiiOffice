@@ -1,4 +1,5 @@
 import type { NewInkImage } from './types'
+import { decodeEntities } from './parse-xml-text'
 import { escapeXmlAttr } from './xml-utils'
 
 /**
@@ -114,7 +115,7 @@ export function findInkRuns(paragraphXml: string): InkRunMatch[] {
       offsetYPx: emu(/<wp:positionV[^>]*><wp:posOffset>(-?\d+)/.exec(run)?.[1]) / EMU_PER_PX,
       widthPx: emu(/\bcx="(\d+)"/.exec(extent)?.[1]) / EMU_PER_PX,
       heightPx: emu(/\bcy="(\d+)"/.exec(extent)?.[1]) / EMU_PER_PX,
-      payload: descr ? decodeXmlEntities(descr) : null,
+      payload: descr ? decodeEntities(descr) : null,
       embedRId: /r:embed="([^"]+)"/.exec(run)?.[1] ?? null,
     })
   }
@@ -132,13 +133,4 @@ export function injectInkRunsIntoParagraph(xml: string, runsXml: string): string
   const close = xml.lastIndexOf('</w:p>')
   if (close === -1) return null
   return xml.slice(0, close) + runsXml + xml.slice(close)
-}
-
-function decodeXmlEntities(text: string): string {
-  return text
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, '&')
 }

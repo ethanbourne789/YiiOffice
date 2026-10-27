@@ -1,4 +1,5 @@
 import type JSZip from 'jszip'
+import { decodeEntities } from './parse-xml-text'
 
 /**
  * Relationship kinds whose references live directly in document XML and whose
@@ -37,24 +38,7 @@ function xmlAttr(tag: string, name: string): string | undefined {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const match = new RegExp(`(?:^|\\s)${escaped}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`).exec(tag)
   const value = match?.[1] ?? match?.[2]
-  return value === undefined ? undefined : decodeXmlEntities(value)
-}
-
-function decodeXmlEntities(value: string): string {
-  const codePoint = (match: string, raw: string, radix: number) => {
-    const value = parseInt(raw, radix)
-    return Number.isInteger(value) && value >= 0 && value <= 0x10ffff
-      ? String.fromCodePoint(value)
-      : match
-  }
-  return value
-    .replace(/&#x([0-9a-f]+);/gi, (match, hex: string) => codePoint(match, hex, 16))
-    .replace(/&#(\d+);/g, (match, decimal: string) => codePoint(match, decimal, 10))
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&')
+  return value === undefined ? undefined : decodeEntities(value)
 }
 
 function relationshipsOf(xml: string): Relationship[] {
@@ -152,7 +136,7 @@ function referencedRelationshipIds(xml: string): Set<string> {
       'g',
     )
     let attr: RegExpExecArray | null
-    while ((attr = attrRe.exec(xml)) !== null) ids.add(decodeXmlEntities(attr[1] ?? attr[2]))
+    while ((attr = attrRe.exec(xml)) !== null) ids.add(decodeEntities(attr[1] ?? attr[2]))
   }
   // Legacy VML/Office producers occasionally put a package relationship id in
   // a non-r namespace attribute (for example o:relid). Preserve any id that is
@@ -160,7 +144,7 @@ function referencedRelationshipIds(xml: string): Set<string> {
   const attributeRe = /\s[A-Za-z_][\w.:-]*\s*=\s*(?:"([^"]*)"|'([^']*)')/g
   let attribute: RegExpExecArray | null
   while ((attribute = attributeRe.exec(xml)) !== null) {
-    const value = decodeXmlEntities(attribute[1] ?? attribute[2])
+    const value = decodeEntities(attribute[1] ?? attribute[2])
     if (/^rId[\w.-]*$/i.test(value)) ids.add(value)
   }
   return ids

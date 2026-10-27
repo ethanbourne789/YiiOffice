@@ -1,4 +1,5 @@
 import type JSZip from 'jszip'
+import { decodeEntities } from './parse-xml-text'
 import type { SourceInfo } from './types'
 import { escapeXmlText } from './xml-utils'
 
@@ -52,15 +53,6 @@ export function parseSourcesXml(xml: string): SourceInfo[] {
     })
   }
   return out
-}
-
-function decodeEntities(text: string): string {
-  return text
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, '&')
 }
 
 function sourceEntryXml(source: SourceInfo): string {
