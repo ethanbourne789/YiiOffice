@@ -1329,7 +1329,17 @@ export default function App() {
 
   useEffect(() => {
     void (async () => {
-      const path = await window.pdfApi.consumePending()
+      let path: string | null
+      try {
+        path = await window.pdfApi.consumePending()
+      } catch (err) {
+        // A rejected lookup is not "no document": status starts at 'loading', so
+        // leaving it there strands the view on the spinner, and the rejection
+        // reaches the console as unhandled. Same failure surface as openPath.
+        console.error('[pdf] pending path lookup failed:', err)
+        setStatus('error')
+        return
+      }
       if (!path) {
         setStatus('empty')
         return
