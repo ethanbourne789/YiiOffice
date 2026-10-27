@@ -160,7 +160,6 @@ export interface HomeApi {
   /** star / unstar a file */
   toggleStar(path: string): Promise<void>
   /** open an existing file, routing to the right module by extension */
-  openHelp(): Promise<void>
   openPath(path: string): Promise<void>
   /** file picker accepting every supported extension, then routes */
   browse(): Promise<void>
@@ -314,7 +313,6 @@ export interface MoveResult {
 }
 
 export const HOME_CHANNELS = {
-  openHelp: 'home:open-help',
   recents: 'home:recents',
   searchFiles: 'home:search-files',
   rerankSearch: 'home:rerank-search',

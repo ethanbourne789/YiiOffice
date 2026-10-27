@@ -1,7 +1,6 @@
-/// The application menu: the home / pdf / markdown builders, the manual
-/// injection that keeps F1 working from every tab kind, the icon set the tab
-/// context menus share, and the macOS dock menu. index.ts and the IPC modules
-/// ask for the right menu through `applyMenuFor`.
+/// The application menu: the home / pdf / markdown builders, the icon set the
+/// tab context menus share, and the macOS dock menu. index.ts and the IPC
+/// modules ask for the right menu through `applyMenuFor`.
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -11,7 +10,6 @@ import type { MenuItemConstructorOptions, NativeImage } from 'electron'
 import {
   aboutMenuItem,
   appMenuLabels,
-  checkUpdatesMenuItem,
   editMenuTemplate,
   showOpenDialogWithMemory,
   windowMenuTemplate,
@@ -71,55 +69,6 @@ import menuMdIcon2x from './assets/menu-md@2x.png?asset'
 import menuHomeIcon1x from './assets/menu-home.png?asset'
 import menuHomeIcon2x from './assets/menu-home@2x.png?asset'
 
-/**
- * Put the manual in whatever menu is currently installed.
- *
- * Every tab kind builds its own application menu, which is how File and Edit
- * stay tab-shaped — and which is also why an item added to one builder is
- * missing from the other six. F1 worked from Home and nowhere else, and the
- * manual's own shortcut table was wrong for six of the seven tab kinds.
- *
- * Injecting after the builder has run is the one place that cannot be
- * forgotten: a new tab kind gets the manual for free, and a builder that
- * already has it is left alone rather than getting a second copy.
- */
-function withUserGuide(): void {
-  const menu = Menu.getApplicationMenu()
-  if (!menu) return
-  const userGuide = {
-    label: tm('menuUserGuide'),
-    accelerator: 'F1',
-    click: () => tabManager?.openHelpTab(),
-  }
-  const help = menu.items.find((item) => item.role === 'help')
-  // Slides and Sheets build a File/Edit/View template with no Help menu at
-  // all, so there is nothing to insert into — one is created instead. Without
-  // this the manual would be reachable from four of the seven tab kinds.
-  if (!help) {
-    menu.append(
-      Menu.buildFromTemplate([{ role: 'help', label: tm('menuHelp'), submenu: [userGuide] }])
-        .items[0]!,
-    )
-    return
-  }
-  const submenu = help.submenu
-  if (!submenu || submenu.items.some((i) => i.accelerator === 'F1')) return
-  // A separator survives a template only *between* two real items — Electron
-  // drops one at either end, so `[userGuide, separator]` builds a single item
-  // and the destructure below used to hand `undefined` to `insert`, which threw
-  // "Invalid item" and took the main process down on the next tab switch. The
-  // third entry is filler, discarded; the type check is what stops this from
-  // silently regressing if Electron's rule ever changes again.
-  const [item, separator] = Menu.buildFromTemplate([
-    userGuide,
-    { type: 'separator' },
-    { role: 'undo' },
-  ]).items
-  if (!item) return
-  submenu.insert(0, item)
-  if (separator?.type === 'separator') submenu.insert(1, separator)
-}
-
 function applyMenuFor(kind: TabKind): void {
   switch (kind) {
     case 'docs':
@@ -140,7 +89,6 @@ function applyMenuFor(kind: TabKind): void {
     default:
       buildHomeMenu()
   }
-  withUserGuide()
 }
 
 // electron-vite emits ?asset files under hashed names, which breaks nativeImage's
@@ -180,7 +128,6 @@ const TAB_MENU_ICON: Record<TabKind, keyof MenuIconSet> = {
   slides: 'pptx',
   pdf: 'pdf',
   markdown: 'md',
-  help: 'home',
 }
 
 // ---- home menu ----
@@ -231,11 +178,8 @@ function buildHomeMenu(): void {
       role: 'help',
       label: tm('menuHelp'),
       submenu: [
-        { label: tm('menuUserGuide'), accelerator: 'F1', click: () => tabManager?.openHelpTab() },
-        { type: 'separator' },
         { label: tm('thirdPartyNotices'), click: () => void openThirdPartyNotices() },
         { type: 'separator' },
-        checkUpdatesMenuItem(appMenuLabels(currentLang())),
         aboutMenuItem(appMenuLabels(currentLang())),
       ],
     },
@@ -318,7 +262,6 @@ function buildPdfMenu(): void {
       submenu: [
         { label: tm('thirdPartyNotices'), click: () => void openThirdPartyNotices() },
         { type: 'separator' },
-        checkUpdatesMenuItem(appMenuLabels(currentLang())),
         aboutMenuItem(appMenuLabels(currentLang())),
       ],
     },
@@ -417,7 +360,6 @@ function buildMarkdownMenu(): void {
       submenu: [
         { label: tm('thirdPartyNotices'), click: () => void openThirdPartyNotices() },
         { type: 'separator' },
-        checkUpdatesMenuItem(appMenuLabels(currentLang())),
         aboutMenuItem(appMenuLabels(currentLang())),
       ],
     },

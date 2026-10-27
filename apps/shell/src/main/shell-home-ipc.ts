@@ -104,7 +104,6 @@ import {
   setCachedDocTheme,
   setCachedTheme,
   shellWindow,
-  tabManager,
 } from './shell-state'
 import {
   defaultSaveDir,
@@ -391,9 +390,6 @@ function registerHomeIpc(): void {
     }
   })
 
-  handleFromShell(HOME_CHANNELS.openHelp, () => {
-    tabManager?.openHelpTab()
-  })
   handleFromShell(HOME_CHANNELS.getLanguage, (): Lang => currentLang())
 
   handleFromShell(HOME_CHANNELS.setLanguage, (_event, lang: unknown) => {

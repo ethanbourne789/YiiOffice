@@ -66,11 +66,9 @@ function makeFakeView(): FakeView {
 
 vi.mock('electron', () => ({
   BrowserWindow: class {},
-  // the manual's view is constructed inline in tab-manager (createHelpView),
-  // unlike the editor views which arrive through mocked module factories, so
-  // the electron mock itself must construct one. Self-contained: no outside
-  // references (vi.mock factories run before the module body). The large id
-  // stays clear of makeFakeView's counter.
+  // editor views arrive through mocked module factories, so this is a
+  // placeholder only. Self-contained: no outside references (vi.mock factories
+  // run before the module body).
   WebContentsView: class {
     webContents = {
       id: 900001,
@@ -222,36 +220,6 @@ describe('initial state', () => {
 })
 
 describe('opening tabs', () => {
-  it('focuses the help tab already open instead of opening a second one', () => {
-    // F1 is a toggle-shaped key in practice: press it, read something, press it
-    // again. The help tab is closable (only Home is not), so a second copy is
-    // never what the reader meant.
-    const first = manager.openHelpTab()
-    expect(manager.list()).toHaveLength(2)
-    const second = manager.openHelpTab()
-    expect(second).toBe(first)
-    expect(manager.list()).toHaveLength(2)
-    expect(manager.list()[1]).toMatchObject({ id: first, kind: 'help', active: true })
-    expect(shellWindow.contentView.addChildView).toHaveBeenCalledTimes(1)
-  })
-
-  it('reactivates the help tab when another tab took over', () => {
-    const helpId = manager.openHelpTab()
-    const docsId = manager.openDocsTab()
-    expect(manager.list().find((t) => t.id === docsId)?.active).toBe(true)
-    manager.openHelpTab()
-    expect(manager.list().find((t) => t.id === helpId)?.active).toBe(true)
-    expect(manager.list().find((t) => t.id === docsId)?.active).toBe(false)
-  })
-
-  it('opens a fresh help tab once the previous one was closed', () => {
-    const first = manager.openHelpTab()
-    manager.closeTabWithoutPrompt(first)
-    const second = manager.openHelpTab()
-    expect(second).not.toBe(first)
-    expect(manager.list().filter((t) => t.kind === 'help')).toHaveLength(1)
-  })
-
   it('opens a docs tab, activates it, and attaches its view to the window', () => {
     const id = manager.openDocsTab()
     const tabs = manager.list()
@@ -796,7 +764,7 @@ describe('file path bookkeeping', () => {
     const openers = Object.getOwnPropertyNames(TabManager.prototype).filter((name) =>
       /^open[A-Z]\w*Tab$/.test(name),
     )
-    expect(openers.length).toBeGreaterThanOrEqual(7)
+    expect(openers.length).toBeGreaterThanOrEqual(6)
     const opened: string[] = []
     for (const name of openers) {
       const before = manager.list().length
@@ -805,10 +773,7 @@ describe('file path bookkeeping', () => {
       const after = manager.list()
       if (after.length > before) opened.push(after[after.length - 1]!.kind)
     }
-    // file-less tabs (the in-app manual) have no path to rename, so they are
-    // opened by the enumeration but must not demand a RENAMABLE case
-    const fileless = new Set(['help'])
-    expect([...new Set(opened.filter((k) => !fileless.has(k)))].sort()).toEqual(
+    expect([...new Set(opened)].sort()).toEqual(
       RENAMABLE.map((c) => c.kind).sort(),
     )
   })

@@ -3,7 +3,7 @@ import { cpSync, existsSync, readFileSync, readdirSync, writeFileSync } from 'no
 import { join } from 'node:path'
 import { BrowserWindow, app, nativeTheme, session } from 'electron'
 import { tabStripOverlay } from './title-bar-overlay'
-import { contextMenuLabels, installContextMenu, installNavigationGuard, HEADLESS_EXIT, formatHeadlessEnvelope, headlessExitCode, parseHeadlessExportArgv, setHeadlessMode, type HeadlessArgvParse, setUpdateCheckInvoker, installRendererProtocol, registerRendererScheme } from '@yiioffice/electron-utils'
+import { contextMenuLabels, installContextMenu, installNavigationGuard, HEADLESS_EXIT, formatHeadlessEnvelope, headlessExitCode, parseHeadlessExportArgv, setHeadlessMode, type HeadlessArgvParse, installRendererProtocol, registerRendererScheme } from '@yiioffice/electron-utils'
 import { OPEN_DOCUMENTS_FILE, clearOpenDocuments, publishOpenDocuments } from './open-documents'
 import { applyPendingDir, ensureFileIndexer, shutdownFolders } from './shell-folders'
 import { newSheetTab, openDocumentPath, openGeneratedDocument, registerDroppedFilesIpc } from './shell-routing'
@@ -11,7 +11,7 @@ import { applyMenuFor, installBackToHomeItems, installDockMenu } from './shell-m
 import { registerHomeIpc } from './shell-home-ipc'
 import { broadcastChromePressed, registerTabsIpc } from './shell-tabs-ipc'
 import { currentLang, tm } from './shell-i18n'
-import { currentTheme, currentUpdateChannel, ensureTabManager, refreshTitleBarOverlay, revealShellWindow, takeLastDockIndex, setShellWindow, setShellWindowFactory, setTabManager, shellWindow, tabManager } from './shell-state'
+import { currentTheme, ensureTabManager, refreshTitleBarOverlay, revealShellWindow, takeLastDockIndex, setShellWindow, setShellWindowFactory, setTabManager, shellWindow, tabManager } from './shell-state'
 
 
 import { collectLaunchPaths } from './launch-paths'
@@ -29,7 +29,6 @@ import { runHeadlessExport, type HeadlessExporters } from './headless-export'
 import { TabManager } from './tab-manager'
 import { installShellCloseGuard } from './window-close-guard'
 import { detachedFilePaths, detachedSetFileFor, detachedWindowForWebContents, dockBandFor, focusedDetachedKind, setDetachedChangedListener, setDockHost } from './detached-windows'
-import { checkForUpdatesNow, initAutoUpdater } from './updater'
 
 /**
  * YiiOffice unified shell: ONE Electron app, ONE BrowserWindow, hosting the
@@ -195,15 +194,13 @@ function createShellWindow(): void {
     // no extension: these tabs have no file on disk yet; the title becomes the
     // real filename (the localized untitled default + .docx etc.) once the first save lands
     (kind) =>
-      kind === 'help'
-        ? tm('menuUserGuide')
-        : kind === 'docs'
-          ? tm('untitledDoc')
-          : kind === 'slides'
-            ? tm('untitledDeck')
-            : kind === 'markdown'
-              ? tm('untitledMarkdown')
-              : tm('untitledSheet'),
+      kind === 'docs'
+        ? tm('untitledDoc')
+        : kind === 'slides'
+          ? tm('untitledDeck')
+          : kind === 'markdown'
+            ? tm('untitledMarkdown')
+            : tm('untitledSheet'),
   )
   setTabManager(manager)
 
@@ -434,7 +431,7 @@ const headlessExporters: HeadlessExporters = {
 }
 
 /**
- * The whole `--headless-export` run: no shell window, no menus, no updater,
+ * The whole `--headless-export` run: no shell window, no menus,
  * no single-instance lock (a GUI instance may well be running). Prints
  * exactly one line and exits with the yiioffice convention (0/1/2/3).
  */
@@ -483,8 +480,6 @@ app.whenReady().then(async () => {
     slides: join(SLIDES_OUT, 'renderer'),
     pdf: join(PDF_OUT, 'renderer'),
     markdown: join(MARKDOWN_OUT, 'renderer'),
-    // the manual shares the shell's own renderer bundle (help mode)
-    help: join(__dirname, '../renderer'),
   })
   if (headlessArgv.kind !== 'none') {
     await runHeadlessExportEntry(headlessArgv)
@@ -548,8 +543,6 @@ app.whenReady().then(async () => {
   // deferred to ready: labels need currentLang(), which reads app.getLocale()
   installBackToHomeItems()
   installDockMenu()
-  setUpdateCheckInvoker(() => void checkForUpdatesNow())
-  initAutoUpdater(() => shellWindow, currentUpdateChannel())
   // resource watchdog: a renderer that stays hot for minutes gets diagnostics
   // recorded and the user an offer to close the document (headless exports
   // are short-lived and unattended)

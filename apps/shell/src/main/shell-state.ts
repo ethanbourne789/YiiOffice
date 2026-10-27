@@ -14,7 +14,6 @@ import { join } from 'node:path'
 import { tabStripOverlay } from './title-bar-overlay'
 
 import type { AutoSaveDefault, DocTheme, UiTheme } from '../shared/home-api'
-import { isUpdateChannel, type UpdateChannel } from '../shared/update-api'
 import type { TabKind } from '../shared/tabs-api'
 import { readAppSettings } from './app-settings'
 import {
@@ -71,15 +70,6 @@ export function revealShellWindow(): void {
 }
 
 // ---- settings caches: one read per launch, then memoized ----
-
-let cachedUpdateChannel: UpdateChannel | null = null
-
-export function currentUpdateChannel(): UpdateChannel {
-  if (cachedUpdateChannel) return cachedUpdateChannel
-  const saved = readAppSettings(APP_SETTINGS_PATH()).updateChannel
-  cachedUpdateChannel = isUpdateChannel(saved) ? saved : 'stable'
-  return cachedUpdateChannel
-}
 
 let cachedTheme: UiTheme | null = null
 

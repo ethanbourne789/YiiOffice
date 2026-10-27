@@ -22,7 +22,6 @@
     "format:check": "node tools/format-changed.mjs --check",
     "check:theme-colors": "node tools/check-theme-colors.mjs",
     "check:english-comments": "node tools/check-english-comments.mjs",
-    "check:help-langs": "node tools/check-help-langs.mjs",
     "lint": "node tools/lint.mjs",
     "fixtures": "npm run fixtures -w @yiioffice/docx-engine",
     "pretest": "npm run native:build -w @yiioffice/sheets",

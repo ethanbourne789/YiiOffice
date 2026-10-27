@@ -190,27 +190,6 @@ export function viewMenuTemplate(
 
 
 
-/** Callback installed by the shell to trigger a manual update check. */
-let _updateCheckInvoker: (() => void) | undefined
-
-/**
- * Allow the owning shell to wire a "Check for Updates…" menu item to the
- * actual auto-updater backend (which lives outside this package).
- */
-export function setUpdateCheckInvoker(fn: (() => void) | undefined): void {
-  _updateCheckInvoker = fn
-}
-
-/** Help > Check for Updates… menu item (no-op when no invoker is wired). */
-export function checkUpdatesMenuItem(_labels: AppMenuLabels): MenuItemConstructorOptions {
-  return {
-    label: 'Check for Updates…',
-    click: () => {
-      _updateCheckInvoker?.()
-    },
-  }
-}
-
 /** Help > About: a native dialog with the app version — every window's menu
  * gets one, so users can report the exact build they run. */
 export function aboutMenuItem(labels: AppMenuLabels): MenuItemConstructorOptions {
@@ -233,8 +212,7 @@ export function aboutMenuItem(labels: AppMenuLabels): MenuItemConstructorOptions
   }
 }
 
-/** Help menu with Check for Updates… + About; extra app-specific items go
- * before the separator. */
+/** Help menu with About; extra app-specific items go before the separator. */
 export function helpMenuTemplate(
   labels: AppMenuLabels,
   extraItems: MenuItemConstructorOptions[] = [],
