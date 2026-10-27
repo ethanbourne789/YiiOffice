@@ -1,4 +1,11 @@
 import { keepActiveSheet } from './sheet-focus'
+import {
+  resetWorkbookSessionState,
+  univerSession,
+  type SupportedFunctionProbe,
+} from './univer-session-state'
+
+export type { SupportedFunctionProbe } from './univer-session-state'
 /**
  * Univer runtime synchronization helpers for the sheets renderer.
  *
@@ -881,9 +888,6 @@ export function applyAiDataValidation(
  * the scroll, re-scroll by the measured overshoot — converges immediately
  * for uniform-height regions and stops as soon as the target is visible.
  */
-/** newest reveal wins: rapid Find Next/Previous must not let an older
- *  correction loop keep scrolling after a newer one started */
-let revealGeneration = 0
 
 function isRtlFacadeSheet(sheet: {
   getSheet?(): { getConfig(): { rightToLeft?: BooleanNumber } }
@@ -910,14 +914,14 @@ export async function revealCellBelowFreeze(
   // whole. Every scrollToCell call re-applies the same broken offset, so the
   // compensation folds into one running aim; the scroll and its viewport
   // update settle asynchronously, hence the waits between measurements.
-  const generation = ++revealGeneration
+  const generation = ++univerSession().revealGeneration
   if (isRtlFacadeSheet(sheet)) {
     // On an RTL sheet scrollToCell parks the target at the viewport's
     // visually-left (max-column) edge — a full jump, not a reveal. Univer's
     // own minimal reveal (rtl-grid-mirror) has usually just made the target
     // visible; once that scroll has rendered, keep its position.
     await new Promise((resolve) => setTimeout(resolve, 60))
-    if (generation !== revealGeneration) return
+    if (generation !== univerSession().revealGeneration) return
     let visible: IRange | null
     try {
       visible = sheet.getVisibleRange()
@@ -960,7 +964,7 @@ export async function revealCellBelowFreeze(
   sheet.scrollToCell(scrollRow, scrollColumn)
   for (let attempt = 0; attempt < 4; attempt += 1) {
     await new Promise((resolve) => setTimeout(resolve, 60))
-    if (generation !== revealGeneration) return // superseded by a newer reveal
+    if (generation !== univerSession().revealGeneration) return // superseded by a newer reveal
     let visible: IRange | null
     try {
       visible = sheet.getVisibleRange()
@@ -1825,18 +1829,15 @@ const SIDECAR_READ_BATCH_CELLS = 90_000
 /// session with the identical "Unknown workbook session." text that the Save
 /// swap and closeWorkbook produce on purpose, so a message match fires on
 /// ordinary saves.
-let sidecarCrashNotified = false
-
 /// Called when the main process reports the sidecar process died. Every
 /// session id this renderer holds is now unknown to the replacement process,
 /// so the next read re-opens the workbook and adopts a live one.
 export function noteSidecarCrash(): void {
-  sidecarCrashNotified = true
+  univerSession().sidecarCrashNotified = true
 }
 
 /// One recovery at a time: a crash fails every in-flight read at once, and
 /// each would otherwise re-open the file separately.
-let sessionRecoveryInFlight: Promise<boolean> | null = null
 /// Workbooks already given one automatic recovery. A second loss in the same
 /// open workbook is a real failure, not the same crash seen twice — re-opening
 /// in a loop would leave the user with a pile of dead sessions.
@@ -1852,10 +1853,11 @@ const sessionRecoveryAttempted = new WeakSet<object>()
 export async function recoverSidecarSession(state: LazyWorkbookState): Promise<boolean> {
   // The signal is consumed by the read that acts on it, so a crash noticed
   // while no read is in flight still recovers on the next one.
-  sidecarCrashNotified = false
-  if (sessionRecoveryInFlight) return sessionRecoveryInFlight
+  univerSession().sidecarCrashNotified = false
+  const inFlight = univerSession().sessionRecoveryInFlight
+  if (inFlight) return inFlight
   if (sessionRecoveryAttempted.has(state)) return false
-  sessionRecoveryInFlight = (async () => {
+  const recovery = (async () => {
     const path = state.file.path
     // Nothing on disk to re-open (a new or imported workbook): leave the
     // status message, only a manual open can recover these.
@@ -1877,14 +1879,15 @@ export async function recoverSidecarSession(state: LazyWorkbookState): Promise<b
     state.frozenStripKeys.clear()
     return true
   })()
+  univerSession().sessionRecoveryInFlight = recovery
   try {
-    return await sessionRecoveryInFlight
+    return await recovery
   } catch {
     // A failed re-open is reported by the read that triggered it; do not let
     // the attempt block later ones.
     return false
   } finally {
-    sessionRecoveryInFlight = null
+    univerSession().sessionRecoveryInFlight = null
   }
 }
 
@@ -1909,7 +1912,7 @@ export async function readSheetRangeMapped(
     // swap or a closeWorkbook is rejected with the very same "Unknown workbook
     // session." and is NOT a crash, so it must surface as an ordinary error
     // instead of re-opening the file and orphaning a session.
-    if (!sidecarCrashNotified || !(await recoverSidecarSession(state))) throw error
+    if (!univerSession().sidecarCrashNotified || !(await recoverSidecarSession(state))) throw error
     return await readSheetRangeMappedOnce(state, sheetId, screenRange, sheet)
   }
 }
@@ -2024,7 +2027,6 @@ interface VisualUndoStep {
 // at these steps (their params are registry tokens resolving to closures
 // over the pre-save session state).
 const visualUndoRegistry = new Map<number, VisualUndoStep>()
-let visualUndoSequence = 0
 const visualUndoRuntimes = new WeakSet<object>()
 
 /// How many visual-edit steps stay resolvable, evicted least-recently-used
@@ -2042,7 +2044,7 @@ export const VISUAL_UNDO_REGISTRY_CAP = 100
 /// insertion order, so the first key is the coldest entry. Callers re-insert on
 /// use (see the command handler) to keep an actively-stepped-through step warm.
 function registerVisualUndoStep(step: VisualUndoStep): number {
-  const token = ++visualUndoSequence
+  const token = ++univerSession().visualUndoSequence
   visualUndoRegistry.set(token, step)
   while (visualUndoRegistry.size > VISUAL_UNDO_REGISTRY_CAP) {
     const coldest = visualUndoRegistry.keys().next()
@@ -2050,6 +2052,18 @@ function registerVisualUndoStep(step: VisualUndoStep): number {
     visualUndoRegistry.delete(coldest.value)
   }
   return token
+}
+
+/**
+ * Start a fresh workbook session: drop the renderer-level state that belongs to
+ * the outgoing document. The registry has to be cleared together with the
+ * sequence that issued its tokens — a token only means something against the
+ * counter that produced it, so stale steps left behind would answer a token
+ * minted for the new document.
+ */
+export function resetUniverSessionState(): void {
+  resetWorkbookSessionState()
+  visualUndoRegistry.clear()
 }
 
 /// Appends a registry step to the undo entry a Univer command just pushed, so
@@ -4263,22 +4277,8 @@ interface KeepsCacheVerdict {
 
 const keepsCacheMemo = new Map<string, KeepsCacheVerdict>()
 
-/// Window onto the running formula engine's function registry. Installed
-/// once the Univer instance exists; without one every function counts as
-/// supported, so the decision below degrades to its pre-probe behaviour.
-export interface SupportedFunctionProbe {
-  /// False until the engine has registered its builtins — the registry says
-  /// nothing about support before that, so no verdict is memoised.
-  readonly ready: () => boolean
-  /// Whether the engine implements a function, by canonical name
-  /// (uppercase, storage markers stripped).
-  readonly supports: (name: string) => boolean
-}
-
-let supportedFunctionProbe: SupportedFunctionProbe | null = null
-
 export function setSupportedFunctionProbe(probe: SupportedFunctionProbe | null): void {
-  supportedFunctionProbe = probe
+  univerSession().supportedFunctionProbe = probe
   // Verdicts memoised under the previous registry are stale.
   keepsCacheMemo.clear()
 }
@@ -4303,7 +4303,7 @@ export function formulaKeepsCache(formula: string, hasCachedValue = true): boole
       formula.includes('__xludf.') ||
       usesLocaleDependentFunction(formula) ||
       containsUnresolvedNames(formula)
-    const probe = supportedFunctionProbe
+    const probe = univerSession().supportedFunctionProbe
     const registryReady = probe === null || probe.ready()
     verdict = {
       always,

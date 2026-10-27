@@ -1,4 +1,4 @@
-import { activateFormulaClosure, applyDefinedNames, applyWorkbookNotes, cellValueBounds, clearLazyState, columnLetter, disposeVisuals, journalRangeSnapshot, loadSnapshotIntoUniver, loadVisibleRange, loadWorkbookSkeleton, matrixBounds, navigateToAnchor, preloadEntireWorkbook, workbookStructureLocked, queueFormulaRecalc, queueSparklineInstall, resolveRenderedSheetId, recalcOverBudgetAtOpen, RECALC_MAX_FAILURES, queueVisualInstall, sheetOutline, univerDefinedNames, installFindRevealFix, installInjectorResolutionGuard, installWrapMeasureLifecycle, noteSidecarCrash } from './univer-sync'
+import { activateFormulaClosure, applyDefinedNames, applyWorkbookNotes, cellValueBounds, clearLazyState, columnLetter, disposeVisuals, journalRangeSnapshot, loadSnapshotIntoUniver, loadVisibleRange, loadWorkbookSkeleton, matrixBounds, navigateToAnchor, preloadEntireWorkbook, workbookStructureLocked, queueFormulaRecalc, queueSparklineInstall, resolveRenderedSheetId, recalcOverBudgetAtOpen, RECALC_MAX_FAILURES, queueVisualInstall, sheetOutline, univerDefinedNames, installFindRevealFix, installInjectorResolutionGuard, installWrapMeasureLifecycle, noteSidecarCrash, resetUniverSessionState } from './univer-sync'
 import { installGridGrowth } from './grid-growth'
 import {
   pollUntilReady,
@@ -3044,6 +3044,9 @@ export function App({
     setTimelines([])
     setTimelinePicker(null)
     disposeVisuals(visualDisposablesRef.current)
+    // renderer-level state (sidecar crash flag, recovery promise, reveal
+    // generation, visual-undo tokens) describes the workbook being replaced
+    resetUniverSessionState()
     loadWorkbookSkeleton(univerRef.current, selected)
     applyWorkbookNotes(univerRef.current, selected)
     threadStore.load(selected)
