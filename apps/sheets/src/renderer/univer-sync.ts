@@ -3328,8 +3328,8 @@ async function loadRange(
     if (result.indexingComplete) {
       captureSheetFileState(state, sheetId, result)
       // Streaming is done — clear the stale streaming message so the status
-      // bar doesn't permanently show "正在流式加载 … 1 行可用" for small
-      // files that index in a single read.
+      // bar doesn't keep showing `appStreamingRows` ("… N rows available")
+      // for small files that index in a single read.
       if (isActiveSheet(runtime, sheetId)) {
         setMessage(t('appReady'))
       }

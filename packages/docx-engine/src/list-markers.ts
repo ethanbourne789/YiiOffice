@@ -113,6 +113,7 @@ function toCjkCounting(
 
 /**
  * Chinese/Japanese counting form: 一、十、十一、二十一、一百二十三.
+ * (cjk-example: these numerals are the contract, not prose.)
  * Shared by list numbering (`formatNumber`) and page numbers
  * (`pagination-hf.formatPageNumber`) so the two cannot drift: a page number
  * ≥100 must read 一百二十三, not the digit-by-digit 一二三.
