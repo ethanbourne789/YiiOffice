@@ -6,7 +6,7 @@
 // ## Why prose is out of scope
 //
 // The documents are Chinese on purpose: README.md is the source of truth and
-// docs/i18n/README.en.md mirrors it, so a scan over them reported the
+// README.en.md mirrors it, so a scan over them reported the
 // documentation for being documentation and buried the comments that actually
 // needed fixing. docs/** is skipped outright, and non-TypeScript sources
 // (tools/*.mjs, the Rust sidecar, the font scripts) are left to review - widen

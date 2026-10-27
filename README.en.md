@@ -11,7 +11,7 @@
 ![No Ads](https://img.shields.io/badge/no%20ads-%E2%9C%93-brightgreen)
 ![Offline](https://img.shields.io/badge/offline-first-%E2%9C%93-brightgreen)
 
-<p align="center"><a href="../../README.md">简体中文</a> · <b>English</b></p>
+<p align="center"><a href="README.md">简体中文</a> · <b>English</b></p>
 
 ---
 
@@ -30,9 +30,9 @@ Four principles follow from that:
 | **Clean** | No login wall, no ads, no telemetry, no paid entry points hidden in the UI. |
 | **Format first** | Reads and writes standard `.docx` / `.xlsx` / `.pptx` / `.pdf` directly. No private formats, no "import, then edit". |
 
-**About the runtime:** this repository is the **Electron edition** of YiiOffice (Electron 45 + React 19). The Tauri 3 edition lives in the `YiiOffice-Tauri3` repository and covers the same feature surface. Electron ships Chromium and Node inside the app, so installers and memory use are larger — in exchange, rendering is fully deterministic, no system WebView version is involved, and the debugging and packaging toolchain is mature.
+**About the runtime:** this repository is the **Electron edition** of YiiOffice (Electron 45 + React 19). Electron ships Chromium and Node inside the app, so installers and memory use are larger — in exchange, rendering is fully deterministic, no system WebView version is involved, and the debugging and packaging toolchain is mature.
 
-**About AI:** this tree **does not** contain an AI / LLM / MCP subsystem; those entry points were removed, leaving only a few stubs still to be cleaned up.
+<br />
 
 ---
 
@@ -64,24 +64,8 @@ One window hosting every editor as a tab — the first thing you see when the ap
 - **Byte-preserving saves**: only the XML you touched is rewritten; everything else (styles, comments, embedded objects, macros) keeps its original bytes, so a file never loses formatting just by being opened
 - **Atomic writes**: every save goes through a temporary file plus `rename`, so a crash or power cut cannot leave half a document behind
 - **Local index**: indexing and search run entirely in `node:sqlite`; nothing is uploaded and no external service is involved
+- **Headless export**: `--headless-export <file> --to pdf --out <path>` exports without showing a window, and `--json` emits one machine-readable line for scripts (see [`docs/headless-pdf-export.md`](docs/headless-pdf-export.md))
 - **Two languages**: the UI ships in English and Chinese, strings live in `@yiioffice/i18n`
-- **Command line**: the packaged app installs a `yiioffice` CLI that drives the same engines headlessly (see below)
-
----
-
-## Command line
-
-Packaged builds install a `yiioffice` command (running on the app's own Node, so nothing else has to be installed), which exposes the engines to scripts:
-
-```bash
-yiioffice info report.docx                         # structure: headings, blocks, sheets, slides, pages
-yiioffice convert report.docx --to pdf             # docx/xlsx/pptx/md ↔ pdf and back
-yiioffice create --type xlsx --from data.csv --out data.xlsx
-yiioffice sheet read book.xlsx --range A1:D20 --json
-yiioffice slides read deck.pptx --json             # element ids and geometry for later apply calls
-yiioffice render deck.pptx --out shots/            # one PNG per slide, to look at what you made
-yiioffice open report.docx                         # hand the file to the editor
-```
 
 ---
 
@@ -98,7 +82,7 @@ yiioffice open report.docx                         # hand the file to the editor
 | PDF | pdf.js 6, PDFium WASM (`@embedpdf/pdfium`), pdf-lib |
 | Code editing | CodeMirror 6 (HTML / Markdown source views) |
 | Rendering support | harfbuzzjs 1.6 (complex text shaping, font subsetting), Mermaid, KaTeX |
-| Tooling | npm workspaces (monorepo), ESLint 10, Prettier, Vitest 5, Playwright, Cargo |
+| Tooling | npm workspaces (monorepo), ESLint, Vitest 5, Playwright, Cargo |
 
 ---
 
@@ -108,12 +92,12 @@ yiioffice open report.docx                         # hand the file to the editor
 
 | Dependency | Version / notes |
 |------------|-----------------|
-| Node.js | ≥ 22.12 (see `engines`) |
+| Node.js | ≥ 22.12 (see `engines` in the root `package.json`) |
 | npm | ≥ 10 |
-| Rust | stable — only for the Sheets `xlsx-sidecar`; `cargo` on PATH |
-| Windows | Windows 10/11, x64 or arm64 |
+| Rust | stable — only for the Sheets `xlsx-sidecar`; `cargo` must be on PATH |
+| OS | Windows 10/11 (x64 or arm64); macOS and Linux packaging scripts exist but are not exercised regularly |
 
-### Install and develop
+### Install and run
 
 ```bash
 # 1. Install dependencies (monorepo, one shot; postinstall downloads Electron)
@@ -122,24 +106,26 @@ npm install
 # 2. Generate the .docx test fixtures
 npm run fixtures
 
-# 3. Start development: five editor dev servers (:5173–:5177) plus the Electron main process
+# 3. Development: five editor dev servers (:5173–:5177) plus the Electron main process
 npm run dev
 
 #    Debug a single editor on its own
 npm run dev:docs
 ```
 
-> `npm run dev` first rebuilds stale preloads (`tools/build-stale-preloads.mjs`), then starts the five renderers and the shell in parallel — the editor windows load their own dev server, so all of them are needed.
+> `npm run dev` first rebuilds stale preloads (`tools/build-stale-preloads.mjs`), then starts the five renderers and the shell in parallel — an editor tab loads its own dev server, so all five have to be alive.
 
 ### Build and package
 
 ```bash
-# Build the frontends and run the main process once (no installer)
-npm run build:all
+# Build every frontend and launch the main process (the script already runs build:all)
 npm run shell
 
 # Full packages
-npm run dist:win      # zip (portable; no NSIS installer yet)
+npm run dist:win              # portable zip
+npm run dist:win:installer    # NSIS installer (defaults to D:\YiiOffice, changeable)
+npm run dist:mac              # macOS
+npm run dist:linux            # Linux
 ```
 
 Packaging regenerates the bundled third-party licence list (`npm run notices`) first. The Sheets sidecar is compiled by `npm run build -w @yiioffice/sheets`, which runs `cargo build --release`.
@@ -152,7 +138,7 @@ Packaging regenerates the bundled third-party licence list (`npm run notices`) f
 YiiOffice-Electron/
 ├── apps/
 │   ├── shell/                  # Electron host: main process, home screen, tab bar, settings
-│   │   ├── src/main/           # Main process (tabs, windows, file index, control channel…)
+│   │   ├── src/main/           # Main process (tabs, windows, file index, headless export…)
 │   │   ├── src/preload/        # Preload scripts (contextBridge)
 │   │   └── src/renderer/       # Home / tab bar / settings
 │   ├── docs/                   # Document editor (Tiptap + docx-engine)
@@ -161,14 +147,14 @@ YiiOffice-Electron/
 │   ├── slides/                 # Presentation editor (Konva + pptx-engine)
 │   ├── pdf/                    # PDF editor (pdf.js + PDFium WASM)
 │   └── markdown/               # Markdown editor
-├── packages/                   # 14 shared packages
+├── packages/                   # 13 shared packages
 │   ├── docx-engine/            # DOCX parsing, generation, byte-level patching
 │   ├── pptx-engine/ pptx-ops/ pptx-render/
 │   ├── xlsx-gateway/ zip-gate/
 │   ├── pdf2docx/ html2docx/ file-parse/
 │   ├── font-metrics/ i18n/ ui/ electron-utils/
 ├── e2e/                        # Playwright end-to-end tests
-├── docs/                       # Architecture notes, i18n, image assets
+├── docs/                       # Architecture notes and image assets
 └── tools/                      # Licence, theme, font and fixture build scripts
 ```
 
@@ -194,43 +180,36 @@ Every window runs with `contextIsolation: true`, `nodeIntegration: false` and `s
 **6. Local index.**
 `apps/shell/src/main/file-index` scans the working folders, extracts text (Office / PDF / Markdown / HTML) and writes it into a `node:sqlite` FTS5 virtual table. The tokenizer emits a bigram stream and a unigram stream for CJK, which covers both two-character words and single-character queries.
 
-**7. Local control channel.**
-The app listens on a socket in `userData` (0600 on POSIX, a named pipe on Windows). A CLI call must carry the random token from `control.json`; the protocol only supports "jump to this page or slide" and "read the selection" — no file writes, no code execution.
+**Further reading:** [`docs/headless-pdf-export.md`](docs/headless-pdf-export.md) (entry point, exit codes and readiness checks for headless export) and [`docs/slides-op-journal.md`](docs/slides-op-journal.md) (the Slides operation journal and undo/redo design).
 
 ---
 
-## Tests and quality gates
+## Tests and gates
 
 ```bash
-npm test                    # Vitest across 21 workspaces (including cargo test for sheets)
-npm run typecheck           # TypeScript for every workspace
-npm run lint                # ESLint
-npm run format:check        # Prettier, changed files only
-npm run check:theme-colors  # colours must go through CSS variables
-npm run check:english-comments # comments and log messages must be English
-npm run test:e2e            # Playwright end to end (78 specs, requires build:all first)
+npm test                        # Vitest across the 19 workspace test projects in one run
+npm run typecheck               # tsc for every workspace
+npm run lint                    # ESLint (per-package, parallel; add --no-cache in CI)
+npm run check:theme-colors      # colours must go through theme CSS variables
+npm run check:english-comments  # code comments and log messages must be English
+npm run test:e2e                # Playwright end to end, after a build:all
 ```
 
 A single app can be checked on its own: `npm test -w @yiioffice/docs`, `npm run typecheck -w @yiioffice/pdf`.
 
-**Note:** the repository currently has **no CI configuration**, so every gate above is local-only (audit §B2). `typecheck` still reports pre-existing errors in some workspaces — run it for the workspace you are touching first.
+The repository currently has **no CI configuration**, so every gate above is local-only. Tests and typechecks still carry pre-existing failures (mostly drifted assertions or imports of modules that were deleted) — run the affected workspace first to see the baseline before you touch it.
 
 ---
 
 ## Status
 
-The app is at `0.13.0` (`@yiioffice/shell`), and the root `package.json` carries the same number. The workspace packages stay at `0.1.0` on purpose: they are internal, never published, and pulled in through `"*"` ranges. A Windows portable zip can be built locally (`apps/shell/release-build/YiiOffice-0.13.0-win.zip`).
+The app is at `0.13.0` (`@yiioffice/shell`), and the root `package.json` carries the same number. The workspace packages stay at `0.1.0` on purpose: they are internal, never published, and pulled in through `"*"` ranges.
 
 | State | Content |
 |-------|---------|
-| ✅ Done | Monorepo structure; shell main flow (home, tabs, file create/rename/move/delete, persisted settings, full-text search); renderer and main-process features of all five editors; Rust xlsx sidecar; CLI and control channel; packaging script (win) |
-| 🚧 In progress | Cleaning up the AI stubs left after the subsystem was removed; unifying the IPC trust model (path grants plus `senderFrame` checks); preserving file permissions on atomic writes; `ErrorBoundary` in renderers and a main-process crash handler; promoting the test and typecheck gates |
+| ✅ Done | Monorepo structure; shell main flow (home, tabs, file create/rename/move/delete, persisted settings, full-text search); renderer and main-process features of all five editors; Rust xlsx sidecar; headless PDF export; packaging scripts |
+| 🚧 In progress | Removing the stubs left behind when the AI subsystem went away; unifying the IPC trust model (path grants plus `senderFrame` checks); preserving file permissions on atomic writes; `ErrorBoundary` in renderers and a main-process crash handler; promoting the test and typecheck gates |
 | 🗺️ Planned | ODF import (`.odt/.ods/.odp`), PDF certificate signatures, Markdown backlinks, more UI languages |
-
-Related documents:
-
-- [`docs/headless-pdf-export.md`](../headless-pdf-export.md) — how headless PDF export works
-- [`docs/slides-op-journal.md`](../slides-op-journal.md) — Slides operation journal and undo/redo design
 
 ---
 
@@ -242,11 +221,8 @@ No. There is no account system and no upload; editing, saving, search and conver
 **Can MS Office / WPS open the files after saving?**
 Yes. Saves are OOXML patches: only edited nodes change, the remaining bytes stay as they were, so structures and extended properties Office relies on are preserved.
 
-**How does this relate to `YiiOffice-Tauri3`?**
-Two runtimes over the same product. The Tauri edition uses a Rust main process and the system WebView, so packages and memory are smaller; the Electron edition uses Chromium and Node, giving fully deterministic rendering plus a mature ecosystem and debugging tools, at the cost of size.
-
 **What do the Windows builds produce?**
-`npm run dist:win` builds the portable zip. `npm run dist:win:installer` builds the NSIS installer: the wizard defaults to `D:\YiiOffice` (it keeps an existing installation's path, and falls back to `%LOCALAPPDATA%\Programs\YiiOffice` when D: is not a fixed local volume), installs per user without a UAC prompt, and leaves the machine-wide choice available when an earlier release was installed that way. There is no auto-update chain — see audit §S3.
+`npm run dist:win` builds the portable zip. `npm run dist:win:installer` builds the NSIS installer: the wizard defaults to `D:\YiiOffice` (it keeps an existing installation's path, and falls back to `%LOCALAPPDATA%\Programs\YiiOffice` when D: is not a fixed local volume), installs per user without a UAC prompt, and keeps the machine-wide choice available when an earlier release was installed that way. There is no auto-update chain.
 
 **Does Chinese text search work?**
 Yes. The index emits bigram and unigram streams for CJK, working around the fact that FTS5 `unicode61` does not segment continuous CJK text.
@@ -261,7 +237,7 @@ Check that all five renderer dev servers are alive (:5173–:5177) — each edit
 1. Fork and branch: `git checkout -b feat/your-feature`
 2. Before committing, in the affected workspaces: `npm run lint && npm run typecheck && npm test`
 3. Rust changes need `cargo test` (in `apps/sheets/native/xlsx-engine`)
-4. User-visible behaviour changes should update the relevant docs — `README.md` (Chinese, source of truth) and this English mirror
+4. User-visible behaviour changes should update the docs: `README.md` (Chinese, source of truth) and this English mirror
 5. Open a PR describing the motivation and how you verified it
 
 Conventions: TypeScript strict mode, comments and log messages in English, UI strings through `@yiioffice/i18n` (English and Chinese), colours only via theme CSS variables.
@@ -270,7 +246,7 @@ Conventions: TypeScript strict mode, comments and log messages in English, UI st
 
 ## Acknowledgements
 
-YiiOffice builds on [Electron](https://www.electronjs.org/) · [Univer](https://github.com/dream-num/univer) · [Tiptap](https://tiptap.dev/) / [ProseMirror](https://prosemirror.net/) · [Konva](https://konvajs.org/) · [PDFium](https://pdfium.googlesource.com/pdfium/) · [pdf.js](https://github.com/mozilla/pdf.js) · [pdf-lib](https://github.com/Hopding/pdf-lib) · [CodeMirror](https://codemirror.net/) · [calamine](https://github.com/tafia/calamine) · [IronCalc](https://github.com/ironcalc/IronCalc) · [HarfBuzz](https://github.com/harfbuzz/harfbuzz) · [Mermaid](https://mermaid.js.org/) · [KaTeX](https://katex.org/) · [JSZip](https://stuk.github.io/jszip/) · [Fluent UI System Icons](https://github.com/microsoft/fluentui-system-icons)
+YiiOffice builds on [Electron](https://www.electronjs.org/) · [Univer](https://github.com/dream-num/univer) · [Tiptap](https://tiptap.dev/) / [ProseMirror](https://prosemirror.net/) · [Konva](https://konvajs.org/) · [PDFium](https://pdfium.googlesource.com/pdfium/) · [pdf.js](https://github.com/mozilla/pdf.js) · [pdf-lib](https://github.com/Hopding/pdf-lib) · [CodeMirror](https://codemirror.net/) · [calamine](https://github.com/tafia/calamine) · [IronCalc](https://github.com/ironcalc/IronCalc) · [HarfBuzz](https://github.com/harfbuzz/harfbuzz) · [Mermaid](https://mermaid.js.org/) · [KaTeX](https://katex.org/) · [JSZip](https://stuk.github.io/jszip/) · [Fluent UI System Icons](https://github.com/microsoft/fluentui-system-icons) · [GenOffice](https://www.genoffice.com/)
 
 `npm run notices` regenerates the third-party licence list shipped with the app (`tools/gen-third-party-notices.mjs`).
 
@@ -278,4 +254,6 @@ YiiOffice builds on [Electron](https://www.electronjs.org/) · [Univer](https://
 
 ## License
 
-[Apache License 2.0](../../LICENSE). The YiiOffice name and logo are trademarks of their owner; Apache-2.0 does not grant trademark rights (section 6). Forks should use their own branding.
+[Apache License 2.0](LICENSE). The YiiOffice name and logo are trademarks of their owner; Apache-2.0 does not grant trademark rights (section 6). Forks should use their own branding.
+
+<p align="center"><a href="README.md">简体中文</a> · <b>English</b></p>
