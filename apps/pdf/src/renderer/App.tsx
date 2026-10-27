@@ -131,6 +131,14 @@ import type { SearchIndex, SearchMatch } from './search'
 import { mapDocFont, type DocFontStyle } from './doc-font'
 import { groupPageBlocks, reflowOverflows, type TextBlock } from './text-block'
 import {
+  blockClaimEdits as blockClaimEditsIn,
+  blockDrawRect as blockDrawRectIn,
+  blockOverlapEdit as blockOverlapEditIn,
+  blockOwnerEdit as blockOwnerEditIn,
+  overlapOfRects,
+  pendingEditForBlock,
+} from './block-edit-owner'
+import {
   joinBlockLines,
   mapLineRangeToBlock,
   measurePt,
@@ -197,7 +205,7 @@ import { useVisibleSet, PdfPage, MarkupOverlay } from './PdfPage'
 import { PdfThumb, ThumbPendingOverlay } from './PdfThumb'
 import type { ThumbMenu } from './PdfThumb'
 import { SignDropOverlay, signPlaceK, imagePlaceK, staticFormFillPlaceK } from './SignDropOverlay'
-import { EDIT_FONT_BY_ID, measureTextWidth, rgbToHex, hexToRgb, hexTo255, rgb255ToHex, styleRunsToKeyRuns, styleSegCss, boldCss, boldToken, keyRunsToStyleRuns, blockRectKey, blockMoveInput, patchPendingEdits, shiftPendingEdit, shiftRect, unionCover, inflateCss, textInsertPreviewStyle, textEditPreviewParts, textEditPreviewContent, seedDraftColors, paperCss, textEraseKey, textEraseProbe } from './text-edit-preview'
+import { EDIT_FONT_BY_ID, measureTextWidth, rgbToHex, hexToRgb, hexTo255, rgb255ToHex, styleRunsToKeyRuns, styleSegCss, boldCss, boldToken, keyRunsToStyleRuns, blockMoveInput, patchPendingEdits, shiftPendingEdit, shiftRect, unionCover, inflateCss, textInsertPreviewStyle, textEditPreviewParts, textEditPreviewContent, seedDraftColors, paperCss, textEraseKey, textEraseProbe } from './text-edit-preview'
 import { samplePaperColor } from './paper-sample'
 import type { LocalTextEdit, LocalTextInsert, TextDraft } from './text-edit-preview'
 import { planEditOps, reduceBucket } from './edit-ops'
@@ -505,82 +513,25 @@ export default function App() {
       setBlockHover(null)
     }
   }
-  /** Pending edit addressing this clustered block: block edits and block moves keep
-      the block's own rect as their input.rect (the save-time match key), so those
-      match by exact rect key. A LINE edit whose text covers the whole block (the
-      single-line block case — its rect is the line span, not the block rect) owns
-      the block just the same: moving/reopening the block must address that edit,
-      not draft a colliding second one over the same objects. */
-  const pendingEditFor = (
-    origIdx: number,
-    block: TextBlock,
-    edits: LocalTextEdit[] = textEdits,
-  ): LocalTextEdit | undefined => {
-    const pageEdits = edits.filter((te) => te.input.pageIndex === origIdx)
-    if (pageEdits.length === 0) return undefined
-    const key = blockRectKey(block.rect)
-    const exact = pageEdits.find((te) => blockRectKey(te.input.rect) === key)
-    if (exact) return exact
-    const blockText = joinBlockLines(block.lines.map((l) => l.text)).replace(/\s+/g, '')
-    if (!blockText) return undefined
-    return pageEdits.find((te) => {
-      const r = te.input.rect
-      const cx = (r[0] + r[2]) / 2
-      const cy = (r[1] + r[3]) / 2
-      return (
-        cx >= block.rect[0] &&
-        cx <= block.rect[2] &&
-        cy >= block.rect[1] &&
-        cy <= block.rect[3] &&
-        te.input.oldText.replace(/\s+/g, '') === blockText
-      )
-    })
-  }
+  /** Block/edit ownership below is bound to the live pending-edit list; the rules
+      themselves live in block-edit-owner.ts so they can be tested without a page. */
+  const pendingEditFor = (origIdx: number, block: TextBlock, edits: LocalTextEdit[] = textEdits) =>
+    pendingEditForBlock(origIdx, block, edits)
 
   /** Overlap of two PDF rects as a fraction of the smaller one (0 = disjoint) */
-  const overlapOfSmaller = (a: readonly number[], b: readonly number[]): number => {
-    const ox = Math.min(a[2]!, b[2]!) - Math.max(a[0]!, b[0]!)
-    const oy = Math.min(a[3]!, b[3]!) - Math.max(a[1]!, b[1]!)
-    if (ox <= 0 || oy <= 0) return 0
-    const aArea = (a[2]! - a[0]!) * (a[3]! - a[1]!)
-    const bArea = (b[2]! - b[0]!) * (b[3]! - b[1]!)
-    return (ox * oy) / Math.min(aArea, bArea)
-  }
+  const overlapOfSmaller = overlapOfRects
 
-  /** Pending edits that geometrically claim (part of) this block: rect overlap of at
-      least half the smaller box. Catches everything the text matchers miss — a DOM
-      visual line can join runs the clustering buckets into a neighboring block
-      (slightly raised labels, superscripts), so a line edit's oldText covers MORE
-      than the block and no text comparison lines up; likewise line edits inside a
-      multi-line paragraph claim their row. Drag visuals let these previews follow
-      the pointer and the ghost skips the rows they cover. */
-  const blockClaimEdits = (
-    origIdx: number,
-    block: TextBlock,
-    edits: LocalTextEdit[] = textEdits,
-  ): LocalTextEdit[] =>
-    edits.filter(
-      (te) => te.input.pageIndex === origIdx && overlapOfSmaller(te.input.rect, block.rect) >= 0.5,
-    )
+  const blockClaimEdits = (origIdx: number, block: TextBlock, edits: LocalTextEdit[] = textEdits) =>
+    blockClaimEditsIn(origIdx, block, edits)
 
-  const blockOverlapEdit = (
-    origIdx: number,
-    block: TextBlock,
-    edits: LocalTextEdit[] = textEdits,
-  ): LocalTextEdit | undefined => blockClaimEdits(origIdx, block, edits)[0]
+  const blockOverlapEdit = (origIdx: number, block: TextBlock, edits: LocalTextEdit[] = textEdits) =>
+    blockOverlapEditIn(origIdx, block, edits)
 
-  /** The edit whose move/preview the block's drag visuals must follow. Single-line
-      blocks fall back to geometric ownership (nothing to fold there anyway);
-      multi-line blocks stay on the text matchers so paragraph folding keeps
-      handling embedded line edits. */
-  const blockOwnerEdit = (origIdx: number, b: TextBlock): LocalTextEdit | undefined =>
-    pendingEditFor(origIdx, b) ?? (b.lines.length === 1 ? blockOverlapEdit(origIdx, b) : undefined)
+  const blockOwnerEdit = (origIdx: number, b: TextBlock, edits: LocalTextEdit[] = textEdits) =>
+    blockOwnerEditIn(origIdx, b, edits)
 
-  /** Where the block currently draws: its rect shifted by any pending move */
-  const blockDrawRect = (origIdx: number, b: TextBlock): [number, number, number, number] => {
-    const mv = blockOwnerEdit(origIdx, b)?.moveBy
-    return mv ? shiftRect(b.rect, mv) : b.rect
-  }
+  const blockDrawRect = (origIdx: number, b: TextBlock, edits: LocalTextEdit[] = textEdits) =>
+    blockDrawRectIn(origIdx, b, edits)
 
   /** Track the paragraph under the pointer. Runs on every page mousemove (the boxes
       are pointer-events: none so clicks fall through to the text layer), commits
