@@ -93,6 +93,96 @@ export interface MountedApp {
   unmount: () => Promise<void>
 }
 
+/** Ribbon controls carry `data-cmd`, ribbon tabs `data-tab`.
+
+    Both are locale-independent, which nothing else on a ribbon button is: the
+    visible label, `data-tip` and `aria-label` are all translated, so a selector
+    built on any of them stops matching the moment the app runs in another
+    language (the e2e suite's `getByRole('button', { name: 'Rotate Left' })` has
+    exactly that problem). The value is the button's i18n key, so a control can
+    be traced back to its label without a second naming scheme to maintain.
+
+    Only the ribbon is stamped so far. Dialogs, popovers and overlays get a hook
+    when a test first needs to drive them -- a hook nobody queries is a
+    contract nobody checks. */
+
+const selectorFor = (attr: 'data-cmd' | 'data-tab', value: string): string =>
+  `[${attr}="${value}"]`
+
+function find(root: ParentNode, attr: 'data-cmd' | 'data-tab', value: string): HTMLElement {
+  const el = root.querySelector<HTMLElement>(selectorFor(attr, value))
+  if (!el) throw new Error(`no ${selectorFor(attr, value)} in the rendered editor`)
+  return el
+}
+
+/** The control, or a thrown error naming the missing hook. */
+export function cmd(root: ParentNode, name: string): HTMLElement {
+  return find(root, 'data-cmd', name)
+}
+
+/** Click a ribbon command inside `act`, so the state update it schedules lands
+    before the assertion. Returns the element: asserting `disabled` after the
+    click is the usual follow-up. */
+export async function clickCmd(root: ParentNode, name: string): Promise<HTMLElement> {
+  const el = cmd(root, name)
+  await act(async () => {
+    el.click()
+  })
+  return el
+}
+
+export function tab(root: ParentNode, id: string): HTMLElement {
+  return find(root, 'data-tab', id)
+}
+
+export async function clickTab(root: ParentNode, id: string): Promise<HTMLElement> {
+  const el = tab(root, id)
+  await act(async () => {
+    el.click()
+  })
+  return el
+}
+
+/** Every `data-cmd` the current tab exposes, in document order. */
+export function cmdNames(root: ParentNode): string[] {
+  return Array.from(root.querySelectorAll<HTMLElement>('[data-cmd]')).map(
+    (el) => el.getAttribute('data-cmd') ?? '',
+  )
+}
+
+/** Bytes for a `readFile` stub: a fresh copy per call.
+
+    pdfjs transfers the buffer it is handed to its worker, detaching the original.
+    A stub that returns one ArrayBuffer instance works exactly once, then fails the
+    next read with "Cannot perform Construct on a detached ArrayBuffer" -- and the
+    second read is real: every save reloads the file it just wrote. `Buffer#slice`
+    copies, which is what the IPC bridge does anyway. */
+export function freshBytes(bytes: ArrayBuffer): ArrayBuffer {
+  return bytes.slice(0)
+}
+
+/** Poll until `predicate` holds, letting timers and promise chains run in `act`.
+
+    `settle()` drains the microtask queue, which is not enough after a save: the
+    post-save reload goes through `readFile` -> pdfjs `getDocument`, and pdfjs
+    hops through scheduled tasks before its promise settles. Polling is the
+    hand-rolled stand-in for `waitFor`, and it fails loudly with the last state
+    instead of silently returning early. */
+export async function until(
+  predicate: () => boolean,
+  what: string,
+  timeoutMs = 4000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs
+  for (;;) {
+    if (predicate()) return
+    if (Date.now() > deadline) throw new Error(`timed out waiting for ${what}`)
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    })
+  }
+}
+
 /** Point pdfjs at the worker file on disk.
 
     `App` sets `GlobalWorkerOptions.workerSrc` from a Vite `?url` import at module
@@ -118,7 +208,7 @@ export async function mountPdfApp(): Promise<MountedApp> {
   document.body.append(container)
   const root: Root = createRoot(container)
   const tree = (): ReactNode =>
-    createElement(LocaleProvider, { initial: 'zh' as const }, createElement(App))
+    createElement(LocaleProvider, { initial: 'zh' as const, children: createElement(App) })
   await act(async () => {
     root.render(tree())
   })

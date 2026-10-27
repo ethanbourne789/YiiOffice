@@ -6270,6 +6270,7 @@ export default function App() {
         >
           <button
             className="rb-big rb-highlight-main"
+            data-cmd="highlight"
             disabled={readOnly}
             data-tip={t('highlight')}
             onClick={() => applyMarkup('highlight')}
@@ -6284,6 +6285,7 @@ export default function App() {
           </button>
           <button
             className={`rb-highlight-caret${highlightColorOpen ? ' active' : ''}`}
+            data-cmd="highlightColor"
             disabled={readOnly}
             aria-label={t('drawColor')}
             data-tip={t('drawColor')}
@@ -6302,6 +6304,7 @@ export default function App() {
         </div>
         <button
           className="rb-big"
+          data-cmd="underline"
           disabled={readOnly}
           data-tip={t('underline')}
           onClick={() => applyMarkup('underline')}
@@ -6313,6 +6316,7 @@ export default function App() {
         </button>
         <button
           className="rb-big"
+          data-cmd="strikeout"
           disabled={readOnly}
           data-tip={t('strikeout')}
           onClick={() => applyMarkup('strikeout')}
@@ -6333,6 +6337,7 @@ export default function App() {
           <div className="rb-row">
             <input
               className="tb-page-input"
+              data-cmd="pageInput"
               value={pageInput}
               onChange={(e) => setPageInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && commitPageInput()}
@@ -6343,6 +6348,7 @@ export default function App() {
           <div className="rb-row">
             <button
               className="rb-icon"
+              data-cmd="zoomOut"
               data-tip={t('zoomOut')}
               aria-label={t('zoomOut')}
               onClick={zoomOut}
@@ -6352,6 +6358,7 @@ export default function App() {
             <span className="tb-zoom">{Math.round(scale * 100)}%</span>
             <button
               className="rb-icon"
+              data-cmd="zoomIn"
               data-tip={t('zoomIn')}
               aria-label={t('zoomIn')}
               onClick={zoomIn}
@@ -6362,6 +6369,7 @@ export default function App() {
         </div>
         <button
           className="rb-big"
+          data-cmd="fitWidth"
           onClick={() => {
             fitModeRef.current = 'width'
             recomputeFit()
@@ -6374,6 +6382,7 @@ export default function App() {
         </button>
         <button
           className="rb-big"
+          data-cmd="fitPage"
           onClick={() => {
             fitModeRef.current = 'page'
             recomputeFit()
@@ -6391,6 +6400,7 @@ export default function App() {
   const searchBtn = (
     <button
       className={`rb-big${searchOpen ? ' active' : ''}`}
+      data-cmd="search"
       data-tip={`${t('search')} (${platformShortcuts('⌘F')})`}
       onClick={() => (searchOpen ? closeSearch() : openSearch())}
     >
@@ -6404,6 +6414,7 @@ export default function App() {
   const editTextBtn = (
     <button
       className={`rb-big${editTextMode ? ' active' : ''}`}
+      data-cmd="editText"
       disabled={readOnly}
       data-tip={t('editTextHint')}
       onClick={() => {
@@ -6426,6 +6437,7 @@ export default function App() {
   const insertTextBtn = (
     <button
       className={`rb-big${pendingTextInsert ? ' active' : ''}`}
+      data-cmd="insertText"
       disabled={readOnly}
       data-tip={t('insertTextHint')}
       onClick={() => {
@@ -6491,6 +6503,7 @@ export default function App() {
       <div className="ribbon-group-items">
         <button
           className={`rb-big${sidebar === 'thumbs' ? ' active' : ''}`}
+          data-cmd="thumbs"
           onClick={() => setSidebar((v) => (v === 'thumbs' ? null : 'thumbs'))}
         >
           <span className="rb-big-icon">
@@ -6500,6 +6513,7 @@ export default function App() {
         </button>
         <button
           className={`rb-big${sidebar === 'outline' ? ' active' : ''}`}
+          data-cmd="outline"
           disabled={!outline}
           onClick={() => setSidebar((v) => (v === 'outline' ? null : 'outline'))}
         >
@@ -6511,6 +6525,7 @@ export default function App() {
         {searchBtn}
         <button
           className={`rb-big${spread === 2 ? ' active' : ''}`}
+          data-cmd="spread"
           data-tip={spread === 2 ? t('singlePage') : t('twoPage')}
           onClick={() => setSpread((v) => (v === 1 ? 2 : 1))}
         >
@@ -6519,6 +6534,7 @@ export default function App() {
         </button>
         <button
           className={`rb-big${nightMode ? ' active' : ''}`}
+          data-cmd="nightMode"
           data-tip={t('nightMode')}
           onClick={() => setNightMode((v) => !v)}
         >
@@ -6537,6 +6553,7 @@ export default function App() {
         <div className="ribbon-tabs" onDoubleClick={collapse.onTabsDoubleClick}>
           <button
             className="qa-btn"
+            data-cmd="save"
             data-tip={`${t('save')} (${platformShortcuts('⌘S')})`}
             aria-label={t('save')}
             disabled={!dirty || saveState === 'saving'}
@@ -6546,6 +6563,7 @@ export default function App() {
           </button>
           <button
             className="qa-btn"
+            data-cmd="undo"
             data-tip={`${t('undo')} (${platformShortcuts('⌘Z')})`}
             aria-label={`${t('undo')} (${platformShortcuts('⌘Z')})`}
             disabled={undoStack.length === 0}
@@ -6555,6 +6573,7 @@ export default function App() {
           </button>
           <button
             className="qa-btn"
+            data-cmd="redo"
             data-tip={`${t('redo')} (${platformShortcuts('⇧⌘Z')})`}
             aria-label={`${t('redo')} (${platformShortcuts('⇧⌘Z')})`}
             disabled={redoStack.length === 0}
@@ -6567,6 +6586,7 @@ export default function App() {
             <button
               key={id}
               className={`ribbon-tab ${collapse.tabClass(ribbonTab === id)}`}
+              data-tab={id}
               data-tip={collapse.tabTip(ribbonTab === id)}
               onClick={() => {
                 collapse.onTabPress(ribbonTab === id)
@@ -6579,6 +6599,7 @@ export default function App() {
           {!readOnly && (
             <button
               className={`ribbon-tab ribbon-tab-context ${collapse.tabClass(ribbonTab === 'fillForm')}`}
+              data-tab="fillForm"
               data-tip={collapse.tabTip(ribbonTab === 'fillForm')}
               onClick={() => {
                 collapse.onTabPress(ribbonTab === 'fillForm')
@@ -6591,6 +6612,7 @@ export default function App() {
           {!readOnly && (
             <button
               className={`ribbon-tab ribbon-tab-context ${collapse.tabClass(ribbonTab === 'formDesign')}`}
+              data-tab="formDesign"
               data-tip={collapse.tabTip(ribbonTab === 'formDesign')}
               onClick={() => {
                 collapse.onTabPress(ribbonTab === 'formDesign')
@@ -6640,6 +6662,7 @@ export default function App() {
                   <div className="rb-drop-wrap" ref={convertWrapRef}>
                     <button
                       className={`rb-big${convertOpen ? ' active' : ''}`}
+                      data-cmd="convertPdf"
                       data-tip={t('convertPdfTip')}
                       disabled={convertBusy}
                       onClick={() => setConvertOpen((v) => !v)}
@@ -6652,11 +6675,15 @@ export default function App() {
                     </button>
                     {convertOpen && (
                       <div className="rb-drop rb-menu">
-                        <button onClick={() => void convertTo('docx')}>{t('convertToWord')}</button>
-                        <button onClick={() => void convertTo('xlsx')}>
+                        <button data-cmd="convertToWord" onClick={() => void convertTo('docx')}>
+                          {t('convertToWord')}
+                        </button>
+                        <button data-cmd="convertToExcel" onClick={() => void convertTo('xlsx')}>
                           {t('convertToExcel')}
                         </button>
-                        <button onClick={() => void convertTo('pptx')}>{t('convertToPpt')}</button>
+                        <button data-cmd="convertToPpt" onClick={() => void convertTo('pptx')}>
+                          {t('convertToPpt')}
+                        </button>
                       </div>
                     )}
                   </div>
@@ -6670,6 +6697,7 @@ export default function App() {
                   {searchBtn}
                   <button
                     className="rb-big"
+                    data-cmd="print"
                     data-tip={`${t('print')} (${platformShortcuts('⌘P')})`}
                     disabled={printing}
                     onClick={openPrintDlg}
@@ -6681,6 +6709,7 @@ export default function App() {
                   </button>
                   <button
                     className="rb-big"
+                    data-cmd="exportImages"
                     data-tip={t('exportImagesAll')}
                     disabled={exporting}
                     onClick={() => void exportImages(true)}
@@ -6692,6 +6721,7 @@ export default function App() {
                   </button>
                   <button
                     className="rb-big"
+                    data-cmd="props"
                     data-tip={t('propsTitle')}
                     onClick={() => setPropsDlg(true)}
                   >
@@ -6714,6 +6744,7 @@ export default function App() {
                     <button
                       key={tool}
                       className={`rb-big${drawTool === tool ? ' active' : ''}`}
+                      data-cmd={key}
                       disabled={readOnly}
                       data-tip={t(key)}
                       onClick={() => {
@@ -6733,6 +6764,7 @@ export default function App() {
                   ))}
                   <button
                     className={`rb-big${drawTool === 'redact' ? ' active' : ''}`}
+                    data-cmd="redact"
                     disabled={readOnly}
                     data-tip={t('redactHint')}
                     onClick={() => {
@@ -6751,6 +6783,7 @@ export default function App() {
                     <>
                       <button
                         className="rb-big"
+                        data-cmd="redactClear"
                         data-tip={t('redactClear')}
                         onClick={() => setRedactions([])}
                       >
@@ -6758,6 +6791,7 @@ export default function App() {
                       </button>
                       <button
                         className="rb-big"
+                        data-cmd="redactApply"
                         data-tip={t('redactApply')}
                         onClick={requestRedactionSaveAs}
                       >
@@ -6767,6 +6801,7 @@ export default function App() {
                   )}
                   <button
                     className={`rb-big${pendingSign ? ' active' : ''}`}
+                    data-cmd="sign"
                     disabled={readOnly}
                     data-tip={t('signTitle')}
                     onClick={() => {
@@ -6782,6 +6817,7 @@ export default function App() {
                   <div ref={drawColorWrapRef} className="rb-drop-wrap">
                     <button
                       className={`rb-big${colorOpen ? ' active' : ''}`}
+                      data-cmd="drawColor"
                       disabled={readOnly}
                       data-tip={t('drawColor')}
                       onClick={() => setColorOpen((v) => !v)}
@@ -6819,6 +6855,7 @@ export default function App() {
                   {insertTextBtn}
                   <button
                     className={`rb-big${imagePick && !pendingStaticFill ? ' active' : ''}`}
+                    data-cmd="insertImage"
                     disabled={readOnly}
                     data-tip={t('insertImageHint')}
                     onClick={() => (imagePick ? setImagePick(null) : pickInsertImage())}
@@ -6830,6 +6867,7 @@ export default function App() {
                   </button>
                   <button
                     className={`rb-big${editImageMode ? ' active' : ''}`}
+                    data-cmd="editImage"
                     disabled={readOnly}
                     data-tip={t('editImageHint')}
                     onClick={() => {
@@ -6854,6 +6892,7 @@ export default function App() {
                 <div className="ribbon-group-items">
                   <button
                     className="rb-big"
+                    data-cmd="watermark"
                     disabled={readOnly}
                     data-tip={t('stampTitle')}
                     onClick={() => setStampDlg(true)}
@@ -6873,6 +6912,7 @@ export default function App() {
                 <div className="ribbon-group-items">
                   <button
                     className={`rb-big${pendingStaticFill === 'text' ? ' active' : ''}`}
+                    data-cmd="formAddText"
                     disabled={readOnly}
                     data-tip={t('formAddTextHint')}
                     onClick={() => {
@@ -6891,6 +6931,7 @@ export default function App() {
                   </button>
                   <button
                     className={`rb-big${pendingStaticFill === 'check' ? ' active' : ''}`}
+                    data-cmd="formAddCheck"
                     disabled={readOnly}
                     data-tip={t('formAddCheckHint')}
                     onClick={() => startStaticFormMark('check')}
@@ -6902,6 +6943,7 @@ export default function App() {
                   </button>
                   <button
                     className={`rb-big${pendingStaticFill === 'cross' ? ' active' : ''}`}
+                    data-cmd="formAddCross"
                     disabled={readOnly}
                     data-tip={t('formAddCrossHint')}
                     onClick={() => startStaticFormMark('cross')}
@@ -6920,6 +6962,7 @@ export default function App() {
                     <div className="ribbon-group-items">
                       <button
                         className="rb-big"
+                        data-cmd="formPreviousField"
                         data-tip={t('formPreviousField')}
                         onClick={() => stepFormWidget(-1)}
                       >
@@ -6930,6 +6973,7 @@ export default function App() {
                       </button>
                       <button
                         className="rb-big"
+                        data-cmd="formNextField"
                         data-tip={t('formNextField')}
                         onClick={() => stepFormWidget(1)}
                       >
@@ -6953,6 +6997,7 @@ export default function App() {
                 <div className="ribbon-group-items">
                   <button
                     className="rb-big"
+                    data-cmd="sign"
                     disabled={readOnly}
                     data-tip={t('signTitle')}
                     onClick={() =>
@@ -6971,6 +7016,7 @@ export default function App() {
                   </button>
                   <button
                     className={`rb-big${imagePick && !pendingStaticFill ? ' active' : ''}`}
+                    data-cmd="insertImage"
                     disabled={readOnly}
                     data-tip={t('insertImageHint')}
                     onClick={() => (imagePick ? setImagePick(null) : pickInsertImage())}
@@ -6985,7 +7031,7 @@ export default function App() {
               <div className="ribbon-sep" />
               <div className="ribbon-group">
                 <div className="ribbon-group-items">
-                  <button className="rb-big" onClick={completeForm}>
+                  <button className="rb-big" data-cmd="formComplete" onClick={completeForm}>
                     <span className="rb-big-icon">
                       <IconCompleteForm />
                     </span>
@@ -7022,6 +7068,7 @@ export default function App() {
                     <button
                       key={kind}
                       className={`rb-big${formDesignTool === kind ? ' active' : ''}`}
+                      data-cmd={labelKey}
                       disabled={readOnly}
                       data-tip={t(hintKey)}
                       aria-pressed={formDesignTool === kind}
@@ -7040,6 +7087,7 @@ export default function App() {
                 <div className="ribbon-group-items">
                   <button
                     className={`rb-big${formDesignKeepTool ? ' active' : ''}`}
+                    data-cmd="formDesignKeepTool"
                     disabled={readOnly}
                     data-tip={t('formDesignKeepToolHint')}
                     aria-pressed={formDesignKeepTool}
@@ -7052,6 +7100,7 @@ export default function App() {
                   </button>
                   <button
                     className={`rb-big${formDesignPreview ? ' active' : ''}`}
+                    data-cmd="formDesignPreview"
                     disabled={readOnly}
                     data-tip={t('formDesignPreviewHint')}
                     aria-pressed={formDesignPreview}
@@ -7069,6 +7118,7 @@ export default function App() {
                   </button>
                   <button
                     className="rb-big"
+                    data-cmd="formDesignDetect"
                     disabled={readOnly || detectingFields || !doc}
                     data-tip={t('formDesignDetectHint')}
                     onClick={() => void detectFields()}
@@ -7081,6 +7131,7 @@ export default function App() {
                   <div className="rb-drop-wrap" ref={arrangeWrapRef}>
                     <button
                       className={`rb-big${arrangeOpen ? ' active' : ''}`}
+                      data-cmd="formDesignArrange"
                       disabled={selectedFormFieldIds.length < 2}
                       data-tip={t('formDesignArrangeHint')}
                       onClick={() => setArrangeOpen((v) => !v)}
@@ -7096,6 +7147,7 @@ export default function App() {
                         {arrangeItems.map(([how, label, min]) => (
                           <button
                             key={how}
+                            data-cmd={`formDesignArrange-${how}`}
                             disabled={selectedFormFieldIds.length < min}
                             onClick={() => {
                               setArrangeOpen(false)
@@ -7110,6 +7162,7 @@ export default function App() {
                   </div>
                   <button
                     className="rb-big"
+                    data-cmd="formDesignDelete"
                     disabled={selectedFormFieldIds.length === 0}
                     data-tip={t('formDesignDelete')}
                     onClick={deleteSelectedFormFields}
@@ -7140,6 +7193,7 @@ export default function App() {
                 <div className="ribbon-group-items">
                   <button
                     className="rb-big"
+                    data-cmd="rotateLeft"
                     disabled={curOrigIdx < 0 || readOnly}
                     onClick={() => rotatePage(curOrigIdx, -90)}
                   >
@@ -7150,6 +7204,7 @@ export default function App() {
                   </button>
                   <button
                     className="rb-big"
+                    data-cmd="rotateRight"
                     disabled={curOrigIdx < 0 || readOnly}
                     onClick={() => rotatePage(curOrigIdx, 90)}
                   >
@@ -7160,6 +7215,7 @@ export default function App() {
                   </button>
                   <button
                     className="rb-big"
+                    data-cmd="rotateAllPages"
                     disabled={pageCount === 0 || readOnly}
                     onClick={() => rotateAllPages(90)}
                   >
@@ -7175,6 +7231,7 @@ export default function App() {
                 <div className="ribbon-group-items">
                   <button
                     className="rb-big"
+                    data-cmd="deletePage"
                     disabled={curOrigIdx < 0 || pageCount <= 1 || readOnly}
                     onClick={() => deletePage(curOrigIdx)}
                   >
@@ -7185,6 +7242,7 @@ export default function App() {
                   </button>
                   <button
                     className="rb-big"
+                    data-cmd="extractPage"
                     disabled={curOrigIdx < 0 || readOnly}
                     onClick={openExtractDlg}
                   >
@@ -7195,6 +7253,7 @@ export default function App() {
                   </button>
                   <button
                     className="rb-big"
+                    data-cmd="insertPdf"
                     disabled={readOnly}
                     onClick={() => void insertPdf(curOrigIdx)}
                   >
@@ -7205,6 +7264,7 @@ export default function App() {
                   </button>
                   <button
                     className="rb-big"
+                    data-cmd="insertBlankPage"
                     disabled={readOnly}
                     onClick={() => insertBlankPage(curOrigIdx)}
                   >
@@ -7215,6 +7275,7 @@ export default function App() {
                   </button>
                   <button
                     className="rb-big"
+                    data-cmd="replacePages"
                     disabled={curOrigIdx < 0 || readOnly}
                     onClick={openReplaceDlg}
                   >
@@ -7230,6 +7291,7 @@ export default function App() {
                 <div className="ribbon-group-items">
                   <button
                     className="rb-big"
+                    data-cmd="cropPages"
                     disabled={curOrigIdx < 0 || readOnly}
                     onClick={() => void openPageCrop(curOrigIdx)}
                   >
@@ -7240,6 +7302,7 @@ export default function App() {
                   </button>
                   <button
                     className="rb-big"
+                    data-cmd="pageSize"
                     disabled={pageCount === 0 || readOnly}
                     onClick={() => setPageSizeDlg(true)}
                   >
@@ -7255,6 +7318,7 @@ export default function App() {
                 <div className="ribbon-group-items">
                   <button
                     className="rb-big"
+                    data-cmd="reversePages"
                     disabled={pageCount <= 1 || readOnly}
                     onClick={reversePages}
                   >
@@ -7265,6 +7329,7 @@ export default function App() {
                   </button>
                   <button
                     className="rb-big"
+                    data-cmd="splitPdf"
                     disabled={pageCount <= 1 || readOnly}
                     onClick={openSplitDlg}
                   >
@@ -7273,7 +7338,12 @@ export default function App() {
                     </span>
                     {t('splitPdf')}
                   </button>
-                  <button className="rb-big" disabled={readOnly} onClick={() => void mergePdf()}>
+                  <button
+                    className="rb-big"
+                    data-cmd="mergePdf"
+                    disabled={readOnly}
+                    onClick={() => void mergePdf()}
+                  >
                     <span className="rb-big-icon">
                       <IconMergePdf />
                     </span>
@@ -7281,6 +7351,7 @@ export default function App() {
                   </button>
                   <button
                     className="rb-big"
+                    data-cmd="mergePages"
                     disabled={pageCount <= 1 || readOnly}
                     onClick={openMergePagesDlg}
                   >
@@ -7291,6 +7362,7 @@ export default function App() {
                   </button>
                   <button
                     className="rb-big"
+                    data-cmd="splitPages"
                     disabled={pageCount === 0 || readOnly}
                     onClick={() => setSplitPagesDlg(true)}
                   >
