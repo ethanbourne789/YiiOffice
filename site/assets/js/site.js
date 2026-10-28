@@ -118,7 +118,9 @@
       var timer = null;
 
       button.addEventListener("click", function () {
-        var target = document.getElementById(button.getAttribute("data-copy"));
+        var card = button.closest(".codecard");
+        var showing = card ? card.querySelector("pre:not([hidden])") : null;
+        var target = showing || document.getElementById(button.getAttribute("data-copy"));
         if (!target) return;
         var text = target.textContent.replace(/\u00a0/g, " ").trim() + "\n";
 
@@ -157,6 +159,42 @@
       });
     }
   );
+
+  /* -------------------------------------------------------------- anchors */
+  // In-page links can point at a tab panel that is still hidden, e.g. a link to
+  // the "package" snippet. Reveal its tab before the browser scrolls to it.
+  document.addEventListener("click", function (event) {
+    var link = event.target.closest ? event.target.closest('a[href^="#"]') : null;
+    if (!link) return;
+    var id = link.getAttribute("href").slice(1);
+    if (!id) return;
+    var panel = document.getElementById(id);
+    if (!panel || !panel.hidden) return;
+    var tab = document.querySelector('[role="tab"][aria-controls="' + id + '"]');
+    if (tab) tab.click();
+  });
+
+  /* ------------------------------------------------------------- popovers */  Array.prototype.forEach.call(document.querySelectorAll("details.dl"), function (dl) {
+    function close() {
+      dl.removeAttribute("open");
+    }
+
+    document.addEventListener("click", function (event) {
+      if (dl.hasAttribute("open") && !dl.contains(event.target)) close();
+    });
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && dl.hasAttribute("open")) {
+        close();
+        var summary = dl.querySelector("summary");
+        if (summary) summary.focus();
+      }
+    });
+
+    Array.prototype.forEach.call(dl.querySelectorAll(".dl__item"), function (item) {
+      item.addEventListener("click", close);
+    });
+  });
 
   /* --------------------------------------------------------------- reveal */
   var reveals = Array.prototype.slice.call(document.querySelectorAll(".reveal"));

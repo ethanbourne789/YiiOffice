@@ -9,7 +9,7 @@
       content="YiiOffice 是本地优先的开源 Office 套件：原生读写 Word、Excel、PPT、PDF 与 Markdown，双击就开，断网不少功能，不登录、不上传、无广告。"
     />
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0d1013" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#0a0a0b" media="(prefers-color-scheme: dark)" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="YiiOffice — 本地优先的开源 Office 套件" />
     <meta
@@ -17,6 +17,7 @@
       content="原生读写 Word、Excel、PPT、PDF 与 Markdown。不登录、不上传、无广告。"
     />
     <meta property="og:locale" content="zh_CN" />
+    <meta property="og:image" content="assets/screens/home-light.webp" />
     <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="assets/css/site.css" />
     <script>
@@ -43,19 +44,22 @@
         </a>
 
         <nav class="nav__links" aria-label="主导航">
-          <a class="nav__link" href="#principles">设计原则</a>
-          <a class="nav__link" href="#editors">五大编辑器</a>
-          <a class="nav__link" href="#capabilities">能力</a>
-          <a class="nav__link" href="#stack">技术栈</a>
+          <a class="nav__link" href="#editors">编辑器</a>
+          <a class="nav__link" href="#capabilities">通用能力</a>
           <a class="nav__link" href="#start">快速开始</a>
           <a class="nav__link" href="#faq">常见问题</a>
         </nav>
 
         <div class="nav__actions">
-          <div class="lang" role="group" aria-label="界面语言">
-            <a class="lang__opt" href="index.html" aria-current="true" lang="zh-CN">中</a>
-            <a class="lang__opt" href="en/index.html" hreflang="en" lang="en">EN</a>
-          </div>
+          <a
+            class="icon-btn"
+            href="https://github.com/ethanbourne789/YiiOffice"
+            rel="noopener"
+            aria-label="GitHub 仓库"
+            title="GitHub 仓库"
+          >
+            <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z" /></svg>
+          </a>
 
           <button
             class="icon-btn theme-toggle"
@@ -70,431 +74,366 @@
             <svg data-icon="dark" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.2 9.7A5.6 5.6 0 0 1 6.3 2.8a5.6 5.6 0 1 0 6.9 6.9z" /></svg>
           </button>
 
+          <div class="lang" role="group" aria-label="界面语言">
+            <a class="lang__opt" href="index.html" aria-current="true" lang="zh-CN">中</a>
+            <a class="lang__opt" href="en/index.html" hreflang="en" lang="en">EN</a>
+          </div>
+
           <a
-            class="btn btn--ghost btn--sm"
-            href="https://github.com/ethanbourne789/YiiOffice"
+            class="btn btn--primary btn--sm"
+            href="https://github.com/ethanbourne789/YiiOffice/releases/latest"
             rel="noopener"
           >
-            <svg class="btn__icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z" /></svg>
-            源码
+            下载
           </a>
         </div>
       </div>
     </header>
 
     <main id="main">
-      <!-- ---------------------------------------------------------------- hero -->
+      <!-- ------------------------------------------------------------- hero -->
       <section class="hero">
-        <div class="wrap hero__inner">
-          <a
-            class="hero__badge"
-            href="https://github.com/ethanbourne789/YiiOffice/releases/latest"
-            rel="noopener"
-          >
-            <b>v0.13.0</b>
-            Apache-2.0 · Windows 10/11
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h9M8.5 4.5L12.5 8l-4 3.5" /></svg>
-          </a>
-
-          <h1>本地优先的开源 <em>Office 套件</em></h1>
-
+        <div class="wrap">
+          <p class="eyebrow">本地优先 · 开源 · 无账号</p>
+          <h1 class="h1">YiiOffice</h1>
           <p class="hero__sub">
-            原生读写 Word、Excel、PPT、PDF 与 Markdown。双击就开，断网不少一个功能 ——
-            不登录、不上传、无广告。
+            原生读写 Word、Excel、PPT、PDF 与 Markdown 的桌面 Office 套件。<br />双击就开，断网不少一个功能
+            —— 不登录、不上传、无广告。
           </p>
 
           <div class="hero__cta">
-            <a
-              class="btn btn--primary"
-              href="https://github.com/ethanbourne789/YiiOffice/releases/latest"
-              rel="noopener"
-            >
-              <svg class="btn__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v8M4.8 7.2L8 10.4l3.2-3.2M3 13.2h10" /></svg>
-              下载 Windows 版
-            </a>
+            <details class="dl">
+              <summary class="btn btn--primary">
+                <span class="dl__label">下载 Windows 版</span>
+                <span class="dl__divider" aria-hidden="true"></span>
+                <span class="dl__chev" aria-hidden="true">
+                  <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4.5L6 8l3.5-3.5" /></svg>
+                </span>
+              </summary>
+              <div class="dl__menu">
+                <a
+                  class="dl__item"
+                  href="https://github.com/ethanbourne789/YiiOffice/releases/download/YiiOffice/YiiOffice.Setup.0.13.0.exe"
+                  rel="noopener"
+                >
+                  Windows 安装包 <small>v0.13.0 · 136 MB</small>
+                </a>
+                <a class="dl__item" href="#start">从源码构建 <small>macOS / Linux</small></a>
+                <a
+                  class="dl__item"
+                  href="https://gitee.com/ethanbourne789/yiioffice"
+                  rel="noopener"
+                >
+                  Gitee 镜像 <small>国内更快</small>
+                </a>
+              </div>
+            </details>
+
             <a class="btn btn--ghost" href="#start">五分钟跑起来</a>
           </div>
 
-          <ul class="hero__meta">
-            <li>
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4l3.4 3.4L13 5" /></svg>
-              无账号体系
-            </li>
-            <li>
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4l3.4 3.4L13 5" /></svg>
-              文件不出本机
-            </li>
-            <li>
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4l3.4 3.4L13 5" /></svg>
-              无遥测
-            </li>
-            <li>
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4l3.4 3.4L13 5" /></svg>
-              断网可用
-            </li>
+          <p class="hero__meta">
+            也可从源码构建 macOS 与 Linux · 免费开源，<a
+              href="https://github.com/ethanbourne789/YiiOffice/blob/main/LICENSE"
+              rel="noopener"
+              >Apache-2.0</a
+            >
+          </p>
+
+          <ul class="trust">
+            <li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4l3.4 3.4L13 5" /></svg>本地优先</li>
+            <li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4l3.4 3.4L13 5" /></svg>无广告</li>
+            <li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4l3.4 3.4L13 5" /></svg>无账号</li>
+            <li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4l3.4 3.4L13 5" /></svg>断网可用</li>
           </ul>
 
-          <!-- Shell screenshot -->
-          <div class="hero__stage">
-            <figure class="shot shot--hero">
-              <img
-                class="shot__light"
-                src="assets/screens/home-light.webp"
-                width="1599"
-                height="792"
-                alt="YiiOffice 工作台：顶部标签栏、左侧资料库与文件夹树、右侧最近文件列表，可一键新建 Docs、Sheets、PPT、Markdown。"
-              />
-              <img
-                class="shot__dark"
-                src="assets/screens/home-dark.webp"
-                width="1599"
-                height="792"
-                alt="暗色主题下的 YiiOffice 工作台，同样的标签栏、文件夹树与最近文件列表。"
-              />
-            </figure>
+          <div class="showcase">
+            <div class="showcase__bar">
+              <span class="showcase__title">一个工作台，五个编辑器。</span>
+              <span class="showcase__exts">.docx · .xlsx · .pptx · .pdf · .md</span>
+            </div>
+
+            <div class="panelwrap">
+              <div class="tabs" role="tablist" aria-label="编辑器">
+                <button class="tab" role="tab" id="tab-home" aria-controls="panel-home" aria-selected="true" tabindex="0">
+                  <span class="tab__ico tab__ico--home" aria-hidden="true">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="10" height="10"><rect x="2" y="2" width="5" height="5" rx="1" /><rect x="9" y="2" width="5" height="5" rx="1" /><rect x="2" y="9" width="5" height="5" rx="1" /><rect x="9" y="9" width="5" height="5" rx="1" /></svg>
+                  </span>
+                  工作台
+                </button>
+                <button class="tab" role="tab" id="tab-docs" aria-controls="panel-docs" aria-selected="false" tabindex="-1">
+                  <span class="tab__ico tab__ico--docs" aria-hidden="true">W</span>
+                  Docs
+                </button>
+                <button class="tab" role="tab" id="tab-sheets" aria-controls="panel-sheets" aria-selected="false" tabindex="-1">
+                  <span class="tab__ico tab__ico--sheets" aria-hidden="true">X</span>
+                  Sheets
+                </button>
+                <button class="tab" role="tab" id="tab-slides" aria-controls="panel-slides" aria-selected="false" tabindex="-1">
+                  <span class="tab__ico tab__ico--slides" aria-hidden="true">S</span>
+                  Slides
+                </button>
+                <button class="tab" role="tab" id="tab-pdf" aria-controls="panel-pdf" aria-selected="false" tabindex="-1">
+                  <span class="tab__ico tab__ico--pdf" aria-hidden="true">P</span>
+                  PDF
+                </button>
+                <button class="tab" role="tab" id="tab-md" aria-controls="panel-md" aria-selected="false" tabindex="-1">
+                  <span class="tab__ico tab__ico--md" aria-hidden="true">M</span>
+                  Markdown
+                </button>
+              </div>
+
+              <div class="panel" role="tabpanel" id="panel-home" aria-labelledby="tab-home" tabindex="0">
+                <figure class="shot">
+                  <img
+                    class="shot__light"
+                    src="assets/screens/home-light.webp"
+                    width="1599"
+                    height="792"
+                    alt="YiiOffice 工作台：顶部标签栏、左侧资料库与文件夹树、右侧最近文件列表。"
+                  />
+                  <img
+                    class="shot__dark"
+                    src="assets/screens/home-dark.webp"
+                    width="1599"
+                    height="792"
+                    alt="暗色主题下的 YiiOffice 工作台。"
+                    loading="lazy"
+                  />
+                </figure>
+              </div>
+
+              <div class="panel" role="tabpanel" id="panel-docs" aria-labelledby="tab-docs" tabindex="0" hidden>
+                <figure class="shot">
+                  <img
+                    class="shot__light"
+                    src="assets/screens/docs-light.webp"
+                    width="1599"
+                    height="960"
+                    alt="Docs 编辑器：分页视图中的《2026 年度运营报告》，含标题、正文与指标表格。"
+                    loading="lazy"
+                  />
+                  <img
+                    class="shot__dark"
+                    src="assets/screens/docs-dark.webp"
+                    width="1599"
+                    height="960"
+                    alt="暗色主题 —— Docs 编辑器的同一份报告。"
+                    loading="lazy"
+                  />
+                </figure>
+              </div>
+
+              <div class="panel" role="tabpanel" id="panel-sheets" aria-labelledby="tab-sheets" tabindex="0" hidden>
+                <figure class="shot">
+                  <img
+                    class="shot__light"
+                    src="assets/screens/sheets-light.webp"
+                    width="1599"
+                    height="960"
+                    alt="Sheets 编辑器：区域销售表，冻结表头、千分位数字与百分比列。"
+                    loading="lazy"
+                  />
+                  <img
+                    class="shot__dark"
+                    src="assets/screens/sheets-dark.webp"
+                    width="1599"
+                    height="960"
+                    alt="暗色主题 —— Sheets 编辑器的区域销售表。"
+                    loading="lazy"
+                  />
+                </figure>
+              </div>
+
+              <div class="panel" role="tabpanel" id="panel-slides" aria-labelledby="tab-slides" tabindex="0" hidden>
+                <figure class="shot">
+                  <img
+                    class="shot__light"
+                    src="assets/screens/slides-light.webp"
+                    width="1599"
+                    height="960"
+                    alt="Slides 编辑器：封面幻灯片与左侧缩略图栏。"
+                    loading="lazy"
+                  />
+                  <img
+                    class="shot__dark"
+                    src="assets/screens/slides-dark.webp"
+                    width="1599"
+                    height="960"
+                    alt="暗色主题 —— Slides 编辑器的封面幻灯片。"
+                    loading="lazy"
+                  />
+                </figure>
+              </div>
+
+              <div class="panel" role="tabpanel" id="panel-pdf" aria-labelledby="tab-pdf" tabindex="0" hidden>
+                <figure class="shot">
+                  <img
+                    class="shot__light"
+                    src="assets/screens/pdf-light.webp"
+                    width="1599"
+                    height="960"
+                    alt="PDF 编辑器：季度评审报告的页面视图、缩略图导航与编辑工具栏。"
+                    loading="lazy"
+                  />
+                  <img
+                    class="shot__dark"
+                    src="assets/screens/pdf-dark.webp"
+                    width="1599"
+                    height="960"
+                    alt="暗色主题 —— PDF 编辑器的报告页面。"
+                    loading="lazy"
+                  />
+                </figure>
+              </div>
+
+              <div class="panel" role="tabpanel" id="panel-md" aria-labelledby="tab-md" tabindex="0" hidden>
+                <figure class="shot">
+                  <img
+                    class="shot__light"
+                    src="assets/screens/markdown-light.webp"
+                    width="1599"
+                    height="960"
+                    alt="Markdown 编辑器：标题、表格与引用块的所见即所得视图。"
+                    loading="lazy"
+                  />
+                  <img
+                    class="shot__dark"
+                    src="assets/screens/markdown-dark.webp"
+                    width="1599"
+                    height="960"
+                    alt="暗色主题 —— Markdown 编辑器的同一篇文档。"
+                    loading="lazy"
+                  />
+                </figure>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      <!-- ---------------------------------------------------------- principles -->
-      <section class="section" id="principles">
-        <div class="wrap">
-          <div class="section__head reveal">
-            <p class="eyebrow">设计原则</p>
-            <h2 class="h2">四条原则，决定了每一个取舍</h2>
-            <p class="lede">
-              今天的办公软件要么把文件锁在云里，要么逼你注册，要么在侧边栏塞满推销。YiiOffice
-              反过来做：文件双击就开，断网一个功能不少。
-            </p>
-          </div>
-
-          <div class="grid-2">
-            <article class="card reveal" style="--d: 0ms">
-              <span class="card__num">01</span>
-              <h3 class="card__title">本地优先</h3>
-              <p class="card__body">
-                打开、编辑、保存、格式转换全部在本机完成。没有账号体系、没有云同步强制项，也没有后台的更新检查。
-              </p>
-            </article>
-            <article class="card reveal" style="--d: 60ms">
-              <span class="card__num">02</span>
-              <h3 class="card__title">真的能改</h3>
-              <p class="card__body">
-                不是只能看的预览器：五个编辑器都能打开、编辑并保存原生格式，存完用 MS Office 或 WPS
-                照常打开。
-              </p>
-            </article>
-            <article class="card reveal" style="--d: 120ms">
-              <span class="card__num">03</span>
-              <h3 class="card__title">干净</h3>
-              <p class="card__body">
-                无登录墙、无广告、无遥测，界面里没有藏着的付费入口。默认联网行为只有一处：加载文档中引用的网络图片。
-              </p>
-            </article>
-            <article class="card reveal" style="--d: 180ms">
-              <span class="card__num">04</span>
-              <h3 class="card__title">格式优先</h3>
-              <p class="card__body">
-                直接读写 <code>.docx</code> / <code>.xlsx</code> / <code>.pptx</code> /
-                <code>.pdf</code> 等标准格式，不发明私有格式，不要求「先导入再编辑」。
-              </p>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <!-- ------------------------------------------------------------- editors -->
+      <!-- ----------------------------------------------------------- editors -->
       <section class="section" id="editors">
         <div class="wrap">
           <div class="section__head reveal">
             <p class="eyebrow">编辑器</p>
-            <h2 class="h2">五个编辑器，共用一个壳</h2>
+            <h2 class="h2">从一份文件，到一次交付。</h2>
             <p class="lede">
-              每个编辑器既能作为标签页嵌入工作台，也能单独启动调试。切换标签只做显示与隐藏，滚动位置、光标和撤销栈都原样保留。
+              每个编辑器都能独立启动，也能作为标签页挂在同一个工作台里。切换标签只做显示与隐藏 ——
+              滚动位置、光标和撤销栈都原样留着。
             </p>
           </div>
 
-          <div class="showcase">
-            <div class="tabs-list" role="tablist" aria-label="编辑器" aria-orientation="vertical">
-              <button
-                class="tabs-list__btn"
-                role="tab"
-                id="tab-docs"
-                aria-controls="panel-docs"
-                aria-selected="true"
-                tabindex="0"
-              >
-                Docs<small>.docx</small>
-              </button>
-              <button
-                class="tabs-list__btn"
-                role="tab"
-                id="tab-sheets"
-                aria-controls="panel-sheets"
-                aria-selected="false"
-                tabindex="-1"
-              >
-                Sheets<small>.xlsx .csv</small>
-              </button>
-              <button
-                class="tabs-list__btn"
-                role="tab"
-                id="tab-slides"
-                aria-controls="panel-slides"
-                aria-selected="false"
-                tabindex="-1"
-              >
-                Slides<small>.pptx</small>
-              </button>
-              <button
-                class="tabs-list__btn"
-                role="tab"
-                id="tab-pdf"
-                aria-controls="panel-pdf"
-                aria-selected="false"
-                tabindex="-1"
-              >
-                PDF<small>.pdf</small>
-              </button>
-              <button
-                class="tabs-list__btn"
-                role="tab"
-                id="tab-md"
-                aria-controls="panel-md"
-                aria-selected="false"
-                tabindex="-1"
-              >
-                Markdown<small>.md .txt</small>
-              </button>
+          <div class="cards">
+            <article class="card reveal">
+              <div class="card__ico" style="background: var(--c-docs)" aria-hidden="true">W</div>
+              <h3 class="h3">文档</h3>
+              <p>
+                分页与多页视图、标尺与页面设置，页眉页脚、页码分节，样式库、脚注尾注、批注与文档比较。
+                公式、查找替换、字数统计、文档保护都在。
+              </p>
+              <p class="card__tags">.docx · .docm</p>
+            </article>
+
+            <article class="card reveal">
+              <div class="card__ico" style="background: var(--c-sheets)" aria-hidden="true">X</div>
+              <h3 class="h3">表格</h3>
+              <p>
+                公式与函数库带参数提示，条件格式、数据验证、排序筛选齐备；透视表、图表、分级显示与合并计算，
+                外加工作表保护与分页打印。
+              </p>
+              <p class="card__tags">.xlsx · .xlsm · .csv</p>
+            </article>
+
+            <article class="card reveal">
+              <div class="card__ico" style="background: var(--c-slides)" aria-hidden="true">S</div>
+              <h3 class="h3">演示</h3>
+              <p>
+                母版与版式、文本形状图片与图表编辑，动画与切换含 Morph；放映、演讲者视图与自定义放映，
+                备注批注与非破坏性裁剪。
+              </p>
+              <p class="card__tags">.pptx</p>
+            </article>
+
+            <article class="card reveal">
+              <div class="card__ico" style="background: var(--c-pdf)" aria-hidden="true">P</div>
+              <h3 class="h3">PDF</h3>
+              <p>
+                直接在页面上改文字与图片，批注标注、大纲导航、页面操作、表单设计与填写，
+                还有密文涂黑、签名与图章、密码保护。
+              </p>
+              <p class="card__tags">.pdf</p>
+            </article>
+
+            <article class="card reveal">
+              <div class="card__ico" style="background: var(--c-md)" aria-hidden="true">M</div>
+              <h3 class="h3">Markdown</h3>
+              <p>
+                所见即所得与源码双视图，表格、代码块、图片都能用；Mermaid 图表与 KaTeX 公式直接渲染，
+                导出 DOCX、PDF 或图片。
+              </p>
+              <p class="card__tags">.md · .txt</p>
+            </article>
+
+            <article class="card reveal">
+              <div class="card__ico" style="background: var(--c-conv)" aria-hidden="true">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M3 5.5h8.5M9 3l2.5 2.5L9 8M13 10.5H4.5M7 8L4.5 10.5 7 13" /></svg>
+              </div>
+              <h3 class="h3">格式转换</h3>
+              <p>
+                PDF 转成可编辑的 Word、Excel 或 PowerPoint，HTML 转成 DOCX ——
+                转换在本机完成，不上传文件，不消耗任何额度。
+              </p>
+              <p class="card__tags">pdf → docx · html → docx</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- -------------------------------------------------------- principles -->
+      <section class="section section--ruled" id="principles">
+        <div class="wrap">
+          <div class="editorial">
+            <div class="editorial__head reveal">
+              <h2 class="h2">你的文件，你做主。</h2>
+              <p class="lede">
+                打开、编辑、保存都在你自己的磁盘上。程序不会替你上传、同步或备份 ——
+                文件存哪儿、叫什么名字，始终由你决定。
+              </p>
+              <a class="editorial__link" href="#capabilities">看看联网边界在哪</a>
             </div>
 
-            <div>
-              <!-- Docs -->
-              <div
-                class="panel"
-                role="tabpanel"
-                id="panel-docs"
-                aria-labelledby="tab-docs"
-                tabindex="0"
-              >
-                <div class="panel__shot">
-                  <figure class="shot">
-                    <img
-                      class="shot__light"
-                      src="assets/screens/docs-light.webp"
-                      width="1599"
-                      height="960"
-                      alt="Docs 编辑器：分页视图中的《2026 年度运营报告》，包含大标题、正文段落与带表头的指标表格。"
-                      loading="lazy"
-                    />
-                    <img
-                      class="shot__dark"
-                      src="assets/screens/docs-dark.webp"
-                      width="1599"
-                      height="960"
-                      alt="暗色主题 —— Docs 编辑器：分页视图中的《2026 年度运营报告》，包含大标题、正文段落与带表头的指标表格。"
-                      loading="lazy"
-                    />
-                  </figure>
-                </div>
-                <div class="panel__meta">
-                  <div class="panel__head">
-                    <h3 class="panel__name">Docs</h3>
-                    <span class="panel__kernel">Tiptap 3 + docx-engine</span>
-                    <span class="chip chip--mono">.docx</span>
-                  </div>
-                  <ul class="panel__list">
-                    <li>分页与多页视图、标尺与页面设置</li>
-                    <li>页眉页脚、页码与分节</li>
-                    <li>样式库、脚注尾注、批注与文档比较</li>
-                    <li>公式与域、墨迹、查找替换、字数统计</li>
-                    <li>文档保护与加密文档</li>
-                    <li>打印与导出 PDF</li>
-                  </ul>
+            <div class="facts">
+              <div class="fact reveal">
+                <span class="fact__num">01</span>
+                <div>
+                  <h3 class="h3">断网也能用</h3>
+                  <p>
+                    编辑、保存、搜索、格式转换全部在本机跑。默认的出网行为只有一处：加载文档里引用的网络图片；
+                    幻灯片缺字体时的下载入口，也只在构建时注入字体 CDN 地址后才会打开。
+                  </p>
                 </div>
               </div>
 
-              <!-- Sheets -->
-              <div
-                class="panel"
-                role="tabpanel"
-                id="panel-sheets"
-                aria-labelledby="tab-sheets"
-                tabindex="0"
-                hidden
-              >
-                <div class="panel__shot">
-                  <figure class="shot">
-                    <img
-                      class="shot__light"
-                      src="assets/screens/sheets-light.webp"
-                      width="1599"
-                      height="960"
-                      alt="Sheets 编辑器：区域销售表，冻结表头、千分位数字与百分比列。"
-                      loading="lazy"
-                    />
-                    <img
-                      class="shot__dark"
-                      src="assets/screens/sheets-dark.webp"
-                      width="1599"
-                      height="960"
-                      alt="暗色主题 —— Sheets 编辑器：区域销售表，冻结表头、千分位数字与百分比列。"
-                      loading="lazy"
-                    />
-                  </figure>
-                </div>
-                <div class="panel__meta">
-                  <div class="panel__head">
-                    <h3 class="panel__name">Sheets</h3>
-                    <span class="panel__kernel">Univer 1.2 + Rust sidecar</span>
-                    <span class="chip chip--mono">.xlsx .xlsm .csv</span>
-                  </div>
-                  <ul class="panel__list">
-                    <li>公式与函数库，含参数提示</li>
-                    <li>条件格式、数据验证、排序与筛选</li>
-                    <li>透视表、图表、分级显示与合并计算</li>
-                    <li>合并与冻结、定位、单变量求解</li>
-                    <li>填充序列与选择性粘贴、名称管理器</li>
-                    <li>工作表保护与分页打印</li>
-                  </ul>
+              <div class="fact reveal">
+                <span class="fact__num">02</span>
+                <div>
+                  <h3 class="h3">保存不丢格式</h3>
+                  <p>
+                    走 OOXML 补丁回写，只重写被改动的那几个节点，其余字节保持原样。样式、批注、嵌入对象与宏
+                    都留着，存完用 MS Office 或 WPS 照常打开。
+                  </p>
                 </div>
               </div>
 
-              <!-- Slides -->
-              <div
-                class="panel"
-                role="tabpanel"
-                id="panel-slides"
-                aria-labelledby="tab-slides"
-                tabindex="0"
-                hidden
-              >
-                <div class="panel__shot">
-                  <figure class="shot">
-                    <img
-                      class="shot__light"
-                      src="assets/screens/slides-light.webp"
-                      width="1599"
-                      height="960"
-                      alt="Slides 编辑器：封面幻灯片与左侧缩略图栏，含正文与图表页。"
-                      loading="lazy"
-                    />
-                    <img
-                      class="shot__dark"
-                      src="assets/screens/slides-dark.webp"
-                      width="1599"
-                      height="960"
-                      alt="暗色主题 —— Slides 编辑器：封面幻灯片与左侧缩略图栏，含正文与图表页。"
-                      loading="lazy"
-                    />
-                  </figure>
-                </div>
-                <div class="panel__meta">
-                  <div class="panel__head">
-                    <h3 class="panel__name">Slides</h3>
-                    <span class="panel__kernel">Konva 10 + pptx-engine</span>
-                    <span class="chip chip--mono">.pptx</span>
-                  </div>
-                  <ul class="panel__list">
-                    <li>母版与版式</li>
-                    <li>文本、形状、图片与图表编辑</li>
-                    <li>动画与切换，含 Morph</li>
-                    <li>放映与演讲者视图、自定义放映</li>
-                    <li>备注与批注、非破坏性裁剪</li>
-                    <li>导出 SVG 与图片</li>
-                  </ul>
-                </div>
-              </div>
-
-              <!-- PDF -->
-              <div
-                class="panel"
-                role="tabpanel"
-                id="panel-pdf"
-                aria-labelledby="tab-pdf"
-                tabindex="0"
-                hidden
-              >
-                <div class="panel__shot">
-                  <figure class="shot">
-                    <img
-                      class="shot__light"
-                      src="assets/screens/pdf-light.webp"
-                      width="1599"
-                      height="960"
-                      alt="PDF 编辑器：季度评审报告的页面视图、缩略图导航与编辑工具栏。"
-                      loading="lazy"
-                    />
-                    <img
-                      class="shot__dark"
-                      src="assets/screens/pdf-dark.webp"
-                      width="1599"
-                      height="960"
-                      alt="暗色主题 —— PDF 编辑器：季度评审报告的页面视图、缩略图导航与编辑工具栏。"
-                      loading="lazy"
-                    />
-                  </figure>
-                </div>
-                <div class="panel__meta">
-                  <div class="panel__head">
-                    <h3 class="panel__name">PDF</h3>
-                    <span class="panel__kernel">pdf.js 6 + PDFium WASM</span>
-                    <span class="chip chip--mono">.pdf</span>
-                  </div>
-                  <ul class="panel__list">
-                    <li>文本与图像就地编辑</li>
-                    <li>批注标注、大纲导航、页面操作</li>
-                    <li>表单设计与填写</li>
-                    <li>密文涂黑（Redaction）</li>
-                    <li>签名与图章、密码保护</li>
-                    <li>本地转换为 Word / PPT / Excel</li>
-                  </ul>
-                </div>
-              </div>
-
-              <!-- Markdown -->
-              <div
-                class="panel"
-                role="tabpanel"
-                id="panel-md"
-                aria-labelledby="tab-md"
-                tabindex="0"
-                hidden
-              >
-                <div class="panel__shot">
-                  <figure class="shot">
-                    <img
-                      class="shot__light"
-                      src="assets/screens/markdown-light.webp"
-                      width="1599"
-                      height="960"
-                      alt="Markdown 编辑器：标题、表格与引用块的所见即所得视图。"
-                      loading="lazy"
-                    />
-                    <img
-                      class="shot__dark"
-                      src="assets/screens/markdown-dark.webp"
-                      width="1599"
-                      height="960"
-                      alt="暗色主题 —— Markdown 编辑器：标题、表格与引用块的所见即所得视图。"
-                      loading="lazy"
-                    />
-                  </figure>
-                </div>
-                <div class="panel__meta">
-                  <div class="panel__head">
-                    <h3 class="panel__name">Markdown</h3>
-                    <span class="panel__kernel">Tiptap + CodeMirror 6</span>
-                    <span class="chip chip--mono">.md .txt .json</span>
-                  </div>
-                  <ul class="panel__list">
-                    <li>所见即所得与源码双视图</li>
-                    <li>表格、代码块与图片</li>
-                    <li>Mermaid 图表、KaTeX 公式</li>
-                    <li>导出 DOCX / PDF / 图片</li>
-                    <li>打印</li>
-                    <li>本地图片存到文档旁的 assets</li>
-                  </ul>
+              <div class="fact reveal">
+                <span class="fact__num">03</span>
+                <div>
+                  <h3 class="h3">没有账号，没有广告</h3>
+                  <p>
+                    不用注册、不收集使用数据、不检查更新。界面里没有藏着的付费入口 ——
+                    主界面上就是你自己的文件列表。
+                  </p>
                 </div>
               </div>
             </div>
@@ -502,158 +441,197 @@
         </div>
       </section>
 
-      <!-- --------------------------------------------------------- capabilities -->
-      <section class="section" id="capabilities">
+      <!-- ------------------------------------------------------ capabilities -->
+      <section class="section section--ruled" id="capabilities">
         <div class="wrap">
           <div class="section__head reveal">
             <p class="eyebrow">通用能力</p>
-            <h2 class="h2">在编辑器之外，把难的部分做掉</h2>
+            <h2 class="h2">在编辑器之外，把难的部分做掉。</h2>
             <p class="lede">
-              保存不丢格式、崩溃不坏文件、搜索能命中中文 —— 这些不显眼的地方，才是日常真正依赖的部分。
+              保存不坏文件、崩溃不丢内容、搜索能命中中文 —— 这些不显眼的地方，才是每天真正依赖的部分。
             </p>
           </div>
 
-          <div class="caps reveal">
-            <article class="cap">
-              <div class="cap__icon">
-                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.6l5 1.9v4.1c0 3.1-2.1 5.2-5 6.8-2.9-1.6-5-3.7-5-6.8V3.5z" /><path d="M5.9 8l1.6 1.6 2.9-3" /></svg>
-              </div>
-              <h3>字节保真保存</h3>
-              <p>只重写被修改的 XML 节点，样式、批注、嵌入对象与宏原样保留，不会「打开一次就丢格式」。</p>
+          <div class="caps">
+            <article class="cap reveal">
+              <h3 class="h3">原子写入</h3>
+              <p>所有保存都走「临时文件 + rename」，崩溃或断电不会留下半个损坏的文件。</p>
             </article>
 
-            <article class="cap">
-              <div class="cap__icon">
-                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="2.5" width="10" height="11" rx="1.6" /><path d="M5.8 6.6h4.4M5.8 9.6h3" /></svg>
-              </div>
-              <h3>原子写入</h3>
-              <p>所有保存走「临时文件 + rename」，崩溃或断电不会留下半个损坏的文件。</p>
+            <article class="cap reveal">
+              <h3 class="h3">本地全文搜索</h3>
+              <p>
+                基于 <code>node:sqlite</code> 的 FTS5，覆盖文件名、路径与正文；
+                中文走 bigram + unigram 双路分词，两字词也能命中长串。
+              </p>
             </article>
 
-            <article class="cap">
-              <div class="cap__icon">
-                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="7" r="4.2" /><path d="M10.2 10.2L14 14" /></svg>
-              </div>
-              <h3>本地全文搜索</h3>
-              <p>基于 <code>node:sqlite</code> FTS5，覆盖文件名、路径与正文；中文走 bigram + unigram 双流分词，两字词也能命中长串。</p>
+            <article class="cap reveal">
+              <h3 class="h3">多标签宿主</h3>
+              <p>每个标签独立一个 <code>WebContentsView</code>，切换只做显示与隐藏，编辑器状态整份保留。</p>
             </article>
 
-            <article class="cap">
-              <div class="cap__icon">
-                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1.8" y="2.6" width="12.4" height="10.8" rx="1.6" /><path d="M4.4 6.2L6.6 8l-2.2 1.8M8.4 10.4h3.2" /></svg>
-              </div>
-              <h3>无界面导出</h3>
-              <p><code>--headless-export</code> 不弹窗口就能转 PDF，<code>--json</code> 输出一行结构化结果，方便脚本调用。</p>
+            <article class="cap reveal">
+              <h3 class="h3">无界面导出</h3>
+              <p>
+                <code>--headless-export</code> 不弹窗口就能转 PDF，<code>--json</code>
+                输出一行结构化结果，方便脚本与批处理调用。
+              </p>
             </article>
 
-            <article class="cap">
-              <div class="cap__icon">
-                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2.5" width="9" height="9" rx="1.4" /><path d="M5 13.5h7.5a1.5 1.5 0 0 0 1.5-1.5V5" /></svg>
-              </div>
-              <h3>多标签宿主</h3>
-              <p>每个标签独立 <code>WebContentsView</code>，切换只做显示与隐藏 —— 滚动位置、光标、撤销栈全都留着。</p>
+            <article class="cap reveal">
+              <h3 class="h3">中英双语</h3>
+              <p>界面文案集中在 <code>@yiioffice/i18n</code>，中英可切换，文案层与业务代码解耦。</p>
             </article>
 
-            <article class="cap">
-              <div class="cap__icon">
-                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6" /><path d="M2 8h12M8 2c1.8 1.8 2.6 3.9 2.6 6s-.8 4.2-2.6 6c-1.8-1.8-2.6-3.9-2.6-6S6.2 3.8 8 2z" /></svg>
-              </div>
-              <h3>中英双语</h3>
-              <p>界面文案集中在 <code>@yiioffice/i18n</code>，中英双语可切换，文案层与业务代码解耦。</p>
+            <article class="cap reveal">
+              <h3 class="h3">打印与导出</h3>
+              <p>五个编辑器都能直接打印；文档与 Markdown 可导出 PDF，演示可导出 SVG 与图片。</p>
             </article>
-          </div>
-
-          <div class="callout reveal">
-            <div class="callout__icon">
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6" /><path d="M8 7.3v4M8 5.1v.2" /></svg>
-            </div>
-            <p>
-              <strong>没有更新检查，也没有遥测。</strong>
-              默认联网行为只有一处：加载文档里引用的网络图片。幻灯片下载缺失字体的入口只在构建时注入了字体 CDN
-              地址后才打开，否则始终关闭。
-            </p>
           </div>
         </div>
       </section>
 
-      <!-- ---------------------------------------------------------------- stack -->
-      <section class="section" id="stack">
+      <!-- ------------------------------------------------------------- stack -->
+      <section class="section section--ruled" id="stack">
         <div class="wrap">
           <div class="section__head reveal">
             <p class="eyebrow">技术栈</p>
-            <h2 class="h2">选型都是可替换的公开件</h2>
+            <h2 class="h2">选型都是可替换的公开件。</h2>
           </div>
 
-          <div class="stackbar reveal">
-            <div class="stackbar__row">
-              <span class="stackbar__label">运行时</span>
-              <span class="chip chip--mono">Electron 45</span>
-              <span class="chip chip--mono">electron-vite 6</span>
-              <span class="chip chip--mono">Node 主进程</span>
-              <span class="chip chip--mono">WebContentsView</span>
-              <span class="chip chip--mono">node:sqlite FTS5</span>
+          <div class="stackcard reveal">
+            <div class="stackrow">
+              <span class="stackrow__label">运行时</span>
+              <div class="chips">
+                <span class="chip">Electron 45</span>
+                <span class="chip">electron-vite 6</span>
+                <span class="chip">Node 主进程</span>
+                <span class="chip">WebContentsView</span>
+                <span class="chip">node:sqlite FTS5</span>
+              </div>
             </div>
-            <div class="stackbar__row">
-              <span class="stackbar__label">前端</span>
-              <span class="chip chip--mono">React 19</span>
-              <span class="chip chip--mono">TypeScript 7</span>
-              <span class="chip chip--mono">Vite 8</span>
-              <span class="chip chip--mono">Tiptap 3</span>
-              <span class="chip chip--mono">Univer 1.2</span>
-              <span class="chip chip--mono">Konva 10</span>
-              <span class="chip chip--mono">pdf.js 6</span>
-              <span class="chip chip--mono">CodeMirror 6</span>
+            <div class="stackrow">
+              <span class="stackrow__label">前端</span>
+              <div class="chips">
+                <span class="chip">React 19</span>
+                <span class="chip">TypeScript 7</span>
+                <span class="chip">Vite 8</span>
+                <span class="chip">Tiptap 3</span>
+                <span class="chip">Univer 1.2</span>
+                <span class="chip">Konva 10</span>
+                <span class="chip">pdf.js 6</span>
+                <span class="chip">CodeMirror 6</span>
+              </div>
             </div>
-            <div class="stackbar__row">
-              <span class="stackbar__label">原生</span>
-              <span class="chip chip--mono">Rust sidecar</span>
-              <span class="chip chip--mono">calamine</span>
-              <span class="chip chip--mono">IronCalc</span>
-              <span class="chip chip--mono">PDFium WASM</span>
-              <span class="chip chip--mono">harfbuzzjs</span>
-              <span class="chip chip--mono">npm workspaces</span>
+            <div class="stackrow">
+              <span class="stackrow__label">原生</span>
+              <div class="chips">
+                <span class="chip">Rust sidecar</span>
+                <span class="chip">calamine</span>
+                <span class="chip">IronCalc</span>
+                <span class="chip">PDFium WASM</span>
+                <span class="chip">harfbuzzjs</span>
+                <span class="chip">npm workspaces</span>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- ---------------------------------------------------------------- start -->
-      <section class="section" id="start">
+      <!-- ------------------------------------------------------------- start -->
+      <section class="section section--ruled" id="start">
         <div class="wrap">
           <div class="section__head reveal">
             <p class="eyebrow">快速开始</p>
-            <h2 class="h2">从源码跑起来</h2>
-            <p class="lede">
-              需要 Node.js ≥ 22.12、npm ≥ 10；只有编译 Sheets 的 Rust sidecar 时才需要 <code>cargo</code>
-              在 PATH 中。
-            </p>
+            <h2 class="h2">开始使用 YiiOffice。</h2>
           </div>
 
-          <div class="start">
-            <dl class="reqs reveal">
-              <div class="req"><dt>Node.js</dt><dd>≥ 22.12</dd></div>
-              <div class="req"><dt>npm</dt><dd>≥ 10</dd></div>
-              <div class="req"><dt>Rust</dt><dd>stable（可选）</dd></div>
-              <div class="req"><dt>系统</dt><dd>Windows 10 / 11</dd></div>
-              <div class="reqs__note">
-                <code>npm install</code> 的 postinstall 会下载 Electron 二进制；国内网络可用镜像变量。
-              </div>
-            </dl>
+          <div class="startcard reveal">
+            <div class="startcard__head">
+              <span class="startcard__ver">v0.13.0 · Apache-2.0</span>
+              <a
+                class="showcase__exts"
+                href="https://github.com/ethanbourne789/YiiOffice/releases"
+                rel="noopener"
+                >全部版本说明</a
+              >
+            </div>
 
-            <div class="codecard reveal">
-              <div class="codecard__bar">
-                <div class="codecard__tabs" role="tablist" aria-label="命令">
-                  <button class="codecard__tab" role="tab" id="cmd-run" aria-controls="code-run" aria-selected="true" tabindex="0">运行</button>
-                  <button class="codecard__tab" role="tab" id="cmd-dist" aria-controls="code-dist" aria-selected="false" tabindex="-1">打包</button>
-                  <button class="codecard__tab" role="tab" id="cmd-check" aria-controls="code-check" aria-selected="false" tabindex="-1">校验</button>
+            <div class="platforms">
+              <div class="platform">
+                <h3>Windows</h3>
+                <p class="platform__req">Windows 10 / 11 · x64</p>
+                <div class="platform__links">
+                  <a
+                    class="platform__link"
+                    href="https://github.com/ethanbourne789/YiiOffice/releases/latest"
+                    rel="noopener"
+                  >
+                    下载安装包
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12L12 4M6 4h6v6" /></svg>
+                  </a>
+                  <a
+                    class="platform__link"
+                    href="https://gitee.com/ethanbourne789/yiioffice/releases"
+                    rel="noopener"
+                  >
+                    Gitee 镜像
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12L12 4M6 4h6v6" /></svg>
+                  </a>
                 </div>
-                <button class="copy-btn" type="button" data-copy="code-run">
-                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.4" /><path d="M10.5 5.5V3.9a1.4 1.4 0 0 0-1.4-1.4H3.9a1.4 1.4 0 0 0-1.4 1.4v5.2a1.4 1.4 0 0 0 1.4 1.4H5.5" /></svg>
-                  复制
-                </button>
               </div>
 
-              <pre id="code-run" role="tabpanel" aria-labelledby="cmd-run" tabindex="0"><span class="c"># 安装依赖（monorepo 一次装完）</span>
+              <div class="platform">
+                <h3>macOS</h3>
+                <p class="platform__req">macOS 11+ · Apple Silicon / Intel</p>
+                <div class="platform__links">
+                  <a class="platform__link" href="#code-dist">
+                    从源码打包
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v9M4.5 8.5L8 12l3.5-3.5" /></svg>
+                  </a>
+                  <span class="platform__link mono">npm run dist:mac</span>
+                </div>
+              </div>
+
+              <div class="platform">
+                <h3>Linux</h3>
+                <p class="platform__req">x86_64 · glibc 2.34+</p>
+                <div class="platform__links">
+                  <a class="platform__link" href="#code-dist">
+                    从源码打包
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v9M4.5 8.5L8 12l3.5-3.5" /></svg>
+                  </a>
+                  <span class="platform__link mono">npm run dist:linux</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="startcard__body">
+              <dl class="reqs">
+                <div class="req"><dt>Node.js</dt><dd>≥ 22.12</dd></div>
+                <div class="req"><dt>npm</dt><dd>≥ 10</dd></div>
+                <div class="req"><dt>Rust</dt><dd>stable（可选）</dd></div>
+                <div class="req"><dt>系统</dt><dd>Win / macOS / Linux</dd></div>
+                <div class="reqs__note">
+                  <code>npm install</code> 的 postinstall 会下载 Electron 二进制；国内网络可用镜像变量。
+                </div>
+              </dl>
+
+              <div class="codecard">
+                <div class="codecard__bar">
+                  <div class="codecard__tabs" role="tablist" aria-label="命令">
+                    <button class="codecard__tab" role="tab" id="cmd-run" aria-controls="code-run" aria-selected="true" tabindex="0">运行</button>
+                    <button class="codecard__tab" role="tab" id="cmd-dist" aria-controls="code-dist" aria-selected="false" tabindex="-1">打包</button>
+                    <button class="codecard__tab" role="tab" id="cmd-check" aria-controls="code-check" aria-selected="false" tabindex="-1">校验</button>
+                  </div>
+                  <button class="copy-btn" type="button" data-copy="code-run">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.4" /><path d="M10.5 5.5V3.9a1.4 1.4 0 0 0-1.4-1.4H3.9a1.4 1.4 0 0 0-1.4 1.4v5.2a1.4 1.4 0 0 0 1.4 1.4H5.5" /></svg>
+                    <span data-copy-label>复制</span>
+                  </button>
+                </div>
+
+                <pre id="code-run" role="tabpanel" aria-labelledby="cmd-run" tabindex="0"><span class="c"># 安装依赖（monorepo 一次装完）</span>
 npm install
 
 <span class="c"># 生成 .docx 测试夹具</span>
@@ -662,16 +640,17 @@ npm run fixtures
 <span class="c"># 五个渲染端 :5173–:5177 + Electron 主进程</span>
 npm run dev</pre>
 
-              <pre id="code-dist" role="tabpanel" aria-labelledby="cmd-dist" tabindex="0" hidden><span class="c"># 便携 zip</span>
+                <pre id="code-dist" role="tabpanel" aria-labelledby="cmd-dist" tabindex="0" hidden><span class="c"># 便携 zip</span>
 npm run dist:win
 
 <span class="c"># NSIS 安装器（默认装到 D:\YiiOffice，可改）</span>
 npm run dist:win:installer
 
-<span class="c"># 只想跑起来看看</span>
-npm run shell</pre>
+<span class="c"># macOS / Linux</span>
+npm run dist:mac
+npm run dist:linux</pre>
 
-              <pre id="code-check" role="tabpanel" aria-labelledby="cmd-check" tabindex="0" hidden><span class="c"># 一次跑完 19 个 workspace 的测试</span>
+                <pre id="code-check" role="tabpanel" aria-labelledby="cmd-check" tabindex="0" hidden><span class="c"># 一次跑完 19 个 workspace 的测试</span>
 npm test
 npm run typecheck
 npm run lint
@@ -680,60 +659,101 @@ npm run lint
 npm run check:theme-colors
 npm run check:english-comments</pre>
 
-              <div class="codecard__foot">
-                单独调试某个编辑器：<code>npm run dev:docs</code>、<code>dev:sheets</code> … 它会自己开窗口，不经过工作台。
+                <div class="codecard__foot">
+                  单独调试某个编辑器：<code>npm run dev:docs</code>、<code>dev:sheets</code> … 它会自己开窗口，不经过工作台。
+                </div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- ------------------------------------------------------------------ faq -->
-      <section class="section" id="faq">
+      <!-- --------------------------------------------------------------- faq -->
+      <section class="section section--ruled" id="faq">
         <div class="wrap">
-          <div class="section__head reveal">
-            <p class="eyebrow">常见问题</p>
-            <h2 class="h2">你可能先想问这些</h2>
-          </div>
+          <div class="editorial">
+            <div class="editorial__head reveal">
+              <p class="eyebrow">常见问题</p>
+              <h2 class="h2">你可能先想问这些。</h2>
+            </div>
 
-          <div class="faq reveal">
-            <details open>
-              <summary>需要联网或注册账号吗？</summary>
-              <div class="faq__body">
-                都不需要。没有账号体系，也不会上传文件；编辑、保存、搜索与格式转换都在本机完成。程序不会联网检查更新、不会统计使用数据。
-              </div>
-            </details>
-            <details>
-              <summary>保存后 MS Office / WPS 能正常打开吗？</summary>
-              <div class="faq__body">
-                能。保存走 OOXML 补丁回写，只改动被编辑的节点，其余字节保持不变，不会破坏 Office 能识别的结构。
-              </div>
-            </details>
-            <details>
-              <summary>支持哪些系统和安装包？</summary>
-              <div class="faq__body">
-                目前面向 Windows 10 / 11（x64、arm64）。<code>npm run dist:win</code> 出便携 zip，<code>npm run dist:win:installer</code>
-                出 NSIS 安装器，按用户安装、不弹 UAC，也保留整机安装选项。没有自动更新链路。
-              </div>
-            </details>
-            <details>
-              <summary>中文能搜到吗？</summary>
-              <div class="faq__body">
-                能。FTS5 的 <code>unicode61</code> 不切分连续中文，所以索引额外产出 bigram 与 unigram 两路 token，两字词和单字查询都能命中。
-              </div>
-            </details>
-            <details>
-              <summary><code>npm run dev</code> 起来了，编辑器标签却白屏？</summary>
-              <div class="faq__body">
-                先确认五个渲染端 dev server（:5173–:5177）都活着 —— 每个编辑器标签加载自己的 dev server，端口被占或渲染端崩掉就会白屏。
-              </div>
-            </details>
-            <details>
-              <summary>项目有 CI 吗？</summary>
-              <div class="faq__body">
-                仓库目前没有 CI 配置，lint、类型检查与测试都在本地执行。测试与类型检查仍有既有的历史失败，改动前建议先在对应 workspace 跑一遍确认基线。
-              </div>
-            </details>
+            <div class="faq reveal">
+              <details open>
+                <summary>需要联网或注册账号吗？</summary>
+                <div class="faq__body">
+                  都不需要。没有账号体系，也不会上传文件；编辑、保存、搜索与格式转换都在本机完成。
+                  程序不会联网检查更新，也不会统计使用数据。
+                </div>
+              </details>
+              <details>
+                <summary>保存后 MS Office / WPS 能正常打开吗？</summary>
+                <div class="faq__body">
+                  能。保存走 OOXML 补丁回写，只改动被编辑的节点，其余字节保持不变，
+                  不会破坏 Office 能识别的结构。
+                </div>
+              </details>
+              <details>
+                <summary>支持哪些系统？有安装包吗？</summary>
+                <div class="faq__body">
+                  Windows 10 / 11 有现成的 NSIS 安装包（v0.13.0）。macOS 与 Linux
+                  目前需要自行构建：<code>npm run dist:mac</code> 或 <code>npm run dist:linux</code>。
+                  项目没有自动更新链路，升级就是重新下载。
+                </div>
+              </details>
+              <details>
+                <summary>中文能搜到吗？</summary>
+                <div class="faq__body">
+                  能。FTS5 的 <code>unicode61</code> 不切分连续中文，所以索引额外产出 bigram 与
+                  unigram 两路 token，两字词和单字查询都能命中。
+                </div>
+              </details>
+              <details>
+                <summary><code>npm run dev</code> 起来了，编辑器标签却白屏？</summary>
+                <div class="faq__body">
+                  先确认五个渲染端 dev server（:5173–:5177）都活着 ——
+                  每个编辑器标签加载自己的 dev server，端口被占或渲染端崩掉就会白屏。
+                </div>
+              </details>
+              <details>
+                <summary>项目有 CI 吗？</summary>
+                <div class="faq__body">
+                  代码托管在两个地方：GitHub 为上游，Gitee 是国内镜像。仓库目前没有 CI 配置，
+                  lint、类型检查与测试都在本地跑，测试与类型检查仍有既有的历史失败，
+                  改动前建议先在对应 workspace 跑一遍确认基线。
+                </div>
+              </details>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- --------------------------------------------------------------- cta -->
+      <section class="section section--tight">
+        <div class="wrap">
+          <div class="cta reveal">
+            <div>
+              <h2 class="h2">开源，随时可以改。</h2>
+              <p>
+                代码、组件拆分与构建脚本都在仓库里，没有隐藏的付费模块。想加一个编辑器、换一套配色、
+                或者把某个格式的读写做得更准，都可以直接动手。
+              </p>
+            </div>
+            <div class="cta__actions">
+              <a
+                class="btn btn--primary"
+                href="https://github.com/ethanbourne789/YiiOffice"
+                rel="noopener"
+              >
+                <svg class="btn__icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z" /></svg>
+                在 GitHub 上查看
+              </a>
+              <a
+                class="btn btn--ghost"
+                href="https://github.com/ethanbourne789/YiiOffice/issues"
+                rel="noopener"
+                >问题反馈</a
+              >
+            </div>
           </div>
         </div>
       </section>
@@ -741,7 +761,7 @@ npm run check:english-comments</pre>
 
     <footer class="footer">
       <div class="wrap">
-        <div class="footer__top">
+        <div class="footer__grid">
           <div class="footer__brand">
             <a class="brand" href="index.html">
               <span class="brand__mark" aria-hidden="true">Y</span>
@@ -750,26 +770,27 @@ npm run check:english-comments</pre>
             <p>本地优先的开源 Office 套件。原生读写 Word、Excel、PPT、PDF 与 Markdown。</p>
           </div>
 
-          <div class="footer__cols">
-            <div class="footer__col">
-              <h4>产品</h4>
-              <a href="#principles">设计原则</a>
-              <a href="#editors">五大编辑器</a>
-              <a href="#capabilities">通用能力</a>
-              <a href="#start">快速开始</a>
-            </div>
-            <div class="footer__col">
-              <h4>项目</h4>
-              <a href="https://github.com/ethanbourne789/YiiOffice" rel="noopener">GitHub 仓库</a>
-              <a href="https://github.com/ethanbourne789/YiiOffice/releases/latest" rel="noopener">下载发布版</a>
-              <a href="https://github.com/ethanbourne789/YiiOffice/issues" rel="noopener">问题反馈</a>
-              <a href="https://github.com/ethanbourne789/YiiOffice/blob/main/LICENSE" rel="noopener">Apache-2.0 许可证</a>
-            </div>
-            <div class="footer__col">
-              <h4>语言</h4>
-              <a href="index.html" aria-current="true">简体中文</a>
-              <a href="en/index.html" hreflang="en" lang="en">English</a>
-            </div>
+          <div class="footer__col">
+            <h4>产品</h4>
+            <a href="#editors">编辑器</a>
+            <a href="#principles">设计原则</a>
+            <a href="#capabilities">通用能力</a>
+            <a href="#start">快速开始</a>
+          </div>
+
+          <div class="footer__col">
+            <h4>项目</h4>
+            <a href="https://github.com/ethanbourne789/YiiOffice" rel="noopener">GitHub 仓库</a>
+            <a href="https://gitee.com/ethanbourne789/yiioffice" rel="noopener">Gitee 镜像</a>
+            <a href="https://github.com/ethanbourne789/YiiOffice/releases/latest" rel="noopener">下载安装包</a>
+            <a href="https://github.com/ethanbourne789/YiiOffice/issues" rel="noopener">问题反馈</a>
+          </div>
+
+          <div class="footer__col">
+            <h4>语言</h4>
+            <a href="index.html" aria-current="true">简体中文</a>
+            <a href="en/index.html" hreflang="en" lang="en">English</a>
+            <a href="https://github.com/ethanbourne789/YiiOffice/blob/main/LICENSE" rel="noopener">Apache-2.0 许可证</a>
           </div>
         </div>
 
