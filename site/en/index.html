@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>YiiOffice — a local-first, open-source office suite</title>
+    <meta
+      name="description"
+      content="YiiOffice is a local-first open-source office suite. It reads and writes Word, Excel, PPT, PDF and Markdown natively — double-click to open, works the same offline, no login, no upload, no ads."
+    />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0d1013" media="(prefers-color-scheme: dark)" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="YiiOffice — a local-first, open-source office suite" />
+    <meta
+      property="og:description"
+      content="Word, Excel, PPT, PDF and Markdown, edited on your own machine. No login, no upload, no ads."
+    />
+    <meta property="og:locale" content="en_US" />
+    <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="../assets/css/site.css" />
+    <script>
+      (function () {
+        var el = document.documentElement;
+        el.className += " js";
+        var pref = "auto";
+        try {
+          pref = localStorage.getItem("yiioffice-site-theme") || "auto";
+        } catch (e) {}
+        var dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        el.setAttribute("data-theme", pref === "auto" ? (dark ? "dark" : "light") : pref);
+      })();
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="nav">
+      <div class="wrap nav__inner">
+        <a class="brand" href="../index.html">
+          <span class="brand__mark" aria-hidden="true">Y</span>
+          <span>YiiOffice</span>
+        </a>
+
+        <nav class="nav__links" aria-label="Main">
+          <a class="nav__link" href="#principles">Principles</a>
+          <a class="nav__link" href="#editors">Editors</a>
+          <a class="nav__link" href="#capabilities">Capabilities</a>
+          <a class="nav__link" href="#stack">Stack</a>
+          <a class="nav__link" href="#start">Quick start</a>
+          <a class="nav__link" href="#faq">FAQ</a>
+        </nav>
+
+        <div class="nav__actions">
+          <div class="lang" role="group" aria-label="Language">
+            <a class="lang__opt" href="../index.html" hreflang="zh-CN" lang="zh-CN">中</a>
+            <a class="lang__opt" href="index.html" aria-current="true" lang="en">EN</a>
+          </div>
+
+          <button
+            class="icon-btn theme-toggle"
+            id="theme-toggle"
+            type="button"
+            data-mode="system"
+            aria-label="Theme: system"
+            title="Switch theme (system / light / dark)"
+          >
+            <svg data-icon="system" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1.8" y="3" width="12.4" height="8" rx="1.4" /><path d="M5.6 13.4h4.8" /></svg>
+            <svg data-icon="light" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="3" /><path d="M8 1v1.6M8 13.4V15M1 8h1.6M13.4 8H15M3.1 3.1l1.1 1.1M11.8 11.8l1.1 1.1M12.9 3.1l-1.1 1.1M4.2 11.8l-1.1 1.1" /></svg>
+            <svg data-icon="dark" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.2 9.7A5.6 5.6 0 0 1 6.3 2.8a5.6 5.6 0 1 0 6.9 6.9z" /></svg>
+          </button>
+
+          <a
+            class="btn btn--ghost btn--sm"
+            href="https://github.com/ethanbourne789/YiiOffice"
+            rel="noopener"
+          >
+            <svg class="btn__icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z" /></svg>
+            Code
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- ---------------------------------------------------------------- hero -->
+      <section class="hero">
+        <div class="wrap hero__inner">
+          <a
+            class="hero__badge"
+            href="https://github.com/ethanbourne789/YiiOffice/releases/latest"
+            rel="noopener"
+          >
+            <b>v0.13.0</b>
+            Apache-2.0 · Windows 10/11
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h9M8.5 4.5L12.5 8l-4 3.5" /></svg>
+          </a>
+
+          <h1>A local-first, <span class="nowrap">open-source</span> <em>office suite</em></h1>
+
+          <p class="hero__sub">
+            Reads and writes Word, Excel, PPT, PDF and Markdown natively. Double-click to open,
+            works the same offline — no login, no upload, no ads.
+          </p>
+
+          <div class="hero__cta">
+            <a
+              class="btn btn--primary"
+              href="https://github.com/ethanbourne789/YiiOffice/releases/latest"
+              rel="noopener"
+            >
+              <svg class="btn__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v8M4.8 7.2L8 10.4l3.2-3.2M3 13.2h10" /></svg>
+              Download for Windows
+            </a>
+            <a class="btn btn--ghost" href="#start">Run it in five minutes</a>
+          </div>
+
+          <ul class="hero__meta">
+            <li>
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4l3.4 3.4L13 5" /></svg>
+              No accounts
+            </li>
+            <li>
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4l3.4 3.4L13 5" /></svg>
+              Files stay local
+            </li>
+            <li>
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4l3.4 3.4L13 5" /></svg>
+              No telemetry
+            </li>
+            <li>
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4l3.4 3.4L13 5" /></svg>
+              Works offline
+            </li>
+          </ul>
+
+          <div class="hero__stage">
+            <figure class="shot shot--hero">
+              <img
+                class="shot__light"
+                src="../assets/screens/home-light.webp"
+                width="1599"
+                height="792"
+                alt="The YiiOffice home screen: tab strip on top, library and folder tree on the left, recent files on the right, ready to create a Docs, Sheets, PPT or Markdown file."
+              />
+              <img
+                class="shot__dark"
+                src="../assets/screens/home-dark.webp"
+                width="1599"
+                height="792"
+                alt="The same YiiOffice home screen in the dark theme."
+              />
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------------------------------------------------------- principles -->
+      <section class="section" id="principles">
+        <div class="wrap">
+          <div class="section__head reveal">
+            <p class="eyebrow">Principles</p>
+            <h2 class="h2">Four rules decide every trade-off</h2>
+            <p class="lede">
+              Office software either locks your files in the cloud, makes you sign up, or fills the
+              sidebar with upsells. YiiOffice does the opposite: double-click and the file opens,
+              and nothing is missing when the network is.
+            </p>
+          </div>
+
+          <div class="grid-2">
+            <article class="card reveal" style="--d: 0ms">
+              <span class="card__num">01</span>
+              <h3 class="card__title">Local-first</h3>
+              <p class="card__body">
+                Opening, editing, saving and converting all happen on your machine. No accounts, no
+                mandatory sync, and no background update checks.
+              </p>
+            </article>
+            <article class="card reveal" style="--d: 60ms">
+              <span class="card__num">02</span>
+              <h3 class="card__title">Actually editable</h3>
+              <p class="card__body">
+                Not a viewer: all five editors open, edit and save the native format, and MS Office
+                or WPS opens the result as usual.
+              </p>
+            </article>
+            <article class="card reveal" style="--d: 120ms">
+              <span class="card__num">03</span>
+              <h3 class="card__title">Clean</h3>
+              <p class="card__body">
+                No login walls, no ads, no telemetry, no hidden paid tiers. The only default network
+                access is loading remote images a document references.
+              </p>
+            </article>
+            <article class="card reveal" style="--d: 180ms">
+              <span class="card__num">04</span>
+              <h3 class="card__title">Format-first</h3>
+              <p class="card__body">
+                Reads and writes <code>.docx</code> / <code>.xlsx</code> / <code>.pptx</code> /
+                <code>.pdf</code> directly — no private format, no import step.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ------------------------------------------------------------- editors -->
+      <section class="section" id="editors">
+        <div class="wrap">
+          <div class="section__head reveal">
+            <p class="eyebrow">Editors</p>
+            <h2 class="h2">Five editors, one shell</h2>
+            <p class="lede">
+              Every editor runs embedded as a tab or standalone for debugging. Switching tabs only
+              shows and hides a view — scroll position, caret and undo stack survive.
+            </p>
+          </div>
+
+          <div class="showcase">
+            <div class="tabs-list" role="tablist" aria-label="Editors" aria-orientation="vertical">
+              <button
+                class="tabs-list__btn"
+                role="tab"
+                id="tab-docs"
+                aria-controls="panel-docs"
+                aria-selected="true"
+                tabindex="0"
+              >
+                Docs<small>.docx</small>
+              </button>
+              <button
+                class="tabs-list__btn"
+                role="tab"
+                id="tab-sheets"
+                aria-controls="panel-sheets"
+                aria-selected="false"
+                tabindex="-1"
+              >
+                Sheets<small>.xlsx .csv</small>
+              </button>
+              <button
+                class="tabs-list__btn"
+                role="tab"
+                id="tab-slides"
+                aria-controls="panel-slides"
+                aria-selected="false"
+                tabindex="-1"
+              >
+                Slides<small>.pptx</small>
+              </button>
+              <button
+                class="tabs-list__btn"
+                role="tab"
+                id="tab-pdf"
+                aria-controls="panel-pdf"
+                aria-selected="false"
+                tabindex="-1"
+              >
+                PDF<small>.pdf</small>
+              </button>
+              <button
+                class="tabs-list__btn"
+                role="tab"
+                id="tab-md"
+                aria-controls="panel-md"
+                aria-selected="false"
+                tabindex="-1"
+              >
+                Markdown<small>.md .txt</small>
+              </button>
+            </div>
+
+            <div>
+              <!-- Docs -->
+              <div
+                class="panel"
+                role="tabpanel"
+                id="panel-docs"
+                aria-labelledby="tab-docs"
+                tabindex="0"
+              >
+                <div class="panel__shot">
+                  <figure class="shot">
+                    <img
+                      class="shot__light"
+                      src="../assets/screens/docs-light.webp"
+                      width="1599"
+                      height="960"
+                      alt="The Docs editor showing a paged annual report with a large title, body paragraphs and a styled metrics table."
+                      loading="lazy"
+                    />
+                    <img
+                      class="shot__dark"
+                      src="../assets/screens/docs-dark.webp"
+                      width="1599"
+                      height="960"
+                      alt="Dark theme — the Docs editor showing a paged annual report."
+                      loading="lazy"
+                    />
+                  </figure>
+                </div>
+                <div class="panel__meta">
+                  <div class="panel__head">
+                    <h3 class="panel__name">Docs</h3>
+                    <span class="panel__kernel">Tiptap 3 + docx-engine</span>
+                    <span class="chip chip--mono">.docx</span>
+                  </div>
+                  <ul class="panel__list">
+                    <li>Paged and multi-page views, ruler and page setup</li>
+                    <li>Headers, footers, page numbers and sections</li>
+                    <li>Style gallery, footnotes, comments, document compare</li>
+                    <li>Fields and formulas, ink, find and replace, word count</li>
+                    <li>Document protection and encrypted files</li>
+                    <li>Print and PDF export</li>
+                  </ul>
+                </div>
+              </div>
+
+              <!-- Sheets -->
+              <div
+                class="panel"
+                role="tabpanel"
+                id="panel-sheets"
+                aria-labelledby="tab-sheets"
+                tabindex="0"
+                hidden
+              >
+                <div class="panel__shot">
+                  <figure class="shot">
+                    <img
+                      class="shot__light"
+                      src="../assets/screens/sheets-light.webp"
+                      width="1599"
+                      height="960"
+                      alt="The Sheets editor showing a regional sales table with a frozen styled header, thousands separators and percentage columns."
+                      loading="lazy"
+                    />
+                    <img
+                      class="shot__dark"
+                      src="../assets/screens/sheets-dark.webp"
+                      width="1599"
+                      height="960"
+                      alt="Dark theme — the Sheets editor showing the same regional sales table."
+                      loading="lazy"
+                    />
+                  </figure>
+                </div>
+                <div class="panel__meta">
+                  <div class="panel__head">
+                    <h3 class="panel__name">Sheets</h3>
+                    <span class="panel__kernel">Univer 1.2 + Rust sidecar</span>
+                    <span class="chip chip--mono">.xlsx .xlsm .csv</span>
+                  </div>
+                  <ul class="panel__list">
+                    <li>Formula library with argument hints</li>
+                    <li>Conditional formatting, data validation, sort and filter</li>
+                    <li>Pivot tables, charts, grouping and consolidation</li>
+                    <li>Merge and freeze, go-to, single-variable solve</li>
+                    <li>Series fill, paste special, name manager</li>
+                    <li>Sheet protection and paged printing</li>
+                  </ul>
+                </div>
+              </div>
+
+              <!-- Slides -->
+              <div
+                class="panel"
+                role="tabpanel"
+                id="panel-slides"
+                aria-labelledby="tab-slides"
+                tabindex="0"
+                hidden
+              >
+                <div class="panel__shot">
+                  <figure class="shot">
+                    <img
+                      class="shot__light"
+                      src="../assets/screens/slides-light.webp"
+                      width="1599"
+                      height="960"
+                      alt="The Slides editor showing a cover slide on the canvas with the thumbnail rail on the left."
+                      loading="lazy"
+                    />
+                    <img
+                      class="shot__dark"
+                      src="../assets/screens/slides-dark.webp"
+                      width="1599"
+                      height="960"
+                      alt="Dark theme — the Slides editor showing the same cover slide."
+                      loading="lazy"
+                    />
+                  </figure>
+                </div>
+                <div class="panel__meta">
+                  <div class="panel__head">
+                    <h3 class="panel__name">Slides</h3>
+                    <span class="panel__kernel">Konva 10 + pptx-engine</span>
+                    <span class="chip chip--mono">.pptx</span>
+                  </div>
+                  <ul class="panel__list">
+                    <li>Masters and layouts</li>
+                    <li>Text, shapes, images and charts</li>
+                    <li>Animations and transitions, including Morph</li>
+                    <li>Slide show, presenter view, custom shows</li>
+                    <li>Notes, comments, non-destructive cropping</li>
+                    <li>SVG and image export</li>
+                  </ul>
+                </div>
+              </div>
+
+              <!-- PDF -->
+              <div
+                class="panel"
+                role="tabpanel"
+                id="panel-pdf"
+                aria-labelledby="tab-pdf"
+                tabindex="0"
+                hidden
+              >
+                <div class="panel__shot">
+                  <figure class="shot">
+                    <img
+                      class="shot__light"
+                      src="../assets/screens/pdf-light.webp"
+                      width="1599"
+                      height="960"
+                      alt="The PDF editor showing a quarterly review page, thumbnail navigation on the left and the editing toolbar."
+                      loading="lazy"
+                    />
+                    <img
+                      class="shot__dark"
+                      src="../assets/screens/pdf-dark.webp"
+                      width="1599"
+                      height="960"
+                      alt="Dark theme — the PDF editor showing the same quarterly review page."
+                      loading="lazy"
+                    />
+                  </figure>
+                </div>
+                <div class="panel__meta">
+                  <div class="panel__head">
+                    <h3 class="panel__name">PDF</h3>
+                    <span class="panel__kernel">pdf.js 6 + PDFium WASM</span>
+                    <span class="chip chip--mono">.pdf</span>
+                  </div>
+                  <ul class="panel__list">
+                    <li>In-place text and image editing</li>
+                    <li>Annotations, outline navigation, page operations</li>
+                    <li>Form design and filling</li>
+                    <li>True redaction</li>
+                    <li>Signatures, stamps, password protection</li>
+                    <li>Local conversion to Word / PPT / Excel</li>
+                  </ul>
+                </div>
+              </div>
+
+              <!-- Markdown -->
+              <div
+                class="panel"
+                role="tabpanel"
+                id="panel-md"
+                aria-labelledby="tab-md"
+                tabindex="0"
+                hidden
+              >
+                <div class="panel__shot">
+                  <figure class="shot">
+                    <img
+                      class="shot__light"
+                      src="../assets/screens/markdown-light.webp"
+                      width="1599"
+                      height="960"
+                      alt="The Markdown editor in its rendered view, showing a title, a table and a blockquote."
+                      loading="lazy"
+                    />
+                    <img
+                      class="shot__dark"
+                      src="../assets/screens/markdown-dark.webp"
+                      width="1599"
+                      height="960"
+                      alt="Dark theme — the Markdown editor in its rendered view."
+                      loading="lazy"
+                    />
+                  </figure>
+                </div>
+                <div class="panel__meta">
+                  <div class="panel__head">
+                    <h3 class="panel__name">Markdown</h3>
+                    <span class="panel__kernel">Tiptap + CodeMirror 6</span>
+                    <span class="chip chip--mono">.md .txt .json</span>
+                  </div>
+                  <ul class="panel__list">
+                    <li>WYSIWYG and source views</li>
+                    <li>Tables, code blocks, images</li>
+                    <li>Mermaid diagrams, KaTeX math</li>
+                    <li>Export to DOCX / PDF / image</li>
+                    <li>Printing</li>
+                    <li>Images saved next to the document</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- --------------------------------------------------------- capabilities -->
+      <section class="section" id="capabilities">
+        <div class="wrap">
+          <div class="section__head reveal">
+            <p class="eyebrow">Capabilities</p>
+            <h2 class="h2">The hard parts sit below the editors</h2>
+            <p class="lede">
+              Saves that keep formatting, crashes that never leave half a file, search that finds
+              Chinese words — the parts you only notice when they break.
+            </p>
+          </div>
+
+          <div class="caps reveal">
+            <article class="cap">
+              <div class="cap__icon">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.6l5 1.9v4.1c0 3.1-2.1 5.2-5 6.8-2.9-1.6-5-3.7-5-6.8V3.5z" /><path d="M5.9 8l1.6 1.6 2.9-3" /></svg>
+              </div>
+              <h3>Byte-faithful saves</h3>
+              <p>Only the XML nodes you edited are rewritten, so styles, comments, embedded objects and macros survive a round trip.</p>
+            </article>
+
+            <article class="cap">
+              <div class="cap__icon">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="2.5" width="10" height="11" rx="1.6" /><path d="M5.8 6.6h4.4M5.8 9.6h3" /></svg>
+              </div>
+              <h3>Atomic writes</h3>
+              <p>Every save goes through a temporary file and a rename, so a crash or a power cut cannot leave a half-written document.</p>
+            </article>
+
+            <article class="cap">
+              <div class="cap__icon">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="7" r="4.2" /><path d="M10.2 10.2L14 14" /></svg>
+              </div>
+              <h3>Local full-text search</h3>
+              <p>Built on <code>node:sqlite</code> FTS5 across names, paths and body text. CJK content gets bigram and unigram token streams, so two-character queries hit long strings.</p>
+            </article>
+
+            <article class="cap">
+              <div class="cap__icon">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1.8" y="2.6" width="12.4" height="10.8" rx="1.6" /><path d="M4.4 6.2L6.6 8l-2.2 1.8M8.4 10.4h3.2" /></svg>
+              </div>
+              <h3>Headless export</h3>
+              <p><code>--headless-export</code> converts to PDF without opening a window, and <code>--json</code> prints one structured line for scripts.</p>
+            </article>
+
+            <article class="cap">
+              <div class="cap__icon">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2.5" width="9" height="9" rx="1.4" /><path d="M5 13.5h7.5a1.5 1.5 0 0 0 1.5-1.5V5" /></svg>
+              </div>
+              <h3>Multi-tab host</h3>
+              <p>Each tab is its own <code>WebContentsView</code>; switching only shows and hides it, so scroll position, caret and undo stack stay where you left them.</p>
+            </article>
+
+            <article class="cap">
+              <div class="cap__icon">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6" /><path d="M2 8h12M8 2c1.8 1.8 2.6 3.9 2.6 6s-.8 4.2-2.6 6c-1.8-1.8-2.6-3.9-2.6-6S6.2 3.8 8 2z" /></svg>
+              </div>
+              <h3>Two languages</h3>
+              <p>All UI copy lives in <code>@yiioffice/i18n</code> as Chinese and English, kept apart from feature code.</p>
+            </article>
+          </div>
+
+          <div class="callout reveal">
+            <div class="callout__icon">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6" /><path d="M8 7.3v4M8 5.1v.2" /></svg>
+            </div>
+            <p>
+              <strong>No update checks and no telemetry.</strong>
+              The only default network access is loading remote images a document references. The
+              font download in Slides stays off unless a font CDN URL was baked in at build time.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------------------------------------------------------------- stack -->
+      <section class="section" id="stack">
+        <div class="wrap">
+          <div class="section__head reveal">
+            <p class="eyebrow">Stack</p>
+            <h2 class="h2">Everything is a replaceable open component</h2>
+          </div>
+
+          <div class="stackbar reveal">
+            <div class="stackbar__row">
+              <span class="stackbar__label">Runtime</span>
+              <span class="chip chip--mono">Electron 45</span>
+              <span class="chip chip--mono">electron-vite 6</span>
+              <span class="chip chip--mono">Node main process</span>
+              <span class="chip chip--mono">WebContentsView</span>
+              <span class="chip chip--mono">node:sqlite FTS5</span>
+            </div>
+            <div class="stackbar__row">
+              <span class="stackbar__label">Frontend</span>
+              <span class="chip chip--mono">React 19</span>
+              <span class="chip chip--mono">TypeScript 7</span>
+              <span class="chip chip--mono">Vite 8</span>
+              <span class="chip chip--mono">Tiptap 3</span>
+              <span class="chip chip--mono">Univer 1.2</span>
+              <span class="chip chip--mono">Konva 10</span>
+              <span class="chip chip--mono">pdf.js 6</span>
+              <span class="chip chip--mono">CodeMirror 6</span>
+            </div>
+            <div class="stackbar__row">
+              <span class="stackbar__label">Native</span>
+              <span class="chip chip--mono">Rust sidecar</span>
+              <span class="chip chip--mono">calamine</span>
+              <span class="chip chip--mono">IronCalc</span>
+              <span class="chip chip--mono">PDFium WASM</span>
+              <span class="chip chip--mono">harfbuzzjs</span>
+              <span class="chip chip--mono">npm workspaces</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------------------------------------------------------------- start -->
+      <section class="section" id="start">
+        <div class="wrap">
+          <div class="section__head reveal">
+            <p class="eyebrow">Quick start</p>
+            <h2 class="h2">Build it from source</h2>
+            <p class="lede">
+              You need Node.js 22.12 or newer and npm 10 or newer. <code>cargo</code> is only
+              required to compile the Rust sidecar behind Sheets.
+            </p>
+          </div>
+
+          <div class="start">
+            <dl class="reqs reveal">
+              <div class="req"><dt>Node.js</dt><dd>≥ 22.12</dd></div>
+              <div class="req"><dt>npm</dt><dd>≥ 10</dd></div>
+              <div class="req"><dt>Rust</dt><dd>stable (optional)</dd></div>
+              <div class="req"><dt>OS</dt><dd>Windows 10 / 11</dd></div>
+              <div class="reqs__note">
+                <code>npm install</code> downloads the Electron binary in its postinstall step; a
+                mirror variable works if that is slow.
+              </div>
+            </dl>
+
+            <div class="codecard reveal">
+              <div class="codecard__bar">
+                <div class="codecard__tabs" role="tablist" aria-label="Commands">
+                  <button class="codecard__tab" role="tab" id="cmd-run" aria-controls="code-run" aria-selected="true" tabindex="0">Run</button>
+                  <button class="codecard__tab" role="tab" id="cmd-dist" aria-controls="code-dist" aria-selected="false" tabindex="-1">Package</button>
+                  <button class="codecard__tab" role="tab" id="cmd-check" aria-controls="code-check" aria-selected="false" tabindex="-1">Verify</button>
+                </div>
+                <button class="copy-btn" type="button" data-copy="code-run">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.4" /><path d="M10.5 5.5V3.9a1.4 1.4 0 0 0-1.4-1.4H3.9a1.4 1.4 0 0 0-1.4 1.4v5.2a1.4 1.4 0 0 0 1.4 1.4H5.5" /></svg>
+                  Copy
+                </button>
+              </div>
+
+              <pre id="code-run" role="tabpanel" aria-labelledby="cmd-run" tabindex="0"><span class="c"># install every workspace at once</span>
+npm install
+
+<span class="c"># generate the .docx test fixtures</span>
+npm run fixtures
+
+<span class="c"># five renderer dev servers :5173-:5177 plus the Electron main process</span>
+npm run dev</pre>
+
+              <pre id="code-dist" role="tabpanel" aria-labelledby="cmd-dist" tabindex="0" hidden><span class="c"># portable zip</span>
+npm run dist:win
+
+<span class="c"># NSIS installer (installs to D:\YiiOffice by default)</span>
+npm run dist:win:installer
+
+<span class="c"># just build and launch</span>
+npm run shell</pre>
+
+              <pre id="code-check" role="tabpanel" aria-labelledby="cmd-check" tabindex="0" hidden><span class="c"># all 19 workspace test projects</span>
+npm test
+npm run typecheck
+npm run lint
+
+<span class="c"># colors must come from theme variables; comments must be English</span>
+npm run check:theme-colors
+npm run check:english-comments</pre>
+
+              <div class="codecard__foot">
+                Debug one editor on its own with <code>npm run dev:docs</code>, <code>dev:sheets</code>
+                and friends — it opens its own window and skips the shell.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ------------------------------------------------------------------ faq -->
+      <section class="section" id="faq">
+        <div class="wrap">
+          <div class="section__head reveal">
+            <p class="eyebrow">FAQ</p>
+            <h2 class="h2">The questions people ask first</h2>
+          </div>
+
+          <div class="faq reveal">
+            <details open>
+              <summary>Does it need a network connection or an account?</summary>
+              <div class="faq__body">
+                Neither. There is no account system and nothing is uploaded; editing, saving, search
+                and format conversion all run locally. The app never checks for updates and never
+                reports usage.
+              </div>
+            </details>
+            <details>
+              <summary>Will MS Office or WPS open a file after YiiOffice saves it?</summary>
+              <div class="faq__body">
+                Yes. Saving rewrites the OOXML package as a patch: only edited nodes change and every
+                other byte is copied through, so the structures Office understands stay intact.
+              </div>
+            </details>
+            <details>
+              <summary>Which platforms and installers exist?</summary>
+              <div class="faq__body">
+                Windows 10 and 11 (x64 and arm64). <code>npm run dist:win</code> produces a portable
+                zip, <code>npm run dist:win:installer</code> an NSIS installer that installs per user
+                without a UAC prompt and keeps a machine-wide option. There is no auto-update
+                channel.
+              </div>
+            </details>
+            <details>
+              <summary>Does search find Chinese text?</summary>
+              <div class="faq__body">
+                Yes. FTS5's <code>unicode61</code> tokenizer does not split runs of Chinese, so the
+                index also stores bigram and unigram streams; two-character and single-character
+                queries both hit.
+              </div>
+            </details>
+            <details>
+              <summary><code>npm run dev</code> runs, but the editor tab is blank?</summary>
+              <div class="faq__body">
+                Check that all five renderer dev servers (:5173-:5177) are alive. Each editor tab
+                loads its own server, so a taken port or a crashed renderer shows up as a white tab.
+              </div>
+            </details>
+            <details>
+              <summary>Is there CI?</summary>
+              <div class="faq__body">
+                Not yet. Lint, typecheck and tests all run locally. There are known historical
+                failures in the suite, so run the affected workspace before you change it.
+              </div>
+            </details>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="wrap">
+        <div class="footer__top">
+          <div class="footer__brand">
+            <a class="brand" href="../index.html">
+              <span class="brand__mark" aria-hidden="true">Y</span>
+              <span>YiiOffice</span>
+            </a>
+            <p>A local-first, open-source office suite for Word, Excel, PPT, PDF and Markdown files.</p>
+          </div>
+
+          <div class="footer__cols">
+            <div class="footer__col">
+              <h4>Product</h4>
+              <a href="#principles">Principles</a>
+              <a href="#editors">Editors</a>
+              <a href="#capabilities">Capabilities</a>
+              <a href="#start">Quick start</a>
+            </div>
+            <div class="footer__col">
+              <h4>Project</h4>
+              <a href="https://github.com/ethanbourne789/YiiOffice" rel="noopener">GitHub repository</a>
+              <a href="https://github.com/ethanbourne789/YiiOffice/releases/latest" rel="noopener">Releases</a>
+              <a href="https://github.com/ethanbourne789/YiiOffice/issues" rel="noopener">Issues</a>
+              <a href="https://github.com/ethanbourne789/YiiOffice/blob/main/LICENSE" rel="noopener">Apache-2.0 license</a>
+            </div>
+            <div class="footer__col">
+              <h4>Language</h4>
+              <a href="../index.html" hreflang="zh-CN" lang="zh-CN">简体中文</a>
+              <a href="index.html" aria-current="true">English</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer__bottom">
+          <p class="footer__fine">
+            © 2026 YiiOffice · Released under Apache-2.0. The YiiOffice name and marks are trademarks
+            of their owner; Apache-2.0 grants no trademark rights. Not affiliated with Microsoft or
+            Kingsoft.
+          </p>
+          <p class="footer__fine">This page loads no third-party fonts, analytics or CDN assets.</p>
+        </div>
+      </div>
+    </footer>
+
+    <script src="../assets/js/site.js" defer></script>
+  </body>
+</html>

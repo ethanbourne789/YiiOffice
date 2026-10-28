@@ -11,7 +11,7 @@
 ![No Ads](https://img.shields.io/badge/no%20ads-%E2%9C%93-brightgreen)
 ![Local First](https://img.shields.io/badge/local--first-%E2%9C%93-brightgreen)
 
-<p align="center"><b>简体中文</b> · <a href="README.en.md">English</a></p>
+<p align="center"><b>简体中文</b> · <a href="README.en.md">English</a> · <a href="https://ethanbourne789.github.io/YiiOffice/">官网</a></p>
 
 ***
 
@@ -230,4 +230,4 @@ YiiOffice 建立在这些开源项目之上：[Electron](https://www.electronjs.
 
 [Apache License 2.0](LICENSE)。YiiOffice 名称与标识为其权利人的商标，Apache-2.0 不授予商标使用权（见许可证第 6 节）；衍生项目请使用自己的品牌。
 
-<p align="center"><b>简体中文</b> · <a href="README.en.md">English</a></p>
+<p align="center"><b>简体中文</b> · <a href="README.en.md">English</a> · <a href="https://ethanbourne789.github.io/YiiOffice/">官网</a></p>
