@@ -326,8 +326,11 @@ function pickFromList(accessor: IAccessor, runtime: UniverRuntime): boolean {
         onChange: async ([picked]) => {
           const entry = picked === undefined ? undefined : byDisplay.get(picked)
           if (!entry) return true
-          const range = runtime.univerAPI
-            .getUniverSheet(unitId)
+          // Univer 1.x dropped the facade's per-unit getUniverSheet(unitId);
+          // only the active workbook is exposed, so guard on the unit id the
+          // cell actually came from.
+          const activeWorkbook = runtime.univerAPI.getActiveWorkbook()
+          const range = (activeWorkbook?.getId() === unitId ? activeWorkbook : null)
             ?.getSheetBySheetId(subUnitId)
             ?.getRange(row, col)
           if (!range) return true

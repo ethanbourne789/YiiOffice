@@ -67,7 +67,8 @@ const formulas: [sheetId: string, cell: string, formula: string, expected: unkno
   ['s1', 'E5', '=SUM(Sales[[#Data],[Item]:[Amount]])', 6],
   ['s1', 'D2', '=Sales[[#This Row],[Amount]]*2', 2],
   ['s2', 'E1', '=SUM(Sales[Amount])+SUM(Costs[Amount])', 36],
-  ['s1', 'E6', '=SUM(Nope[Amount])', '#NAME?'],
+  // An unknown table is a broken reference, the way Excel reports it.
+  ['s1', 'E6', '=SUM(Nope[Amount])', '#REF!'],
 ]
 
 describe('structured references resolve against file table displayNames', () => {

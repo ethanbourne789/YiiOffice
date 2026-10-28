@@ -32,7 +32,7 @@ function makeHarness() {
     univerRef: {
       current: {
         univerAPI,
-        univer: { __getInjector: () => ({ get: () => ({ getRenderById: () => render }) }) },
+        univer: { __getInjector: () => ({ get: () => ({ getRenderUnitById: () => render }) }) },
       },
     },
     setMessage: () => {},

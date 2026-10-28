@@ -78,13 +78,17 @@ describe('requestFullRecalcAfterStream', () => {
     })
     noteFormulaStreamChunk()
     await settle()
+    // Read the dependent through the interceptor chain the UI uses, so the
+    // assertion covers the value the grid shows.
     const workbook = injector.get(IUniverInstanceService).getUnit('wb1') as unknown as {
-      getSheetBySheetId(id: string): { getCellRaw(row: number, column: number): { v?: unknown } }
+      getSheetBySheetId(id: string): {
+        getCell(row: number, column: number): { v?: unknown } | null
+      }
     }
     const dash = workbook.getSheetBySheetId('dash')
     // Config is still empty: the lookup and the SUMIFS keyed on it are 0.
-    expect(dash.getCellRaw(0, 0)?.v).toBe(0)
-    expect(dash.getCellRaw(0, 1)?.v).toBe(0)
+    expect(dash.getCell(0, 0)?.v).toBe(0)
+    expect(dash.getCell(0, 1)?.v).toBe(0)
 
     // The precedent changes under the engine's feet (onlyLocal mutations
     // bypass dirty tracking, standing in for a cycle interrupted mid-way).
@@ -98,14 +102,14 @@ describe('requestFullRecalcAfterStream', () => {
       { onlyLocal: true },
     )
     await settle()
-    expect(dash.getCellRaw(0, 1)?.v).toBe(0)
+    expect(dash.getCell(0, 1)?.v).toBe(0)
 
     noteFormulaStreamChunk()
     requestFullRecalcAfterStream()
     await settle()
     expect(forcedStarts.at(-1)).toBe(true)
-    expect(dash.getCellRaw(0, 0)?.v).toBe('park')
-    expect(dash.getCellRaw(0, 1)?.v).toBe(10)
+    expect(dash.getCell(0, 0)?.v).toBe('park')
+    expect(dash.getCell(0, 1)?.v).toBe(10)
     univer.dispose()
   }, 20_000)
 })

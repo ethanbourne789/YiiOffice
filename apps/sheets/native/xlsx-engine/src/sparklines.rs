@@ -56,18 +56,18 @@ pub(crate) fn parse_sparkline_groups<R: std::io::BufRead>(
     let mut host_cell = String::new();
     loop {
         match reader.read_event_into(&mut buffer)? {
-            Event::Start(element) if element.local_name().as_ref() == b"ext" => {
+            Event::Start(element) if element.local_name().as_ref() == "ext" => {
                 in_ext = attribute_value(reader, &element, b"uri")?
                     .is_some_and(|uri| uri.eq_ignore_ascii_case(SPARKLINE_EXT_URI));
             }
-            Event::End(element) if element.local_name().as_ref() == b"ext" => {
+            Event::End(element) if element.local_name().as_ref() == "ext" => {
                 in_ext = false;
                 group = None;
                 in_sparkline = false;
                 target = Target::None;
             }
             Event::Start(element) | Event::Empty(element)
-                if in_ext && element.local_name().as_ref() == b"sparklineGroup" =>
+                if in_ext && element.local_name().as_ref() == "sparklineGroup" =>
             {
                 group = Some(SparklineGroupInfo {
                     kind: sparkline_type(attribute_value(reader, &element, b"type")?.as_deref())
@@ -78,7 +78,7 @@ pub(crate) fn parse_sparkline_groups<R: std::io::BufRead>(
                 });
             }
             Event::Start(element) | Event::Empty(element)
-                if in_ext && element.local_name().as_ref() == b"colorSeries" =>
+                if in_ext && element.local_name().as_ref() == "colorSeries" =>
             {
                 if let Some(group) = &mut group {
                     group.color = attribute_value(reader, &element, b"rgb")?
@@ -87,7 +87,7 @@ pub(crate) fn parse_sparkline_groups<R: std::io::BufRead>(
                 }
             }
             Event::Start(element) | Event::Empty(element)
-                if in_ext && element.local_name().as_ref() == b"colorNegative" =>
+                if in_ext && element.local_name().as_ref() == "colorNegative" =>
             {
                 if let Some(group) = &mut group {
                     group.negative_color = attribute_value(reader, &element, b"rgb")?
@@ -95,15 +95,15 @@ pub(crate) fn parse_sparkline_groups<R: std::io::BufRead>(
                         .and_then(argb_to_hex);
                 }
             }
-            Event::Start(element) if in_ext && element.local_name().as_ref() == b"sparkline" => {
+            Event::Start(element) if in_ext && element.local_name().as_ref() == "sparkline" => {
                 in_sparkline = true;
                 source_ref.clear();
                 host_cell.clear();
             }
-            Event::Start(element) if in_sparkline && element.local_name().as_ref() == b"f" => {
+            Event::Start(element) if in_sparkline && element.local_name().as_ref() == "f" => {
                 target = Target::Formula;
             }
-            Event::Start(element) if in_sparkline && element.local_name().as_ref() == b"sqref" => {
+            Event::Start(element) if in_sparkline && element.local_name().as_ref() == "sqref" => {
                 target = Target::Sqref;
             }
             Event::Text(text) if in_sparkline => {
@@ -132,13 +132,13 @@ pub(crate) fn parse_sparkline_groups<R: std::io::BufRead>(
             }
             Event::End(element)
                 if in_sparkline
-                    && (element.local_name().as_ref() == b"f"
-                        || element.local_name().as_ref() == b"sqref") =>
+                    && (element.local_name().as_ref() == "f"
+                        || element.local_name().as_ref() == "sqref") =>
             {
                 target = Target::None;
             }
             Event::End(element)
-                if in_sparkline && element.local_name().as_ref() == b"sparkline" =>
+                if in_sparkline && element.local_name().as_ref() == "sparkline" =>
             {
                 in_sparkline = false;
                 target = Target::None;
@@ -156,7 +156,7 @@ pub(crate) fn parse_sparkline_groups<R: std::io::BufRead>(
                     }
                 }
             }
-            Event::End(element) if in_ext && element.local_name().as_ref() == b"sparklineGroup" => {
+            Event::End(element) if in_ext && element.local_name().as_ref() == "sparklineGroup" => {
                 if let Some(group) = group.take() {
                     if !group.cells.is_empty() && groups.len() < MAX_SPARKLINE_GROUPS {
                         groups.push(group);

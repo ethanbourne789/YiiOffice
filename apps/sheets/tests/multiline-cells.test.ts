@@ -28,8 +28,12 @@ describe('toRichTextDocument with line breaks', () => {
   it('converts \\n to Univer paragraph breaks with per-paragraph markers', () => {
     const p = toRichTextDocument('Line1\nLine2\nLine3')
     expect(p?.body?.dataStream).toBe('Line1\rLine2\rLine3\r\n')
-    expect(p?.body?.paragraphs).toEqual([{ startIndex: 5 }, { startIndex: 11 }, { startIndex: 17 }])
-    expect(p?.body?.sectionBreaks).toEqual([{ startIndex: 18 }])
+    expect(p?.body?.paragraphs).toEqual([
+      { startIndex: 5, paragraphId: 'p5' },
+      { startIndex: 11, paragraphId: 'p11' },
+      { startIndex: 17, paragraphId: 'p17' },
+    ])
+    expect(p?.body?.sectionBreaks).toEqual([{ startIndex: 18, sectionId: 's0' }])
     expect(p?.body?.textRuns).toEqual([])
   })
 
@@ -113,7 +117,11 @@ describe('toRichTextDocument cell-font inheritance', () => {
     ]
     const p = toRichTextDocument('A\r\nB\r\nC', runs)
     expect(p?.body?.dataStream).toBe('A\rB\rC\r\n')
-    expect(p?.body?.paragraphs).toEqual([{ startIndex: 1 }, { startIndex: 3 }, { startIndex: 5 }])
+    expect(p?.body?.paragraphs).toEqual([
+      { startIndex: 1, paragraphId: 'p1' },
+      { startIndex: 3, paragraphId: 'p3' },
+      { startIndex: 5, paragraphId: 'p5' },
+    ])
     expect(p?.body?.textRuns?.[1]).toMatchObject({ st: 4, ed: 5 })
     expect(p?.body?.dataStream?.slice(4, 5)).toBe('C')
   })

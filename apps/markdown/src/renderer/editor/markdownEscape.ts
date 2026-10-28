@@ -2,6 +2,7 @@ import { Markdown } from '@tiptap/markdown'
 import { ImageParagraph } from './localImage'
 import { Paragraph } from '@tiptap/extension-paragraph'
 import { patchInlineParsing } from './inlineTokens'
+import { stockRenderMarkdown } from './markdown-stock'
 import { containsMathSyntax } from './mathSyntax'
 
 /**
@@ -76,7 +77,7 @@ export function escapeBlockStarts(text: string): string {
 
 export const BlockStartEscapedParagraph = ImageParagraph.extend({
   renderMarkdown: (node, h, ctx) => {
-    const text = Paragraph.config.renderMarkdown!(node, h, ctx)
+    const text = stockRenderMarkdown(Paragraph, node, h, ctx)
     // table cells render their paragraph with the table as parent; `|` is escaped there
     return ctx?.parentType === 'table' ? text : escapeBlockStarts(text)
   },

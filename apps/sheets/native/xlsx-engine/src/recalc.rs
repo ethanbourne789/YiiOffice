@@ -289,17 +289,18 @@ fn run(
                     continue;
                 }
                 // Known engine gaps where the file's cached value beats the
-                // error: CELL("filename") is unimplemented (#175) and RATE's
+                // computed one. CELL("filename") is unimplemented (#175): 0.7
+                // answered `#NAME?`, 0.9 answers the bare sheet name, and
+                // Excel writes the full path — both are wrong, so the cached
+                // value wins whether or not the answer starts with `#`. RATE's
                 // Newton solver dies near -100% where Excel converges (#185).
-                if formatted.starts_with('#') {
-                    if let Some(text) = &formula {
-                        let upper = text.to_uppercase();
-                        if upper.contains("CELL(") && upper.contains("\"FILENAME\"") {
-                            continue;
-                        }
-                        if formatted == "#NUM!" && upper.contains("RATE(") {
-                            continue;
-                        }
+                if let Some(text) = &formula {
+                    let upper = text.to_uppercase();
+                    if upper.contains("CELL(") && upper.contains("\"FILENAME\"") {
+                        continue;
+                    }
+                    if formatted == "#NUM!" && upper.contains("RATE(") {
+                        continue;
                     }
                 }
                 let number = raw_number(&entry.model, sheet, row_1, column_1);
@@ -335,8 +336,10 @@ fn run(
 /// failed to parse and only when the quoted form parses cleanly.
 fn requote_bare_sheet_names(model: &mut Model) {
     use ironcalc::base::expressions::lexer::LexerMode;
+    use ironcalc::base::expressions::parser::static_analysis::StaticResult;
     use ironcalc::base::expressions::parser::{Node, new_parser_english};
     use ironcalc::base::expressions::types::CellReferenceRC;
+    use std::sync::Arc;
 
     let names: Vec<String> = model
         .workbook
@@ -363,7 +366,14 @@ fn requote_bare_sheet_names(model: &mut Model) {
             column: 1,
         };
         for (index, formula) in worksheet.shared_formulas.iter_mut().enumerate() {
-            if !matches!(parsed.get(index), Some(Node::ParseErrorKind { .. })) {
+            // 0.9 stores `(node, StaticResult)` per formula. The static-analysis
+            // pass that produces the second half is `pub(crate)` upstream, so a
+            // re-parsed formula keeps the pre-0.9 non-dynamic semantics.
+            let is_parse_error = matches!(
+                parsed.get(index),
+                Some((node, _)) if matches!(**node, Node::ParseErrorKind { .. })
+            );
+            if !is_parse_error {
                 continue;
             }
             let Some(quoted) = quote_bare_sheet_names(formula, &names) else {
@@ -373,7 +383,7 @@ fn requote_bare_sheet_names(model: &mut Model) {
             if matches!(node, Node::ParseErrorKind { .. }) {
                 continue;
             }
-            parsed[index] = node;
+            parsed[index] = (Arc::new(node), StaticResult::Scalar);
             *formula = quoted;
         }
     }
@@ -459,7 +469,7 @@ enum PinnedValue {
 /// which the renderer already declines to display.
 fn pin_unparsable_formulas(model: &mut Model) {
     use ironcalc::base::expressions::parser::Node;
-    use ironcalc::base::types::Cell;
+    use ironcalc::base::types::{Cell, FormulaValue};
     let names: Vec<String> = model
         .workbook
         .worksheets
@@ -471,30 +481,35 @@ fn pin_unparsable_formulas(model: &mut Model) {
         let Some(parsed) = model.parsed_formulas.get(sheet) else {
             continue;
         };
-        for (row, columns) in &worksheet.sheet_data {
-            for (column, cell) in columns {
-                let (formula, value) = match cell {
-                    Cell::CellFormulaNumber { f, v, .. } => (*f, PinnedValue::Number(*v)),
-                    Cell::CellFormulaString { f, v, .. } => (*f, PinnedValue::Text(v.clone())),
-                    Cell::CellFormulaBoolean { f, v, .. } => (*f, PinnedValue::Bool(*v)),
+        for (row, column, cell) in worksheet.sheet_data.cells() {
+            let (formula, value) = match cell.as_ref() {
+                Cell::CellFormula { f, v, .. } => match v {
+                    FormulaValue::Number(number) => (*f, PinnedValue::Number(*number)),
+                    FormulaValue::Text(text) => (*f, PinnedValue::Text(text.clone())),
+                    FormulaValue::Boolean(flag) => (*f, PinnedValue::Bool(*flag)),
                     _ => continue,
-                };
-                if !matches!(
-                    parsed.get(formula as usize),
-                    Some(Node::ParseErrorKind { .. })
-                ) {
-                    continue;
-                }
-                let text = worksheet
-                    .shared_formulas
-                    .get(formula as usize)
-                    .map(String::as_str)
-                    .unwrap_or_default();
-                if references_a_sheet_of_this_workbook(text, &names) {
-                    continue;
-                }
-                pins.push((sheet as u32, *row, *column, value));
+                },
+                _ => continue,
+            };
+            let text = worksheet
+                .shared_formulas
+                .get(formula as usize)
+                .map(String::as_str)
+                .unwrap_or_default();
+            // 0.9 parses external-workbook references instead of failing them,
+            // then evaluates to #REF!; those cells keep their cached value the
+            // same way the formulas it cannot parse at all do.
+            let unparsable = matches!(
+                parsed.get(formula as usize),
+                Some((node, _)) if matches!(**node, Node::ParseErrorKind { .. })
+            ) || references_an_external_workbook(text);
+            if !unparsable {
+                continue;
             }
+            if references_a_sheet_of_this_workbook(text, &names) {
+                continue;
+            }
+            pins.push((sheet as u32, row, column, value));
         }
     }
     for (sheet, row, column, value) in pins {
@@ -508,6 +523,32 @@ fn pin_unparsable_formulas(model: &mut Model) {
             PinnedValue::Bool(flag) => model.update_cell_with_bool(sheet, row, column, flag),
         };
     }
+}
+
+/// True when the formula points at another workbook (`[1]Sheet1!A1`,
+/// `'[Book.xlsx]Sheet1'!A1`). Text literals are blanked first so a formula that
+/// merely spells such a reference inside a string does not count, and a
+/// structured table reference (`Table1[Column]`) is skipped because an
+/// identifier character sits right before its bracket.
+fn references_an_external_workbook(formula: &str) -> bool {
+    let text = blank_text_literals(formula);
+    let bytes = text.as_bytes();
+    for (index, byte) in bytes.iter().enumerate() {
+        if *byte != b'[' {
+            continue;
+        }
+        let previous = index.checked_sub(1).and_then(|before| bytes.get(before));
+        if previous.is_some_and(|c| c.is_ascii_alphanumeric() || *c == b'_' || *c == b'.') {
+            continue;
+        }
+        let Some(close) = text[index..].find(']') else {
+            continue;
+        };
+        if text[index + close + 1..].contains('!') {
+            return true;
+        }
+    }
+    false
 }
 
 /// True when the formula text carries a bare `Name!` reference to one of the

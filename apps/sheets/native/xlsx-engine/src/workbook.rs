@@ -24,20 +24,20 @@ pub(crate) fn read_sheet_declarations(
     loop {
         match reader.read_event()? {
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"workbookPr" =>
+                if element.local_name().as_ref() == "workbookPr" =>
             {
                 date_1904 = attribute_value(&reader, &element, b"date1904")?
                     .is_some_and(|value| value == "1" || value == "true");
             }
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"workbookView" =>
+                if element.local_name().as_ref() == "workbookView" =>
             {
                 if let Some(value) = attribute_value(&reader, &element, b"activeTab")? {
                     active_tab = value.parse::<usize>().unwrap_or(0);
                 }
             }
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"workbookProtection" =>
+                if element.local_name().as_ref() == "workbookProtection" =>
             {
                 let lock_structure = attribute_value(&reader, &element, b"lockStructure")?
                     .is_some_and(|value| value == "1" || value == "true");
@@ -50,7 +50,7 @@ pub(crate) fn read_sheet_declarations(
                 });
             }
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"sheet" =>
+                if element.local_name().as_ref() == "sheet" =>
             {
                 let name = attribute_value(&reader, &element, b"name")?
                     .ok_or_else(|| SidecarError::Workbook("Sheet has no name.".into()))?;
@@ -87,7 +87,7 @@ pub(crate) fn read_workbook_relationships(
     loop {
         match reader.read_event()? {
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"Relationship" =>
+                if element.local_name().as_ref() == "Relationship" =>
             {
                 if let (Some(id), Some(target)) = (
                     attribute_value(&reader, &element, b"Id")?,
@@ -200,7 +200,7 @@ pub(crate) fn read_sheet_dimensions(
     let counted = loop {
         match reader.read_event_into(&mut buffer)? {
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"dimension" =>
+                if element.local_name().as_ref() == "dimension" =>
             {
                 if let Some(reference) = attribute_value(&reader, &element, b"ref")? {
                     // A malformed ref means "no usable dimension", not a broken file.
@@ -208,7 +208,7 @@ pub(crate) fn read_sheet_dimensions(
                 }
             }
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"outlinePr" =>
+                if element.local_name().as_ref() == "outlinePr" =>
             {
                 let flag = |name: &[u8]| -> Result<bool, SidecarError> {
                     Ok(!matches!(
@@ -220,7 +220,7 @@ pub(crate) fn read_sheet_dimensions(
                 outline_summary_right = flag(b"summaryRight")?;
             }
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"tabColor" =>
+                if element.local_name().as_ref() == "tabColor" =>
             {
                 tab_color = visuals::resolve_color(
                     attribute_value(&reader, &element, b"rgb")?.as_deref(),
@@ -231,7 +231,7 @@ pub(crate) fn read_sheet_dimensions(
                 );
             }
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"sheetView" =>
+                if element.local_name().as_ref() == "sheetView" =>
             {
                 if let Some(value) = attribute_value(&reader, &element, b"showGridLines")? {
                     show_grid_lines = value != "0" && value != "false";
@@ -258,7 +258,7 @@ pub(crate) fn read_sheet_dimensions(
                 );
             }
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"sheetFormatPr" =>
+                if element.local_name().as_ref() == "sheetFormatPr" =>
             {
                 // defaultColWidth="0" is legal (Excel writes it with
                 // zeroHeight="1" on all-hidden sheets) and means "no default —
@@ -285,7 +285,7 @@ pub(crate) fn read_sheet_dimensions(
                 outline_level_col = level(b"outlineLevelCol")?;
             }
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"pane" =>
+                if element.local_name().as_ref() == "pane" =>
             {
                 let state = attribute_value(&reader, &element, b"state")?;
                 if matches!(state.as_deref(), Some("frozen") | Some("frozenSplit")) {
@@ -302,7 +302,7 @@ pub(crate) fn read_sheet_dimensions(
                 }
             }
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"col" =>
+                if element.local_name().as_ref() == "col" =>
             {
                 let minimum = attribute_value(&reader, &element, b"min")?
                     .and_then(|value| value.parse::<usize>().ok());
@@ -342,7 +342,7 @@ pub(crate) fn read_sheet_dimensions(
                 }
             }
             Event::Start(element)
-                if element.local_name().as_ref() == b"sheetData"
+                if element.local_name().as_ref() == "sheetData"
                     // Single-row/column dimensions are the signature of writers
                     // that never update <dimension> (POI SXSSF, OpenXML SDK
                     // producers emitting A1 or A1:G1). Small dimensions can be
@@ -366,14 +366,14 @@ pub(crate) fn read_sheet_dimensions(
                 }
             }
             Event::End(element)
-                if element.local_name().as_ref() == b"sheetData" && dimension_trusted =>
+                if element.local_name().as_ref() == "sheetData" && dimension_trusted =>
             {
                 let (row_count, column_count) = dimensions.unwrap_or((1, 1));
                 *count_budget -= stored_cell_count;
                 break (row_count, column_count, true);
             }
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"row" =>
+                if element.local_name().as_ref() == "row" =>
             {
                 current_row = attribute_value(&reader, &element, b"r")?
                     .and_then(|value| value.parse::<usize>().ok())
@@ -384,7 +384,7 @@ pub(crate) fn read_sheet_dimensions(
                 next_column = 0;
                 maximum_row = maximum_row.max(current_row);
             }
-            Event::Start(element) if element.local_name().as_ref() == b"c" => {
+            Event::Start(element) if element.local_name().as_ref() == "c" => {
                 let (row, column) = match attribute_value(&reader, &element, b"r")? {
                     Some(address) => parse_address(&address).unwrap_or((current_row, next_column)),
                     None => (current_row, next_column),
@@ -396,7 +396,7 @@ pub(crate) fn read_sheet_dimensions(
                 open_cell_position = (row, column);
                 open_cell_has_value = false;
             }
-            Event::Empty(element) if element.local_name().as_ref() == b"c" => {
+            Event::Empty(element) if element.local_name().as_ref() == "c" => {
                 let (row, column) = match attribute_value(&reader, &element, b"r")? {
                     Some(address) => parse_address(&address).unwrap_or((current_row, next_column)),
                     None => (current_row, next_column),
@@ -415,12 +415,12 @@ pub(crate) fn read_sheet_dimensions(
             }
             Event::Start(element) | Event::Empty(element)
                 if open_cell_stored.is_some()
-                    && matches!(element.local_name().as_ref(), b"v" | b"f" | b"is") =>
+                    && matches!(element.local_name().as_ref(), "v" | "f" | "is") =>
             {
                 open_cell_stored = Some(true);
                 open_cell_has_value = true;
             }
-            Event::End(element) if element.local_name().as_ref() == b"c" => {
+            Event::End(element) if element.local_name().as_ref() == "c" => {
                 if open_cell_stored.take() == Some(true) {
                     stored_cell_count += 1;
                 }
@@ -521,24 +521,24 @@ pub(crate) fn read_shared_strings(
     let mut in_phonetic = false;
     loop {
         match reader.read_event_into(&mut buffer)? {
-            Event::Start(element) if element.local_name().as_ref() == b"si" => {
+            Event::Start(element) if element.local_name().as_ref() == "si" => {
                 current.clear();
                 runs.clear();
                 current_run = None;
             }
-            Event::Start(element) if element.local_name().as_ref() == b"r" => {
+            Event::Start(element) if element.local_name().as_ref() == "r" => {
                 current_run = Some(RichRun::default());
             }
             // Phonetic guide text (<rPh><t>…</t></rPh>) is ruby annotation,
             // not cell content.
-            Event::Start(element) if element.local_name().as_ref() == b"rPh" => {
+            Event::Start(element) if element.local_name().as_ref() == "rPh" => {
                 in_phonetic = true;
             }
-            Event::End(element) if element.local_name().as_ref() == b"rPh" => {
+            Event::End(element) if element.local_name().as_ref() == "rPh" => {
                 in_phonetic = false;
             }
             Event::Start(element) | Event::Empty(element) if current_run.is_some() => {
-                if element.local_name().as_ref() == b"t" {
+                if element.local_name().as_ref() == "t" {
                     in_text = true;
                     text_preserve = preserves_space(&reader, &element)?;
                     text_node.clear();
@@ -546,7 +546,7 @@ pub(crate) fn read_shared_strings(
                     apply_run_property(run, &reader, &element, colors)?;
                 }
             }
-            Event::Start(element) if element.local_name().as_ref() == b"t" => {
+            Event::Start(element) if element.local_name().as_ref() == "t" => {
                 in_text = !in_phonetic;
                 text_preserve = preserves_space(&reader, &element)?;
                 text_node.clear();
@@ -556,7 +556,7 @@ pub(crate) fn read_shared_strings(
             Event::GeneralRef(reference) if in_text => {
                 text_node.push_str(&general_ref_text(&reference)?);
             }
-            Event::End(element) if element.local_name().as_ref() == b"t" => {
+            Event::End(element) if element.local_name().as_ref() == "t" => {
                 if in_text {
                     let text = text_node_content(std::mem::take(&mut text_node), text_preserve);
                     current.push_str(&text);
@@ -566,12 +566,12 @@ pub(crate) fn read_shared_strings(
                 }
                 in_text = false;
             }
-            Event::End(element) if element.local_name().as_ref() == b"r" => {
+            Event::End(element) if element.local_name().as_ref() == "r" => {
                 if let Some(run) = current_run.take() {
                     runs.push(run);
                 }
             }
-            Event::End(element) if element.local_name().as_ref() == b"si" => {
+            Event::End(element) if element.local_name().as_ref() == "si" => {
                 let mut finished = std::mem::take(&mut runs);
                 for run in &mut finished {
                     normalize_cell_text(&mut run.text);
@@ -617,22 +617,22 @@ pub(crate) fn apply_run_property<R: std::io::BufRead>(
     // POI writes explicit off flags as non-self-closing <strike val="0">.
     let flag_on = |value: Option<String>| !matches!(value.as_deref(), Some("0") | Some("false"));
     match element.local_name().as_ref() {
-        b"b" => run.bold = flag_on(attribute_value(reader, element, b"val")?),
-        b"i" => run.italic = flag_on(attribute_value(reader, element, b"val")?),
-        b"u" => {
+        "b" => run.bold = flag_on(attribute_value(reader, element, b"val")?),
+        "i" => run.italic = flag_on(attribute_value(reader, element, b"val")?),
+        "u" => {
             run.underline = attribute_value(reader, element, b"val")?.as_deref() != Some("none");
         }
-        b"strike" => run.strikethrough = flag_on(attribute_value(reader, element, b"val")?),
-        b"sz" => {
+        "strike" => run.strikethrough = flag_on(attribute_value(reader, element, b"val")?),
+        "sz" => {
             run.size = attribute_value(reader, element, b"val")?
                 .and_then(|value| value.parse::<f64>().ok());
         }
-        b"rFont" => run.family = attribute_value(reader, element, b"val")?,
-        b"vertAlign" => {
+        "rFont" => run.family = attribute_value(reader, element, b"val")?,
+        "vertAlign" => {
             run.vert_align = attribute_value(reader, element, b"val")?
                 .filter(|value| value == "subscript" || value == "superscript");
         }
-        b"color" => {
+        "color" => {
             run.color = visuals::resolve_color(
                 attribute_value(reader, element, b"rgb")?.as_deref(),
                 attribute_value(reader, element, b"indexed")?.as_deref(),
@@ -681,7 +681,7 @@ pub(crate) fn read_defined_names(
     let mut current: Option<Pending> = None;
     loop {
         match reader.read_event()? {
-            Event::Start(element) if element.local_name().as_ref() == b"definedName" => {
+            Event::Start(element) if element.local_name().as_ref() == "definedName" => {
                 let name = attribute_value(&reader, &element, b"name")?.unwrap_or_default();
                 let hidden = attribute_value(&reader, &element, b"hidden")?
                     .is_some_and(|value| value == "1" || value == "true");
@@ -709,7 +709,7 @@ pub(crate) fn read_defined_names(
                     defined.formula.push_str(&general_ref_text(&reference)?);
                 }
             }
-            Event::End(element) if element.local_name().as_ref() == b"definedName" => {
+            Event::End(element) if element.local_name().as_ref() == "definedName" => {
                 if let Some(defined) = current.take() {
                     if let Some(sheet_index) = defined.sheet_index {
                         scoped_sheets.insert(sheet_index);

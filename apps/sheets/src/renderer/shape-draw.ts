@@ -118,7 +118,7 @@ export function rectToAnchor(
   const viewMain = runtime.univer
     .__getInjector()
     .get(IRenderManagerService)
-    .getRenderById(workbook.getId())
+    .getRenderUnitById(workbook.getId())
     ?.scene?.getViewport(SHEET_VIEWPORT_KEY.VIEW_MAIN)
   const scrollX = viewMain?.viewportScrollX ?? 0
   const scrollY = viewMain?.viewportScrollY ?? 0

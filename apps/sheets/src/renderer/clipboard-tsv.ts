@@ -10,8 +10,10 @@ import {
   CellModeEnum,
   CellValueType,
   IUniverInstanceService,
+  UniverInstanceType,
   extractPureTextFromCell,
   type ICellData,
+  type Workbook,
 } from '@univerjs/core'
 import { ISheetClipboardService } from '@univerjs/preset-sheets-core'
 
@@ -81,7 +83,7 @@ export function installTsvClipboardFix(runtime: UniverRuntime): { dispose(): voi
     }
     try {
       const worksheet = instanceService
-        .getUniverSheetInstance(workbookId)
+        .getUnit<Workbook>(workbookId, UniverInstanceType.UNIVER_SHEET)
         ?.getSheetBySheetId(worksheetId)
       if (!worksheet) return content
       const { rows, cols } = content.discreteRange

@@ -727,7 +727,7 @@ export function cellAtClientPoint(
   const render = runtime.univer
     .__getInjector()
     .get(IRenderManagerService)
-    .getRenderById(workbook.getId())
+    .getRenderUnitById(workbook.getId())
   const skeleton = render?.with(SheetSkeletonManagerService).getCurrentSkeleton()
   if (!render || !skeleton) return null
   const bounds = render.engine.getCanvasElement().getBoundingClientRect()

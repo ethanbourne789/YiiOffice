@@ -131,7 +131,7 @@ describe('installCrossHighlight', () => {
       univer: {
         __getInjector: () => ({
           get: () => ({
-            getRenderById: () => ({
+            getRenderUnitById: () => ({
               mainComponent: { makeDirty: makeComponentDirty },
               scene: { makeDirty: makeSceneDirty },
             }),

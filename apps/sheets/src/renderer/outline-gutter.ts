@@ -252,7 +252,7 @@ export function installOutlineGutter(deps: OutlineGutterDeps): OutlineGutterHand
     const render = runtime.univer
       .__getInjector()
       .get(IRenderManagerService)
-      .getRenderById(workbook.getId())
+      .getRenderUnitById(workbook.getId())
     const skeleton = render?.with(SheetSkeletonManagerService).getCurrentSkeleton()
     if (!render || !skeleton) return null
     return { state, worksheet, sheetId: worksheet.getSheetId(), render, skeleton }

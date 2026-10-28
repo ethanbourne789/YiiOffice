@@ -1,3 +1,4 @@
+import { numfmt } from '@univerjs/core'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -253,7 +254,10 @@ describe('mergedSpanWidth', () => {
 
 describe('decimal half-way rounding (Excel rounds the decimal literal)', () => {
   it('rounds 1.005 up under 0.00 like Excel', () => {
-    expect(fixFormattedValue('0.00_ ', 1.005, `1.00${NBSP}`)).toBe(`1.01${NBSP}`)
+    // 1.x's formatter rounds the decimal literal away from zero itself, so
+    // the repair pass has nothing left to correct.
+    expect(numfmt.format('0.00', 1.005, { throws: false })).toBe('1.01')
+    expect(fixFormattedValue('0.00_ ', 1.005, `1.01${NBSP}`)).toBeNull()
   })
 
   it('leaves non-half-way values alone', () => {
@@ -332,9 +336,9 @@ describe('hostLocalePattern — [$sym-LCID] keeps host separators', () => {
 
   it('normalises [$] before the half-way rounding and exponential repairs', () => {
     expect(fixFormattedValue('[$]0.00', 1.005, '######')).toBe('1.01')
-    expect(fixFormattedValue('[$]0.00', 1.005, '######')).toBe(
-      fixFormattedValue('0.00', 1.005, '1.00'),
-    )
+    // The plain pattern needs no repair — 1.x rounds the literal itself —
+    // while the [$] one still falls back to the host-locale rendering.
+    expect(fixFormattedValue('0.00', 1.005, '1.00')).toBeNull()
     expect(fixFormattedValue('[$]0.0000000000', 1.8744045912597986e-8, '######')).toBe(
       '0.0000000187',
     )

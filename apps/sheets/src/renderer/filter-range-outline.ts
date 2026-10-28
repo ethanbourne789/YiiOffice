@@ -7,6 +7,7 @@
  * prototype — and its range painter is stubbed out. The funnel buttons keep
  * rendering; only the range outline goes.
  */
+import { UniverInstanceType, type Dependency } from '@univerjs/core'
 import { IRenderManagerService } from '@univerjs/engine-render'
 
 import type { UniverRuntime } from './univer-state'
@@ -14,7 +15,10 @@ import type { UniverRuntime } from './univer-state'
 export function installFilterRangeOutlineSuppression(runtime: UniverRuntime): void {
   const service = runtime.univer.__getInjector().get(IRenderManagerService)
   const original = service.registerRenderModule.bind(service)
-  const patched: typeof service.registerRenderModule = (type, dep) => {
+  const patched: typeof service.registerRenderModule = (
+    type: UniverInstanceType,
+    dep: Dependency,
+  ) => {
     const ctor = Array.isArray(dep) ? dep[0] : dep
     const prototype = (ctor as { prototype?: Record<string, unknown> } | undefined)?.prototype
     if (

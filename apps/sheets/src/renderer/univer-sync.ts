@@ -1056,9 +1056,12 @@ export function installFindRevealFix(runtime: UniverRuntime): () => void {
   // currentMatch$ synchronously, so an after-execution listener would clear
   // the memo too late and a wrap-around Enter onto the same match would be
   // skipped.
-  const navListener = runtime.univerAPI.onBeforeCommandExecute((command: { id: string }) => {
-    if (NAV_OPERATIONS.has(command.id)) lastRevealed = null
-  })
+  const navListener = runtime.univerAPI.addEvent(
+    runtime.univerAPI.Event.BeforeCommandExecute,
+    (command) => {
+      if (NAV_OPERATIONS.has(command.id)) lastRevealed = null
+    },
+  )
   const subscription = service?.currentMatch$?.subscribe((match) => {
     const typed = match as {
       unitId?: string
@@ -1203,8 +1206,6 @@ function applyWorkbookNotesInner(
       try {
         worksheet.getRange(comment.row, comment.column).createOrUpdateNote({
           id: `note-${sheet.id}-${comment.row}-${comment.column}`,
-          row: comment.row,
-          col: comment.column,
           width: 220,
           height: 90,
           note: encodeNoteText(comment.author, comment.text),
@@ -5678,9 +5679,9 @@ export function toRichTextDocument(
   // break; a raw \n would split the cell into sections and drop later lines.
   // 1:1 replacement, so textRun offsets stay valid.
   const dataStream = `${normalized.replace(/\n/g, '\r')}\r\n`
-  const paragraphs: Array<{ startIndex: number }> = []
+  const paragraphs: Array<{ startIndex: number; paragraphId: string }> = []
   for (let i = 0; i < dataStream.length; i += 1) {
-    if (dataStream[i] === '\r') paragraphs.push({ startIndex: i })
+    if (dataStream[i] === '\r') paragraphs.push({ startIndex: i, paragraphId: `p${i}` })
   }
   return {
     id: 'rich-cell',
@@ -5688,7 +5689,7 @@ export function toRichTextDocument(
       dataStream,
       textRuns,
       paragraphs,
-      sectionBreaks: [{ startIndex: dataStream.length - 1 }],
+      sectionBreaks: [{ startIndex: dataStream.length - 1, sectionId: 's0' }],
     },
     documentStyle: {},
   }
@@ -7758,7 +7759,7 @@ export function resolveRenderedSheetId(runtime: UniverRuntime): string | undefin
       return runtime.univer
         .__getInjector()
         .get(IRenderManagerService)
-        .getRenderById(workbook.getId())
+        .getRenderUnitById(workbook.getId())
         ?.with(SheetSkeletonManagerService)
         .getCurrentParam()?.sheetId
     } catch {
@@ -7793,7 +7794,7 @@ export function queueVisualInstall(
     const workbook = runtime.univerAPI.getActiveWorkbook()
     const workbookId = workbook?.getId()
     const render = workbookId
-      ? runtime.univer.__getInjector().get(IRenderManagerService).getRenderById(workbookId)
+      ? runtime.univer.__getInjector().get(IRenderManagerService).getRenderUnitById(workbookId)
       : null
     const renderMounted = (() => {
       try {

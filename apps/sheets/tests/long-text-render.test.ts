@@ -57,8 +57,8 @@ describe('truncateDocForLayout', () => {
         { st: 0, ed: 1000, ts: { bl: 1 } },
         { st: 1000, ed: 2000, ts: { it: 1 } },
       ],
-      paragraphs: [{ startIndex: 2000 }],
-      sectionBreaks: [{ startIndex: 2001 }],
+      paragraphs: [{ startIndex: 2000, paragraphId: 'p0' }],
+      sectionBreaks: [{ startIndex: 2001, sectionId: 's0' }],
     },
     documentStyle: {},
   }
@@ -67,7 +67,13 @@ describe('truncateDocForLayout', () => {
     expect(truncateDocForLayout(doc, HorizontalAlign.LEFT, 2000)).toBe(doc)
     const multi = {
       ...doc,
-      body: { ...doc.body, paragraphs: [{ startIndex: 5 }, { startIndex: 2000 }] },
+      body: {
+        ...doc.body,
+        paragraphs: [
+          { startIndex: 5, paragraphId: 'p0' },
+          { startIndex: 2000, paragraphId: 'p1' },
+        ],
+      },
     }
     expect(truncateDocForLayout(multi, HorizontalAlign.LEFT, 100)).toBe(multi)
   })
@@ -76,8 +82,8 @@ describe('truncateDocForLayout', () => {
     const out = truncateDocForLayout(doc, HorizontalAlign.LEFT, 300)
     expect(out.body?.dataStream).toBe(`${text.slice(0, 300)}\r\n`)
     expect(out.body?.textRuns).toEqual([{ st: 0, ed: 300, ts: { bl: 1 } }])
-    expect(out.body?.paragraphs).toEqual([{ startIndex: 300 }])
-    expect(out.body?.sectionBreaks).toEqual([{ startIndex: 301 }])
+    expect(out.body?.paragraphs).toEqual([{ startIndex: 300, paragraphId: 'p0' }])
+    expect(out.body?.sectionBreaks).toEqual([{ startIndex: 301, sectionId: 's0' }])
   })
 
   it('keeps the tail for right alignment and shifts run offsets', () => {
@@ -117,8 +123,8 @@ describe('right-to-left paragraphs', () => {
       body: {
         dataStream: `${arabic}\r\n`,
         textRuns: [],
-        paragraphs: [{ startIndex: 2000 }],
-        sectionBreaks: [{ startIndex: 2001 }],
+        paragraphs: [{ startIndex: 2000, paragraphId: 'p0' }],
+        sectionBreaks: [{ startIndex: 2001, sectionId: 's0' }],
       },
       documentStyle: {},
     }

@@ -475,7 +475,7 @@ export function App({
       if (lazyWorkbookRef.current) return true
       const workbook = univerRef.current?.univerAPI.getActiveWorkbook()
       if (!workbook) return false
-      const snapshot = workbook.getSnapshot()
+      const snapshot = workbook.save()
       for (const sheet of Object.values(snapshot.sheets ?? {})) {
         for (const row of Object.values(sheet.cellData ?? {})) {
           for (const cell of Object.values(row ?? {}) as (ICellData | null | undefined)[]) {
@@ -982,7 +982,8 @@ export function App({
             // zoom lives in the custom full-width status bar (unified with docs/slides)
             zoomSlider: false,
           },
-          statusBarStatistic: true,
+          // 1.x renders the statistic bar from footer.statisticBar alone; the
+          // old top-level statusBarStatistic flag is gone.
           // OOXML resolves style defaults as cell over row over column; the
           // render skeleton defaults to column-wins unless this flag is set.
           sheets: { isRowStylePrecedeColumnStyle: true },

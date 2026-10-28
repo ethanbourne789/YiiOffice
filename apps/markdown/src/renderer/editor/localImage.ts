@@ -6,7 +6,7 @@ import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { MAX_PASTED_IMAGE_BYTES } from '../../shared/ipc'
 import { t } from '../i18n/locale'
 import { showToast } from '@yiioffice/ui'
-import { getImageHostConfig } from '../imageHostCache'
+import { stockParseMarkdown } from './markdown-stock'
 
 /** Directory of the open .md file; relative image paths resolve against it for display */
 let imageBaseDir: string | null = null
@@ -96,26 +96,8 @@ async function persistAndInsert(
   }
   const base64 = btoa(binary)
   const alt = file.name.replace(/\.[a-z0-9]+$/i, '')
-  // a configured image host gets the paste first (yiioffice#388); the local
-  // assets/ copy is the fallback when it is disabled or the upload fails, so
-  // the note stays self-contained even offline
-  const host = await getImageHostConfig()
-  if (host) {
-    const up = await window.markdownApi.uploadImage({
-      base64,
-      ext: EXT_BY_MIME[file.type]!,
-      name: file.name,
-    })
-    if (up.ok && up.url) {
-      editor
-        .chain()
-        .focus()
-        .insertContentAt(pos, { type: 'image', attrs: { src: up.url, alt } })
-        .run()
-      return
-    }
-    showToast(t('imageHostFallback', { error: up.error ?? '' }), 'error')
-  }
+  // the picture lands in the assets/ directory next to the document, so the
+  // note stays self-contained and needs no network round-trip
   const rel = await window.markdownApi.saveImage({ base64, ext: EXT_BY_MIME[file.type]! })
   // untitled documents have no assets/ directory yet — tell the user to save first
   if (!rel) {
@@ -250,7 +232,7 @@ export const ImageAwareLink = Link.extend({
 /** Paragraph whose markdown parse keeps a lone image inside it (the stock one lifts it out as a block) */
 export const ImageParagraph = Paragraph.extend({
   parseMarkdown: (token, helpers) => {
-    const parsed = Paragraph.config.parseMarkdown!(token, helpers)
+    const parsed = stockParseMarkdown(Paragraph, token, helpers)
     return Array.isArray(parsed) ? helpers.createNode('paragraph', undefined, parsed) : parsed
   },
 })

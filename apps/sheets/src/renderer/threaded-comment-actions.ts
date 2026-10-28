@@ -122,8 +122,6 @@ export function handleThreadedCommentCommand(
         // Same "Author:\n" marker as encodeNoteText; the save splits it back.
         sheet.getRange(entry.row, entry.column).createOrUpdateNote({
           id: `note-${sheetId}-${entry.row}-${entry.column}`,
-          row: entry.row,
-          col: entry.column,
           width: 220,
           height: 90,
           note: `${entry.author}:\n${body}`,

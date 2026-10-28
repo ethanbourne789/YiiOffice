@@ -134,8 +134,8 @@ export function truncateDocForLayout(
       ...rest,
       dataStream: `${stream.slice(start, end)}\r\n`,
       textRuns,
-      paragraphs: [{ startIndex: maxChars }],
-      sectionBreaks: [{ startIndex: maxChars + 1 }],
+      paragraphs: [{ startIndex: maxChars, paragraphId: 'p0' }],
+      sectionBreaks: [{ startIndex: maxChars + 1, sectionId: 's0' }],
     },
   }
 }

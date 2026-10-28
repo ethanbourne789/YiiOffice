@@ -43,7 +43,7 @@ export function installFormulaBarAutosize(runtime: UniverRuntime): { dispose(): 
 
   const contentHeight = (): number | null => {
     const skeleton = renderManagerService
-      .getRenderById(DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY)
+      .getRenderUnitById(DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY)
       ?.with(DocSkeletonManagerService)
       .getSkeleton()
     const page = skeleton?.getSkeletonData()?.pages[0]

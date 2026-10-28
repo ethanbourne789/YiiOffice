@@ -66,7 +66,7 @@ describe('installCriteriaCompareCacheFix', () => {
     }
   })
 
-  it('reproduces the sparse-cache miss without the fix', () => {
+  it('compares a cached column densely, so the sparse-cache miss is gone', () => {
     const unitId = `wb-bug-${unit++}`
     const months = ['2026-06', '2026-05', '2026-06']
     const criteria = NumberValueObject.create(46174) as BaseValueObject
@@ -74,10 +74,13 @@ describe('installCriteriaCompareCacheFix', () => {
     expect(
       repaired(first.compare(criteria, '=' as never) as ArrayValueObject, first, criteria),
     ).toEqual([true, false, true])
+    // 0.x reused the inverted-index cache and matched nothing on the second
+    // evaluation; 1.x compares the cached column densely, so the same rows
+    // match. The fix stays as a safety net for the coerced-criteria path.
     const second = column(months, 7, unitId)
     expect(
       repaired(second.compare(criteria, '=' as never) as ArrayValueObject, second, criteria),
-    ).toEqual([false, false, false])
+    ).toEqual([true, false, true])
   })
 
   it('keeps the cache fast path for same-type compares', () => {

@@ -67,7 +67,9 @@ describe('tables', () => {
     const editor = createEditor()
     openAndSave(editor, '| a \\| b | c |\n|---|---|\n| 1 | 2 |\n')
     expect(topLevel(editor)[0]).toBe('table')
-    expect(editor.getHTML()).toContain('<th colspan="1" rowspan="1"><p>a | b</p></th>')
+    // Tiptap 3.32 omits colspan/rowspan when they are the default 1, so the
+    // header cell carries no span attributes any more.
+    expect(editor.getHTML()).toContain('<th><p>a | b</p></th>')
   })
 
   it('a dash row whose cells are not delimiters is not a table', () => {

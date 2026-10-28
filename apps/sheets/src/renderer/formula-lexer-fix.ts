@@ -14,13 +14,23 @@
  * cloned nodes with corrected indices and tokens. Formulas whose nodes
  * already reassemble to the source text pass through untouched.
  *
- * Newline fix. _nodeMaker flattens every CR/LF in the formula to a space so
- * line breaks between tokens act as whitespace — but that also rewrites
- * `="a"&CHAR(10)`-style literals typed with a real line break (Excel keeps
- * them; JP form templates build whole paragraphs this way), so the engine
- * evaluates and autofill/F4 rewrite the text with the break gone. The wrap
- * swaps CR/LF inside "..." for private guard characters before the lexer
- * sees the text and puts them back in every token it produced.
+ * Newline fix. _nodeMaker used to flatten every CR/LF in the formula to a
+ * space so line breaks between tokens act as whitespace — but that also
+ * rewrote `="a"&CHAR(10)`-style literals typed with a real line break (Excel
+ * keeps them; JP form templates build whole paragraphs this way), so the
+ * engine evaluated and autofill/F4 rewrote the text with the break gone. The
+ * wrap swaps CR/LF inside "..." for private guard characters before the lexer
+ * sees the text and puts them back in every token it produced. A break
+ * *between* tokens still becomes a space: 1.x keeps such a break verbatim
+ * and its rewriter then mangles the formula (`=A1&\n"b"` comes back as
+ * `=A2&""b"`), so the space is what keeps the rewrite faithful.
+ *
+ * Univer 1.x notes. The rewriter re-escapes the string token itself
+ * (`token.slice(1, -1).replace(/"/g, '""')`), so it has to see the stock
+ * token: the corrected one is already expanded and would be escaped twice,
+ * turning `="a"""&B1` into `="a""""&B2`. moveFormulaRefOffset therefore runs
+ * against the stock sequence nodes, while every other consumer — the commit
+ * normalization, the highlighter, F4 — keeps the corrected ones.
  */
 import { LexerTreeBuilder, type sequenceNodeType } from '@univerjs/engine-formula'
 
@@ -41,8 +51,8 @@ const CR_GUARD = '\uFDD0'
 const LF_GUARD = '\uFDD1'
 const GUARD_PATTERN = /[\uFDD0\uFDD1]/g
 
-/// CR/LF inside "..." literals become guard characters; everything else is
-/// untouched so _nodeMaker still flattens the between-token breaks.
+/// CR/LF inside "..." literals become guard characters; every other break
+/// becomes a space, the way the stock lexer used to flatten all of them.
 export function guardLiteralNewlines(formula: string): string {
   // GUARD_PATTERN is global, so .test() starts at lastIndex and leaves it past
   // the match. Without the reset, the second guarded formula scanned from there,
@@ -70,6 +80,13 @@ export function guardLiteralNewlines(formula: string): string {
       }
       continue
     }
+    if (char === '\r' || char === '\n') {
+      // A break between tokens is whitespace, and 1.x's rewriter mangles it
+      // when it is kept; a CRLF is one break, so it becomes one space.
+      if (char === '\r' && formula[at + 1] === '\n') at += 1
+      out += ' '
+      continue
+    }
     out += char
     if (inSingle) {
       if (char === "'") {
@@ -95,10 +112,11 @@ function restoreGuards(text: string): string {
   return text.replace(GUARD_PATTERN, (guard) => (guard === CR_GUARD ? '\r' : '\n'))
 }
 
-/// Mirror of the guarded _nodeMaker's input preprocessing.
+/// Mirror of the guarded _nodeMaker's input preprocessing: the literal breaks
+/// come back as themselves, the between-token breaks are already spaces.
 function formulaBody(formula: string): string {
-  const flattened = restoreGuards(guardLiteralNewlines(formula).replace(/\r\n$|\r|\n/g, ' '))
-  return flattened.startsWith('=') ? flattened.slice(1) : flattened
+  const body = restoreGuards(guardLiteralNewlines(formula))
+  return body.startsWith('=') ? body.slice(1) : body
 }
 
 /// Slot index → character index in `body`, replicating the lexer's states:
@@ -225,11 +243,41 @@ export function wrapLexer(lexer: LexerTreeBuilder): { dispose(): void } {
     formula: string,
   ) => SequenceEntry[] | undefined | null
   const wrapped = (formula: string) => fixSequenceNodes(formula, original(formula))
-  ;(lexer as { sequenceNodesBuilder: typeof wrapped }).sequenceNodesBuilder = wrapped
+  const target = lexer as unknown as {
+    sequenceNodesBuilder: typeof wrapped
+    moveFormulaRefOffset: (
+      formula: string,
+      refOffsetX: number,
+      refOffsetY: number,
+      ignoreAbsolute?: boolean,
+    ) => string
+  }
+  target.sequenceNodesBuilder = wrapped
+
+  // 1.x's rewriter re-escapes the string token itself, so it needs the stock
+  // token: the corrected one is already expanded and would be escaped twice.
+  const originalMove = lexer.moveFormulaRefOffset.bind(lexer)
+  const wrappedMove = (
+    formula: string,
+    refOffsetX: number,
+    refOffsetY: number,
+    ignoreAbsolute?: boolean,
+  ) => {
+    const saved = target.sequenceNodesBuilder
+    target.sequenceNodesBuilder = original
+    try {
+      return originalMove(formula, refOffsetX, refOffsetY, ignoreAbsolute)
+    } finally {
+      target.sequenceNodesBuilder = saved
+    }
+  }
+  target.moveFormulaRefOffset = wrappedMove
+
   const unwrapNodeMaker = wrapNodeMaker(lexer as unknown as LexerInternals)
   return {
     dispose() {
       delete (lexer as { sequenceNodesBuilder?: typeof wrapped }).sequenceNodesBuilder
+      delete (lexer as { moveFormulaRefOffset?: typeof wrappedMove }).moveFormulaRefOffset
       unwrapNodeMaker()
     },
   }

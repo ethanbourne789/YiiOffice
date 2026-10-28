@@ -248,7 +248,7 @@ function markRenderDirty(runtime: UniverRuntime, workbookId: string): void {
     const render = runtime.univer
       .__getInjector()
       .get(IRenderManagerService)
-      .getRenderById(workbookId)
+      .getRenderUnitById(workbookId)
     render?.mainComponent?.makeDirty(true)
     render?.scene?.makeDirty(true)
   } catch {

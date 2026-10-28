@@ -1562,8 +1562,6 @@ async function executeOp(op: PlannedOp, run: OpRun): Promise<void> {
       const cell = parseAddress(op.address)
       noteRange.createOrUpdateNote({
         id: `note-${op.sheetId}-${cell.row}-${cell.column}`,
-        row: cell.row,
-        col: cell.column,
         width: 220,
         height: 90,
         note: op.text,

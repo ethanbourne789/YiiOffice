@@ -291,6 +291,18 @@ export function installLazyFindBridge(deps: LazyFindBridgeDeps): { dispose(): vo
     }
   }
   const wrapper: IFindReplaceProvider = {
+    // Univer 1.x asks each provider which query options it honours (the find
+    // dialog hides the selects it does not). The wrapper forwards everything
+    // to the providers it adopts, so it advertises theirs; with none adopted
+    // yet nothing is offered until a built-in registers.
+    get capabilities() {
+      for (const provider of adopted) return provider.capabilities
+      return { caseSensitive: false, matchesTheWholeWord: false, matchesTheWholeCell: false, findDirection: false, findScope: false, findBy: false }
+    },
+    // Always claim the unit: adoptForeign moves every other provider out of
+    // the service, so a false here would leave the workbook with no provider
+    // at all and the find dialog disabled.
+    isSupported: () => true,
     async find(query: IFindQuery) {
       generation += 1
       const liveGeneration = generation

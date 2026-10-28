@@ -16,6 +16,7 @@ function state(overrides: Partial<IFindReplaceState> = {}): IFindReplaceState {
     findCompleted: false,
     caseSensitive: false,
     matchesTheWholeCell: false,
+    matchesTheWholeWord: false,
     findBy: FindBy.VALUE,
     findScope: FindScope.SUBUNIT,
     findDirection: FindDirection.ROW,

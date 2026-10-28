@@ -830,8 +830,9 @@ pub fn read_visual_objects(
     // worksheet dozens of times during the walk below.
     let chart_paths: Vec<String> = archive
         .file_names()
+        .filter_map(|name| name.ok())
         .filter(|name| is_chart_part(name))
-        .map(ToOwned::to_owned)
+        .map(|name| name.to_string())
         .collect();
     if !chart_paths.is_empty() {
         let references: Vec<String> = chart_paths

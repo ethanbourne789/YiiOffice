@@ -23,9 +23,13 @@ const NOTIFICATION_MUTATION = 'formula.mutation.set-formula-calculation-notifica
 export const FORMULA_STREAM_HOLD_MS = 1000
 
 interface TriggerControllerInternals {
-  _executingDirtyData?: Record<string, unknown>
   _executionInProgressParams?: unknown
-  _restartCalculation?: boolean
+  /// 1.x derives the next cycle's dirty data from the formula data model
+  /// instead of holding it on the controller (`_executingDirtyData` is
+  /// gone), so the hold asks the controller for the same payload the engine
+  /// would have built itself.
+  _getCalculationMode?: () => number
+  _getDirtyDataByCalculationMode?: (calculationMode: number) => Record<string, unknown>
 }
 
 interface HoldState {
@@ -102,13 +106,15 @@ export function installFormulaStreamHold(runtime: UniverRuntime): void {
     // A restart the controller dispatched while held was vetoed, leaving its
     // "in progress" bookkeeping stale; clear it before the merged cycle.
     controller._executionInProgressParams = null
-    controller._restartCalculation = false
     const fullRecalc = state.fullRecalc
     state.fullRecalc = false
-    if (!fullRecalc && !hasDirtyData(controller._executingDirtyData)) return
+    const dirty = controller._getDirtyDataByCalculationMode?.(
+      controller._getCalculationMode?.() ?? 1,
+    ) ?? {}
+    if (!fullRecalc && !hasDirtyData(dirty)) return
     void commandService.executeCommand(
       START_MUTATION,
-      { ...controller._executingDirtyData, ...(fullRecalc ? { forceCalculation: true } : {}) },
+      { ...dirty, ...(fullRecalc ? { forceCalculation: true } : {}) },
       {
         onlyLocal: true,
       },

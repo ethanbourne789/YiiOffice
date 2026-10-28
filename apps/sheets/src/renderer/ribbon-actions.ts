@@ -838,7 +838,7 @@ export function handleRibbonCommand(ctx: RibbonCommandContext, command: string):
       const render = runtime.univer
         .__getInjector()
         .get(IRenderManagerService)
-        .getRenderById(workbook.getId())
+        .getRenderUnitById(workbook.getId())
       const skeleton = render?.with(SheetSkeletonManagerService).getCurrentSkeleton()
       if (!render || !skeleton) return
       const rows = skeleton.rowHeightAccumulation
@@ -891,7 +891,7 @@ export function handleRibbonCommand(ctx: RibbonCommandContext, command: string):
       // re-showing computes a zero shift and leaves the grid under the
       // row-header strip. Record the expected viewport lefts and correct
       // after the commands — a no-op whenever Univer shifts correctly.
-      const render = runtime.univer.__getInjector().get(IRenderManagerService).getRenderById(unitId)
+      const render = runtime.univer.__getInjector().get(IRenderManagerService).getRenderUnitById(unitId)
       const scene = render?.scene
       const skeleton = render?.with(SheetSkeletonManagerService).getCurrentSkeleton()
       const viewMain = scene?.getViewport(SHEET_VIEWPORT_KEY.VIEW_MAIN)
@@ -1042,7 +1042,7 @@ export function handleRibbonCommand(ctx: RibbonCommandContext, command: string):
         )
         return
       }
-      const result = collectDependents(workbook.getSnapshot(), worksheet.getSheetName(), {
+      const result = collectDependents(workbook.save(), worksheet.getSheetName(), {
         row,
         column,
       })
@@ -1085,7 +1085,7 @@ export function handleRibbonCommand(ctx: RibbonCommandContext, command: string):
     case 'workbook-statistics': {
       const workbook = runtime.univerAPI.getActiveWorkbook()
       if (!workbook) return
-      const snapshot = workbook.getSnapshot()
+      const snapshot = workbook.save()
       let cells = 0
       let formulas = 0
       for (const sheet of Object.values(snapshot.sheets)) {

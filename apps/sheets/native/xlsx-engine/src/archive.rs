@@ -104,10 +104,10 @@ fn entry_text_contains(entry: impl std::io::Read, needle: &str) -> Result<bool, 
             .map_err(|error| SidecarError::Workbook(error.to_string()))?;
         match event {
             Event::Text(text) => {
-                let decoded = text
-                    .decode()
-                    .map_err(|error| SidecarError::Workbook(error.to_string()))?;
-                run.push_str(&decoded);
+                // 0.42 decodes text events into `Cow<str>` at read time, so the
+                // old `decode()` step is gone; entity references arrive as
+                // their own `GeneralRef` event and are handled below.
+                run.push_str(&text.into_inner());
             }
             Event::GeneralRef(reference) => {
                 run.push_str(&crate::general_ref_text(&reference)?);
@@ -397,7 +397,7 @@ pub(crate) fn validate_entries(archive: &mut ZipArchive<File>) -> Result<(), Sid
         ));
     }
     for index in 0..archive.len() {
-        if canonical_entry_name(archive.by_index_raw(index)?.name()).is_none() {
+        if canonical_entry_name(&archive.by_index_raw(index)?.name()?).is_none() {
             return Err(SidecarError::Workbook(
                 "Workbook contains an unsafe ZIP path.".into(),
             ));
@@ -418,7 +418,7 @@ fn canonical_names(archive: &ZipArchive<File>) -> Vec<Option<String>> {
     let mut seen = HashSet::new();
     (0..archive.len())
         .map(|index| {
-            let name = canonical_entry_name(archive.name_for_index(index)?)?;
+            let name = canonical_entry_name(&archive.name_for_index(index)?.ok()?)?;
             (!name.is_empty() && seen.insert(name.clone())).then_some(name)
         })
         .collect()

@@ -99,12 +99,14 @@ describe('fixSequenceNodes', () => {
 
   it('repairs autofill offset rewrites through the instance wrap', () => {
     const local = new LexerTreeBuilder()
-    expect(local.moveFormulaRefOffset('="a"""&B1', 0, 1)).toBe('="a""&B2') // broken today
+    // 1.x re-escapes the string token itself, so the stock rewriter already
+    // returns the literal intact. The wrap must not escape it a second time.
+    expect(local.moveFormulaRefOffset('="a"""&B1', 0, 1)).toBe('="a"""&B2')
     const wrap = wrapLexer(local)
     expect(local.moveFormulaRefOffset('="a"""&B1', 0, 1)).toBe('="a"""&B2')
     expect(local.moveFormulaRefOffset('="a"&B1', 0, 1)).toBe('="a"&B2')
     wrap.dispose()
-    expect(local.moveFormulaRefOffset('="a"""&B1', 0, 1)).toBe('="a""&B2')
+    expect(local.moveFormulaRefOffset('="a"""&B1', 0, 1)).toBe('="a"""&B2')
   })
 
   it('never mutates the nodes Univer cached', () => {
@@ -137,13 +139,15 @@ describe('newlines inside string literals', () => {
     ['LF after an escaped quote', '="x""\ny"&B1', '"x""\ny"'],
   ] as const
 
-  it.each(CASES)('%s: the stock lexer flattens the literal to spaces', (_name, formula) => {
+  it.each(CASES)('%s: the stock lexer keeps the break verbatim', (_name, formula, literal) => {
     const local = new LexerTreeBuilder()
     const stock = formula.replace('B1', 'Z1')
-    expect(stringTokens(local.sequenceNodesBuilder(stock) as SequenceEntry[])[0]).toMatch(
-      /^"[^\r\n]*"$/,
+    // 1.x keeps the break; the escaped pair is still collapsed by the stock
+    // token, which is the bug the wrap repairs.
+    expect(stringTokens(local.sequenceNodesBuilder(stock) as SequenceEntry[])[0]).toBe(
+      literal.replace(/""/g, '"'),
     )
-    expect(treeLeaves(local.treeBuilder(stock)).join('')).not.toMatch(/[\r\n]/)
+    expect(treeLeaves(local.treeBuilder(stock)).join('')).toMatch(/[\r\n]/)
   })
 
   it.each(CASES)('%s: the wrapped lexer keeps the literal verbatim', (_name, formula, literal) => {
@@ -170,14 +174,15 @@ describe('newlines inside string literals', () => {
 
   it('autofill offset rewrites keep the break', () => {
     const local = new LexerTreeBuilder()
-    expect(local.moveFormulaRefOffset('="a\nb"&Y1', 0, 1)).toBe('="a b"&Y2') // Univer today
+    // 1.x keeps the break; 0.x flattened it to a space.
+    expect(local.moveFormulaRefOffset('="a\nb"&Y1', 0, 1)).toBe('="a\nb"&Y2')
     const wrap = wrapLexer(local)
     expect(local.moveFormulaRefOffset('="a\nb"&B1', 0, 1)).toBe('="a\nb"&B2')
     wrap.dispose()
-    expect(local.moveFormulaRefOffset('="a\nb"&X1', 0, 1)).toBe('="a b"&X2')
+    expect(local.moveFormulaRefOffset('="a\nb"&X1', 0, 1)).toBe('="a\nb"&X2')
   })
 
-  it('still flattens a newline between tokens to whitespace', () => {
+  it('turns a newline between tokens into whitespace', () => {
     const local = new LexerTreeBuilder()
     const wrap = wrapLexer(local)
     const formula = '=A1&\n"b"\r\n'
@@ -192,9 +197,9 @@ describe('newlines inside string literals', () => {
   })
 
   it('guards only the literal breaks and leaves quoted sheet names and table refs alone', () => {
-    expect(guardLiteralNewlines('="a\nb"&\nB1')).toBe('="a\uFDD1b"&\nB1')
-    expect(guardLiteralNewlines('=Table1[["\n"]]&"\r"')).toBe('=Table1[["\n"]]&"\uFDD0"')
-    expect(guardLiteralNewlines("='it\n''s'!A1")).toBe("='it\n''s'!A1")
+    expect(guardLiteralNewlines('="a\nb"&\nB1')).toBe('="a\uFDD1b"& B1')
+    expect(guardLiteralNewlines('=Table1[["\n"]]&"\r"')).toBe('=Table1[[" "]]&"\uFDD0"')
+    expect(guardLiteralNewlines("='it\n''s'!A1")).toBe("='it ''s'!A1")
     expect(guardLiteralNewlines('="\uFDD1\n"')).toBe('="\uFDD1\n"')
   })
 

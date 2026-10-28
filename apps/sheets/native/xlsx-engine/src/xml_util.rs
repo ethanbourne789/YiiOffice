@@ -59,11 +59,14 @@ pub(crate) fn zip_entry<'a>(
         let mut resolved = None;
         for candidate in [Some(name), decoded.as_deref()].into_iter().flatten() {
             let wanted = normalize(candidate);
-            if let Some(found) = archive
+            // Collect before breaking out: the iterator borrows `archive`, and
+            // `by_name` below needs it mutably again.
+            resolved = archive
                 .file_names()
-                .find(|candidate| normalize(candidate) == wanted)
-            {
-                resolved = Some(found.to_owned());
+                .filter_map(|entry| entry.ok())
+                .find(|entry| normalize(entry) == wanted)
+                .map(|entry| entry.to_string());
+            if resolved.is_some() {
                 break;
             }
         }
@@ -103,16 +106,19 @@ pub(crate) fn copy_entry_bounded<R: Read, W: Write>(
 }
 
 pub(crate) fn attribute_value<R: std::io::BufRead>(
-    reader: &Reader<R>,
+    _reader: &Reader<R>,
     element: &BytesStart<'_>,
     name: &[u8],
 ) -> Result<Option<String>, SidecarError> {
     for attribute in element.attributes().with_checks(false) {
         let attribute = attribute.map_err(|error| SidecarError::Workbook(error.to_string()))?;
-        if attribute.key.local_name().as_ref() == name {
+        // 0.42 hands names out as `&str`; keep the byte-string call sites by
+        // comparing on the raw bytes.
+        if attribute.key.local_name().as_ref().as_bytes() == name {
             return Ok(Some(
                 attribute
-                    .decode_and_unescape_value(reader.decoder())?
+                    .normalized_value(quick_xml::XmlVersion::Implicit1_0)
+                    .map_err(|error| SidecarError::Workbook(error.to_string()))?
                     .into_owned(),
             ));
         }
@@ -132,9 +138,7 @@ pub(crate) fn general_ref_text(
     {
         return Ok(character.to_string());
     }
-    let name = reference
-        .decode()
-        .map_err(|error| SidecarError::Workbook(error.to_string()))?;
+    let name = reference.xml10_content();
     Ok(match name.as_ref() {
         "amp" => "&".into(),
         "lt" => "<".into(),
@@ -227,10 +231,8 @@ pub(crate) fn preserves_space<R: std::io::BufRead>(
 }
 
 pub(crate) fn decode_text(text: &quick_xml::events::BytesText<'_>) -> Result<String, SidecarError> {
-    let decoded = text
-        .decode()
-        .map_err(|error| SidecarError::Workbook(error.to_string()))?;
-    quick_xml::escape::unescape(&decoded)
+    // 0.42 decodes text events on read; only entity unescaping is left to do.
+    quick_xml::escape::unescape(&text.xml10_content())
         .map(|value| value.into_owned())
         .map_err(|error| SidecarError::Workbook(error.to_string()))
 }
@@ -240,7 +242,5 @@ pub(crate) fn decode_text(text: &quick_xml::events::BytesText<'_>) -> Result<Str
 pub(crate) fn decode_cdata(
     text: &quick_xml::events::BytesCData<'_>,
 ) -> Result<String, SidecarError> {
-    text.decode()
-        .map(|value| value.into_owned())
-        .map_err(|error| SidecarError::Workbook(error.to_string()))
+    Ok(text.xml10_content().into_owned())
 }

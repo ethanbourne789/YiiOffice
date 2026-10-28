@@ -9,6 +9,7 @@ import { getListMarker, ListItem, TaskItem } from '@tiptap/extension-list'
 import { Table } from '@tiptap/extension-table'
 import { activeMarkdownStyle } from '../markdown/markdownStyle'
 import { renderingTable } from './markdownEscape'
+import { stockRenderMarkdown } from './markdown-stock'
 
 /**
  * The stock renderers hardcode `-`, `1.`, `*`, `**`, `#`, ```` ``` ````, `---`
@@ -159,7 +160,7 @@ export function renderTable(
   h: MarkdownRendererHelpers,
   ctx: RenderContext,
 ): string {
-  const out = Table.config.renderMarkdown!(node, h, ctx).replace(/^\n+|\n+$/g, '')
+  const out = stockRenderMarkdown(Table, node, h, ctx).replace(/^\n+|\n+$/g, '')
   if (activeMarkdownStyle().tableAligned) return out
   return out
     .split('\n')

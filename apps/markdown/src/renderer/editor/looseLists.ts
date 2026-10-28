@@ -20,7 +20,14 @@ function isLoose(token: MarkdownToken): boolean {
 }
 
 function withLoose(list: Node): Node {
-  const base = list.config.parseMarkdown!
+  // Tiptap 3.32 types the markdown hooks with a `this` of
+  // { name, options, storage, parent }, which `config` does not declare. The
+  // stock hook never reads those off the receiver here, so keep calling it
+  // unbound (as before) through the widened signature.
+  const base = list.config.parseMarkdown as unknown as (
+    token: MarkdownToken,
+    h: MarkdownParseHelpers,
+  ) => JSONContent | JSONContent[]
   return list.extend({
     addAttributes() {
       return {
@@ -29,7 +36,7 @@ function withLoose(list: Node): Node {
       }
     },
     parseMarkdown: (token: MarkdownToken, h: MarkdownParseHelpers) => {
-      const out = base(token, h) as JSONContent | JSONContent[]
+      const out = base(token, h)
       if (Array.isArray(out)) return out
       return { ...out, attrs: { ...out.attrs, loose: isLoose(token) } }
     },

@@ -1,7 +1,6 @@
 import {
   ConfigService,
   ContextService,
-  type Injector,
   LocaleService,
   Styles,
   Worksheet,
@@ -15,6 +14,7 @@ import {
   installAutofitWrapBudget,
   type AutofitSkeletonLike,
 } from '../src/renderer/autofit-wrap-budget'
+import { createThemeInjector } from './helpers/univer-theme-injector'
 
 function fakeSkeleton(columnData: Record<number, { w?: number; hd?: number } | undefined>) {
   const seen: number[] = []
@@ -93,7 +93,7 @@ describe('installAutofitWrapBudget on the real SpreadsheetSkeleton', () => {
       new LocaleService(),
       new ContextService(),
       new ConfigService(),
-      undefined as unknown as Injector,
+      createThemeInjector(),
     )
   }
 

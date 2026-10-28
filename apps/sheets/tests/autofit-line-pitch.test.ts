@@ -1,7 +1,6 @@
 import {
   ConfigService,
   ContextService,
-  type Injector,
   LocaleService,
   Styles,
   Worksheet,
@@ -11,6 +10,7 @@ import { DEFAULT_PADDING_DATA, FontCache, SpreadsheetSkeleton } from '@univerjs/
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import { excelRowPitchPx, installAutofitLinePitch } from '../src/renderer/autofit-line-pitch'
+import { createThemeInjector } from './helpers/univer-theme-injector'
 
 const noMetrics = { fontBoundingBoxAscent: 0, fontBoundingBoxDescent: 0 }
 
@@ -110,7 +110,7 @@ describe('installAutofitLinePitch on the real SpreadsheetSkeleton', () => {
       new LocaleService(),
       new ContextService(),
       new ConfigService(),
-      undefined as unknown as Injector,
+      createThemeInjector(),
     )
   }
 

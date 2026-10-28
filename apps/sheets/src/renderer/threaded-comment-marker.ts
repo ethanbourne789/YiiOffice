@@ -62,7 +62,7 @@ export function installThreadedCommentAffordances(
     const workbookId = runtime.univerAPI.getActiveWorkbook()?.getId()
     if (!workbookId) return
     try {
-      const render = injector.get(IRenderManagerService).getRenderById(workbookId)
+      const render = injector.get(IRenderManagerService).getRenderUnitById(workbookId)
       render?.with(SheetSkeletonManagerService).reCalculate()
       render?.mainComponent?.makeDirty(true)
       render?.scene?.makeDirty(true)

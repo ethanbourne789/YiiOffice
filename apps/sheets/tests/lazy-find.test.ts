@@ -948,11 +948,15 @@ describe('service-level dispatch (Univer semantics)', () => {
     harness.providers.add(builtin)
     const bridge = installLazyFindBridge(harness)
 
-    mockRead.mockImplementation(async () =>
-      mapped([
-        { row: 500, column: 3, value: 'filtered needle' },
-        { row: 700, column: 3, value: 'visible needle' },
-      ]),
+    // A range read answers with the cells of the requested range only, so
+    // every page contributes its own hits instead of repeating the sheet.
+    mockRead.mockImplementation(async (_state, _sheetId, range) =>
+      mapped(
+        [
+          { row: 500, column: 3, value: 'filtered needle' },
+          { row: 700, column: 3, value: 'visible needle' },
+        ].filter((cell) => cell.row >= range.startRow && cell.row <= range.endRow),
+      ),
     )
 
     const models = await harnessLookup(harness)(query())

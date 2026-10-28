@@ -1,5 +1,8 @@
-import { FunctionType, type IFunctionInfo } from '@univerjs/engine-formula'
-import { IDescriptionService } from '@univerjs/sheets-formula'
+import {
+  FunctionType,
+  IDescriptionService,
+  type IFunctionInfo,
+} from '@univerjs/engine-formula'
 
 import { parseSyntaxParams, type ParamInfo } from './function-arguments'
 import type { UniverRuntime } from './univer-state'

@@ -12,7 +12,7 @@
  * Hidden rows outside a filter range keep copying: manually hidden rows are
  * still included in copies.
  */
-import { IUniverInstanceService, type IRange } from '@univerjs/core'
+import { IUniverInstanceService, UniverInstanceType, type IRange, type Workbook } from '@univerjs/core'
 import { ISheetClipboardService } from '@univerjs/preset-sheets-core'
 // The plugin package, not the preset: the preset re-exports the filter UI,
 // whose module scope needs a browser canvas (Path2D) and cannot load in
@@ -47,7 +47,9 @@ export function installFilteredCopyHook(runtime: UniverRuntime): { dispose(): vo
     id: 'yiioffice-filtered-copy',
     getFilteredOutRows: (unitId, subUnitId, range) => {
       const filterModel = filterService.getFilterModel(unitId, subUnitId)
-      const worksheet = instanceService.getUniverSheetInstance(unitId)?.getSheetBySheetId(subUnitId)
+      const worksheet = instanceService
+        .getUnit<Workbook>(unitId, UniverInstanceType.UNIVER_SHEET)
+        ?.getSheetBySheetId(subUnitId)
       if (!filterModel || !worksheet) return []
       return hiddenRowsInFilterRange(
         range,

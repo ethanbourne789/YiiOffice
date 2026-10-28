@@ -89,7 +89,7 @@ pub(crate) fn index_worksheet(
         }
         match reader.read_event_into(&mut buffer)? {
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"row" =>
+                if element.local_name().as_ref() == "row" =>
             {
                 current_row = attribute_value(&reader, &element, b"r")?
                     .and_then(|value| value.parse::<usize>().ok())
@@ -115,13 +115,13 @@ pub(crate) fn index_worksheet(
                     chunk.rows.push(property);
                 }
             }
-            Event::Start(element) if element.local_name().as_ref() == b"c" => {
+            Event::Start(element) if element.local_name().as_ref() == "c" => {
                 let builder =
                     CellBuilder::from_element(&reader, &element, current_row, next_column)?;
                 next_column = builder.column + 1;
                 cell_builder = Some(builder);
             }
-            Event::Empty(element) if element.local_name().as_ref() == b"c" => {
+            Event::Empty(element) if element.local_name().as_ref() == "c" => {
                 // Self-closing cells carry no value but may carry a style
                 // (borders, fills); keep them like any other cell.
                 {
@@ -149,7 +149,7 @@ pub(crate) fn index_worksheet(
                     }
                 }
             }
-            Event::Start(element) if element.local_name().as_ref() == b"f" => {
+            Event::Start(element) if element.local_name().as_ref() == "f" => {
                 in_formula = true;
                 cell_shared_si = shared_formula_si(&reader, &element)?;
                 cell_shared_ref = if cell_shared_si.is_some() {
@@ -162,7 +162,7 @@ pub(crate) fn index_worksheet(
                     builder.array_ref = array_formula_ref(&reader, &element)?;
                 }
             }
-            Event::Empty(element) if element.local_name().as_ref() == b"f" => {
+            Event::Empty(element) if element.local_name().as_ref() == "f" => {
                 // Self-closing shared-formula follower (<f t="shared" si="N"/>):
                 // inherit the master's formula shifted by the cell offset (#165).
                 if let (Some(si), Some(builder)) =
@@ -174,28 +174,28 @@ pub(crate) fn index_worksheet(
                     }
                 }
             }
-            Event::Start(element) if element.local_name().as_ref() == b"v" => in_value = true,
+            Event::Start(element) if element.local_name().as_ref() == "v" => in_value = true,
             // Inline strings can carry <rPh> ruby annotations too.
-            Event::Start(element) if element.local_name().as_ref() == b"rPh" => {
+            Event::Start(element) if element.local_name().as_ref() == "rPh" => {
                 in_phonetic = true;
             }
-            Event::End(element) if element.local_name().as_ref() == b"rPh" => {
+            Event::End(element) if element.local_name().as_ref() == "rPh" => {
                 in_phonetic = false;
             }
-            Event::Start(element) if element.local_name().as_ref() == b"t" => {
+            Event::Start(element) if element.local_name().as_ref() == "t" => {
                 in_text = !in_phonetic;
                 text_preserve = preserves_space(&reader, &element)?;
                 text_node.clear();
             }
             Event::Start(element)
-                if element.local_name().as_ref() == b"r" && cell_builder.is_some() =>
+                if element.local_name().as_ref() == "r" && cell_builder.is_some() =>
             {
                 if let Some(builder) = &mut cell_builder {
                     builder.current_run = Some(RichRun::default());
                 }
             }
             Event::End(element)
-                if element.local_name().as_ref() == b"r" && cell_builder.is_some() =>
+                if element.local_name().as_ref() == "r" && cell_builder.is_some() =>
             {
                 if let Some(builder) = &mut cell_builder {
                     if let Some(run) = builder.current_run.take() {
@@ -281,7 +281,7 @@ pub(crate) fn index_worksheet(
                     }
                 }
             }
-            Event::End(element) if element.local_name().as_ref() == b"f" => {
+            Event::End(element) if element.local_name().as_ref() == "f" => {
                 in_formula = false;
                 if let (Some(si), Some(builder)) = (cell_shared_si.take(), cell_builder.as_mut()) {
                     if builder.formula.is_empty() {
@@ -303,8 +303,8 @@ pub(crate) fn index_worksheet(
                     }
                 }
             }
-            Event::End(element) if element.local_name().as_ref() == b"v" => in_value = false,
-            Event::End(element) if element.local_name().as_ref() == b"t" => {
+            Event::End(element) if element.local_name().as_ref() == "v" => in_value = false,
+            Event::End(element) if element.local_name().as_ref() == "t" => {
                 if in_text {
                     let text = text_node_content(std::mem::take(&mut text_node), text_preserve);
                     if let Some(builder) = &mut cell_builder {
@@ -316,7 +316,7 @@ pub(crate) fn index_worksheet(
                 }
                 in_text = false;
             }
-            Event::End(element) if element.local_name().as_ref() == b"c" => {
+            Event::End(element) if element.local_name().as_ref() == "c" => {
                 if let Some(builder) = cell_builder.take() {
                     latest_row = latest_row.max(builder.row);
                     let cell_chunk = builder.row / CHUNK_ROW_COUNT;
@@ -344,7 +344,7 @@ pub(crate) fn index_worksheet(
                 }
             }
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"mergeCell" =>
+                if element.local_name().as_ref() == "mergeCell" =>
             {
                 if let Some(reference) = attribute_value(&reader, &element, b"ref")? {
                     if let Some(merge) = parse_merge_reference(&reference) {
@@ -353,7 +353,7 @@ pub(crate) fn index_worksheet(
                 }
             }
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"hyperlink" =>
+                if element.local_name().as_ref() == "hyperlink" =>
             {
                 if let Some(reference) = attribute_value(&reader, &element, b"ref")? {
                     let anchor = reference.split(':').next().unwrap_or(&reference);
@@ -374,7 +374,7 @@ pub(crate) fn index_worksheet(
                 }
             }
             Event::Start(element)
-                if element.local_name().as_ref() == b"autoFilter"
+                if element.local_name().as_ref() == "autoFilter"
                     && !in_custom_sheet_views
                     && !auto_filter_captured =>
             {
@@ -384,7 +384,7 @@ pub(crate) fn index_worksheet(
                 in_auto_filter = true;
             }
             Event::Empty(element)
-                if element.local_name().as_ref() == b"autoFilter"
+                if element.local_name().as_ref() == "autoFilter"
                     && !in_custom_sheet_views
                     && !auto_filter_captured =>
             {
@@ -393,13 +393,13 @@ pub(crate) fn index_worksheet(
                     .and_then(|reference| parse_area_reference(&reference));
             }
             Event::End(element)
-                if element.local_name().as_ref() == b"autoFilter" && in_auto_filter =>
+                if element.local_name().as_ref() == "autoFilter" && in_auto_filter =>
             {
                 in_auto_filter = false;
                 filter_column = None;
             }
             Event::Start(element) | Event::Empty(element)
-                if in_auto_filter && element.local_name().as_ref() == b"filterColumn" =>
+                if in_auto_filter && element.local_name().as_ref() == "filterColumn" =>
             {
                 filter_column = attribute_value(&reader, &element, b"colId")?
                     .and_then(|value| value.parse::<usize>().ok())
@@ -411,7 +411,7 @@ pub(crate) fn index_worksheet(
                     });
             }
             Event::End(element)
-                if in_auto_filter && element.local_name().as_ref() == b"filterColumn" =>
+                if in_auto_filter && element.local_name().as_ref() == "filterColumn" =>
             {
                 if let Some(column) = filter_column.take() {
                     // Color/icon/dynamic/top10-only columns stay criteria-less.
@@ -421,7 +421,7 @@ pub(crate) fn index_worksheet(
                 }
             }
             Event::Start(element) | Event::Empty(element)
-                if in_auto_filter && element.local_name().as_ref() == b"filters" =>
+                if in_auto_filter && element.local_name().as_ref() == "filters" =>
             {
                 if let Some(column) = filter_column.as_mut() {
                     column.blank = attribute_value(&reader, &element, b"blank")?
@@ -430,7 +430,7 @@ pub(crate) fn index_worksheet(
                 }
             }
             Event::Start(element) | Event::Empty(element)
-                if in_auto_filter && element.local_name().as_ref() == b"filter" =>
+                if in_auto_filter && element.local_name().as_ref() == "filter" =>
             {
                 if let Some(values) = filter_column
                     .as_mut()
@@ -442,7 +442,7 @@ pub(crate) fn index_worksheet(
                 }
             }
             Event::Start(element) | Event::Empty(element)
-                if in_auto_filter && element.local_name().as_ref() == b"customFilters" =>
+                if in_auto_filter && element.local_name().as_ref() == "customFilters" =>
             {
                 if let Some(column) = filter_column.as_mut() {
                     column.customs = Some(CustomFilterCriteria {
@@ -453,7 +453,7 @@ pub(crate) fn index_worksheet(
                 }
             }
             Event::Start(element) | Event::Empty(element)
-                if in_auto_filter && element.local_name().as_ref() == b"customFilter" =>
+                if in_auto_filter && element.local_name().as_ref() == "customFilter" =>
             {
                 if let Some(customs) = filter_column
                     .as_mut()
@@ -469,24 +469,24 @@ pub(crate) fn index_worksheet(
                 }
             }
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"sheetProtection" =>
+                if element.local_name().as_ref() == "sheetProtection" =>
             {
                 sheet_protection = Some(parse_sheet_protection(&reader, &element)?);
             }
-            Event::Start(element) if element.local_name().as_ref() == b"customSheetViews" => {
+            Event::Start(element) if element.local_name().as_ref() == "customSheetViews" => {
                 in_custom_sheet_views = true;
             }
-            Event::End(element) if element.local_name().as_ref() == b"customSheetViews" => {
+            Event::End(element) if element.local_name().as_ref() == "customSheetViews" => {
                 in_custom_sheet_views = false;
             }
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"pageSetUpPr" && !in_custom_sheet_views =>
+                if element.local_name().as_ref() == "pageSetUpPr" && !in_custom_sheet_views =>
             {
                 page_print.fit_to_page = attribute_value(&reader, &element, b"fitToPage")?
                     .is_some_and(|value| value == "1" || value == "true");
             }
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"printOptions" && !in_custom_sheet_views =>
+                if element.local_name().as_ref() == "printOptions" && !in_custom_sheet_views =>
             {
                 page_print.print_gridlines = attribute_value(&reader, &element, b"gridLines")?
                     .is_some_and(|value| value == "1" || value == "true");
@@ -494,7 +494,7 @@ pub(crate) fn index_worksheet(
                     .is_some_and(|value| value == "1" || value == "true");
             }
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"pageMargins" && !in_custom_sheet_views =>
+                if element.local_name().as_ref() == "pageMargins" && !in_custom_sheet_views =>
             {
                 if let (
                     Some(left),
@@ -522,7 +522,7 @@ pub(crate) fn index_worksheet(
                 }
             }
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"pageSetup" && !in_custom_sheet_views =>
+                if element.local_name().as_ref() == "pageSetup" && !in_custom_sheet_views =>
             {
                 page_print.orientation = attribute_value(&reader, &element, b"orientation")?
                     .filter(|value| value == "portrait" || value == "landscape");
@@ -542,7 +542,7 @@ pub(crate) fn index_worksheet(
                     .filter(|value| *value <= 32_767);
             }
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"headerFooter" && !in_custom_sheet_views =>
+                if element.local_name().as_ref() == "headerFooter" && !in_custom_sheet_views =>
             {
                 let flag = |name: &[u8]| -> Result<bool, SidecarError> {
                     Ok(attribute_value(&reader, &element, name)?
@@ -567,24 +567,24 @@ pub(crate) fn index_worksheet(
                 header_footer_section = None;
             }
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"legacyDrawingHF" =>
+                if element.local_name().as_ref() == "legacyDrawingHF" =>
             {
                 legacy_drawing_hf_id = attribute_value(&reader, &element, b"id")?;
             }
-            Event::Start(element) if element.local_name().as_ref() == b"rowBreaks" => {
+            Event::Start(element) if element.local_name().as_ref() == "rowBreaks" => {
                 in_row_breaks = true;
             }
-            Event::End(element) if element.local_name().as_ref() == b"rowBreaks" => {
+            Event::End(element) if element.local_name().as_ref() == "rowBreaks" => {
                 in_row_breaks = false;
             }
-            Event::Start(element) if element.local_name().as_ref() == b"colBreaks" => {
+            Event::Start(element) if element.local_name().as_ref() == "colBreaks" => {
                 in_col_breaks = true;
             }
-            Event::End(element) if element.local_name().as_ref() == b"colBreaks" => {
+            Event::End(element) if element.local_name().as_ref() == "colBreaks" => {
                 in_col_breaks = false;
             }
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"brk" && (in_row_breaks || in_col_breaks) =>
+                if element.local_name().as_ref() == "brk" && (in_row_breaks || in_col_breaks) =>
             {
                 // Only manual breaks: Excel also caches automatic ones when
                 // printer metrics are embedded, which we recompute instead.
@@ -603,7 +603,7 @@ pub(crate) fn index_worksheet(
                 }
             }
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"protectedRange" =>
+                if element.local_name().as_ref() == "protectedRange" =>
             {
                 if let (Some(name), Some(sqref)) = (
                     attribute_value(&reader, &element, b"name")?,
@@ -622,7 +622,7 @@ pub(crate) fn index_worksheet(
                 }
             }
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"securityDescriptor" =>
+                if element.local_name().as_ref() == "securityDescriptor" =>
             {
                 // The child-element form of the ACL, nested in the
                 // protectedRange just pushed.
@@ -630,16 +630,16 @@ pub(crate) fn index_worksheet(
                     range.has_password = true;
                 }
             }
-            Event::Start(element) if element.local_name().as_ref() == b"dataValidation" => {
+            Event::Start(element) if element.local_name().as_ref() == "dataValidation" => {
                 dv_rule = parse_dv_rule(&reader, &element)?;
             }
-            Event::Empty(element) if element.local_name().as_ref() == b"dataValidation" => {
+            Event::Empty(element) if element.local_name().as_ref() == "dataValidation" => {
                 if let Some(rule) = parse_dv_rule(&reader, &element)? {
                     data_validations.push(rule);
                 }
             }
             Event::Start(element)
-                if element.local_name().as_ref().starts_with(b"formula") && dv_rule.is_some() =>
+                if element.local_name().as_ref().starts_with("formula") && dv_rule.is_some() =>
             {
                 in_dv_formula = true;
                 if let Some(rule) = &mut dv_rule {
@@ -647,17 +647,17 @@ pub(crate) fn index_worksheet(
                 }
             }
             Event::End(element)
-                if element.local_name().as_ref().starts_with(b"formula") && dv_rule.is_some() =>
+                if element.local_name().as_ref().starts_with("formula") && dv_rule.is_some() =>
             {
                 in_dv_formula = false;
             }
-            Event::End(element) if element.local_name().as_ref() == b"dataValidation" => {
+            Event::End(element) if element.local_name().as_ref() == "dataValidation" => {
                 if let Some(rule) = dv_rule.take() {
                     data_validations.push(rule);
                 }
             }
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"conditionalFormatting" =>
+                if element.local_name().as_ref() == "conditionalFormatting" =>
             {
                 cf_ranges = attribute_value(&reader, &element, b"sqref")?
                     .map(|sqref| {
@@ -669,17 +669,17 @@ pub(crate) fn index_worksheet(
                     .unwrap_or_default();
             }
             Event::Start(element)
-                if element.local_name().as_ref() == b"cfRule" && !cf_ranges.is_empty() =>
+                if element.local_name().as_ref() == "cfRule" && !cf_ranges.is_empty() =>
             {
                 cf_rule = Some(parse_cf_rule(&reader, &element, &cf_ranges)?);
             }
             Event::Empty(element)
-                if element.local_name().as_ref() == b"cfRule" && !cf_ranges.is_empty() =>
+                if element.local_name().as_ref() == "cfRule" && !cf_ranges.is_empty() =>
             {
                 conditional_rules.push(parse_cf_rule(&reader, &element, &cf_ranges)?);
             }
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"iconSet" && cf_rule.is_some() =>
+                if element.local_name().as_ref() == "iconSet" && cf_rule.is_some() =>
             {
                 if let Some(rule) = &mut cf_rule {
                     rule.icon_set_name = Some(
@@ -694,7 +694,7 @@ pub(crate) fn index_worksheet(
                 }
             }
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"dataBar" && cf_rule.is_some() =>
+                if element.local_name().as_ref() == "dataBar" && cf_rule.is_some() =>
             {
                 if let Some(rule) = &mut cf_rule {
                     rule.show_value = attribute_value(&reader, &element, b"showValue")?
@@ -711,7 +711,7 @@ pub(crate) fn index_worksheet(
             }
             // x14:dataBar carries the attributes the 2006 element lacks.
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"dataBar" && cf_rule.is_none() =>
+                if element.local_name().as_ref() == "dataBar" && cf_rule.is_none() =>
             {
                 if let Some(id) = &x14_current_id {
                     let gradient = attribute_value(&reader, &element, b"gradient")?
@@ -740,22 +740,22 @@ pub(crate) fn index_worksheet(
             // <x14:id> inside a main cfRule's extLst links the rule to its
             // x14 twin in the worksheet extLst.
             Event::Start(element)
-                if element.local_name().as_ref() == b"id" && cf_rule.is_some() =>
+                if element.local_name().as_ref() == "id" && cf_rule.is_some() =>
             {
                 in_cf_ext_id = true;
             }
-            Event::End(element) if element.local_name().as_ref() == b"id" => {
+            Event::End(element) if element.local_name().as_ref() == "id" => {
                 in_cf_ext_id = false;
             }
             // x14:cfRule (its parent x14:conditionalFormatting has no sqref
             // attribute, so cf_ranges is empty and the main arms skip it).
             Event::Start(element)
-                if element.local_name().as_ref() == b"cfRule" && cf_ranges.is_empty() =>
+                if element.local_name().as_ref() == "cfRule" && cf_ranges.is_empty() =>
             {
                 x14_current_id = attribute_value(&reader, &element, b"id")?;
             }
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"negativeFillColor" =>
+                if element.local_name().as_ref() == "negativeFillColor" =>
             {
                 if let Some(id) = &x14_current_id {
                     if let Some(color) = visuals::resolve_color(
@@ -770,7 +770,7 @@ pub(crate) fn index_worksheet(
                 }
             }
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"axisColor" =>
+                if element.local_name().as_ref() == "axisColor" =>
             {
                 if let Some(id) = &x14_current_id {
                     if let Some(color) = visuals::resolve_color(
@@ -787,7 +787,7 @@ pub(crate) fn index_worksheet(
             // x14:cfvo inside an x14 twin: autoMin/autoMax refine the 2006
             // twin's plain min/max (Excel anchors auto bounds at zero).
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"cfvo" && cf_rule.is_none() =>
+                if element.local_name().as_ref() == "cfvo" && cf_rule.is_none() =>
             {
                 if let Some(id) = &x14_current_id {
                     if let Some(kind) = attribute_value(&reader, &element, b"type")? {
@@ -796,7 +796,7 @@ pub(crate) fn index_worksheet(
                 }
             }
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"cfvo" && cf_rule.is_some() =>
+                if element.local_name().as_ref() == "cfvo" && cf_rule.is_some() =>
             {
                 if let Some(rule) = &mut cf_rule {
                     rule.cfvos.push(Cfvo {
@@ -809,7 +809,7 @@ pub(crate) fn index_worksheet(
                 }
             }
             Event::Start(element) | Event::Empty(element)
-                if element.local_name().as_ref() == b"color" && cf_rule.is_some() =>
+                if element.local_name().as_ref() == "color" && cf_rule.is_some() =>
             {
                 if let Some(rule) = &mut cf_rule {
                     if let Some(color) = visuals::resolve_color(
@@ -824,17 +824,17 @@ pub(crate) fn index_worksheet(
                 }
             }
             Event::Start(element)
-                if element.local_name().as_ref() == b"formula" && cf_rule.is_some() =>
+                if element.local_name().as_ref() == "formula" && cf_rule.is_some() =>
             {
                 in_cf_formula = true;
                 if let Some(rule) = &mut cf_rule {
                     rule.formulas.push(String::new());
                 }
             }
-            Event::End(element) if element.local_name().as_ref() == b"formula" => {
+            Event::End(element) if element.local_name().as_ref() == "formula" => {
                 in_cf_formula = false;
             }
-            Event::End(element) if element.local_name().as_ref() == b"cfRule" => {
+            Event::End(element) if element.local_name().as_ref() == "cfRule" => {
                 if let Some(rule) = cf_rule.take() {
                     conditional_rules.push(rule);
                     if let Some(id) = cf_rule_ext_id.take() {
@@ -1104,14 +1104,14 @@ pub(crate) enum HeaderFooterSection {
 }
 
 impl HeaderFooterSection {
-    fn from_tag(local_name: &[u8]) -> Option<Self> {
+    fn from_tag(local_name: &str) -> Option<Self> {
         match local_name {
-            b"oddHeader" => Some(Self::OddHeader),
-            b"oddFooter" => Some(Self::OddFooter),
-            b"evenHeader" => Some(Self::EvenHeader),
-            b"evenFooter" => Some(Self::EvenFooter),
-            b"firstHeader" => Some(Self::FirstHeader),
-            b"firstFooter" => Some(Self::FirstFooter),
+            "oddHeader" => Some(Self::OddHeader),
+            "oddFooter" => Some(Self::OddFooter),
+            "evenHeader" => Some(Self::EvenHeader),
+            "evenFooter" => Some(Self::EvenFooter),
+            "firstHeader" => Some(Self::FirstHeader),
+            "firstFooter" => Some(Self::FirstFooter),
             _ => None,
         }
     }

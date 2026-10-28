@@ -139,8 +139,8 @@ export function installGridGrowth(runtime: UniverRuntime): () => void {
         runtime.univer as unknown as { __getInjector(): InjectorLike }
       ).__getInjector()
       const render = injector
-        .get<{ getRenderById(id: string): RenderUnitLike | null }>(IRenderManagerService)
-        .getRenderById(workbook.getId())
+        .get<{ getRenderUnitById(id: string): RenderUnitLike | null }>(IRenderManagerService)
+        .getRenderUnitById(workbook.getId())
       if (!render) return null
       skeletonManager = render.with<SkeletonManagerLike>(SheetSkeletonManagerService)
       return skeletonManager
@@ -203,8 +203,9 @@ export function installGridGrowth(runtime: UniverRuntime): () => void {
     return Math.max(0, columnCount - 1)
   }
 
-  const onCommand = runtime.univerAPI.onCommandExecuted(
-    (command: { id?: string; params?: unknown }) => {
+  const onCommand = runtime.univerAPI.addEvent(
+    runtime.univerAPI.Event.CommandExecuted,
+    (command) => {
       if (command?.id === SET_ACTIVE_SHEET_OPERATION) {
         // The viewport position belongs to the sheet it was scrolled on.
         lastColumn = 0

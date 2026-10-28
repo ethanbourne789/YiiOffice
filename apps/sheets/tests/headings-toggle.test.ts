@@ -48,7 +48,7 @@ function makeHeadingsHarness() {
     univerRef: {
       current: {
         univerAPI,
-        univer: { __getInjector: () => ({ get: () => ({ getRenderById: () => render }) }) },
+        univer: { __getInjector: () => ({ get: () => ({ getRenderUnitById: () => render }) }) },
       },
     },
     lazyWorkbookRef: { current: null },

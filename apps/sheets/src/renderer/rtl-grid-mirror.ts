@@ -492,7 +492,7 @@ function patchRelativeScroll(): void {
   const origHandler = command.handler
   command.handler = (accessor, params) => {
     const target = getSheetCommandTarget(accessor.get(IUniverInstanceService))
-    const render = target ? accessor.get(IRenderManagerService).getRenderById(target.unitId) : null
+    const render = target ? accessor.get(IRenderManagerService).getRenderUnitById(target.unitId) : null
     const rtl = rtlMainViewport(
       render?.scene,
       render?.with(SheetSkeletonManagerService)?.getCurrentSkeleton(),
