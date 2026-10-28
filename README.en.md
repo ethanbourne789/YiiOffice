@@ -54,7 +54,7 @@ One window hosting every editor as a tab — the first thing you see when the ap
 | Editor | Formats | Engine | Highlights |
 |--------|---------|--------|------------|
 | **Docs** | `.docx` | Tiptap 3 + `docx-engine` | Paginated and multi-page views, headers and footers, page numbers and sections, style gallery, rulers and page setup, footnotes and endnotes, comments, document compare, equations and fields, ink, find and replace, word count, document protection, encrypted files, print and PDF export |
-| **Sheets** | `.xlsx` `.xlsm` `.xls` `.csv` `.tsv` | Univer 0.25 + `xlsx-gateway` + Rust `xlsx-sidecar` | Formulas and a function library (insert function, argument hints), format cells, conditional formatting, data validation, sort/filter/advanced filter, grouping, pivot tables, charts, merge and freeze, go-to, goal seek, consolidate, fill series, paste special, name manager, sheet protection, paged printing, CSV |
+| **Sheets** | `.xlsx` `.xlsm` `.xls` `.csv` `.tsv` | Univer 1.2 + `xlsx-gateway` + Rust `xlsx-sidecar` | Formulas and a function library (insert function, argument hints), format cells, conditional formatting, data validation, sort/filter/advanced filter, grouping, pivot tables, charts, merge and freeze, go-to, goal seek, consolidate, fill series, paste special, name manager, sheet protection, paged printing, CSV |
 | **Slides** | `.pptx` | Konva 10 + `pptx-engine` / `pptx-render` | Masters and layouts, text/shape/picture/chart editing, animations and transitions (Morph included), slideshow with presenter view, notes and comments, custom shows, non-destructive cropping, ink, SVG and image export |
 | **PDF** | `.pdf` | pdf.js 6 + PDFium WASM + pdf-lib | In-place text and image editing, comments and markup, form design and filling, redaction, signatures and stamps, outline navigation, page operations, password protection, on-device PDF → Word/PPT/Excel |
 | **Markdown** | `.md` `.markdown` `.txt` `.json` | Tiptap + CodeMirror 6 | WYSIWYG and source views, tables/code blocks/images, Mermaid diagrams, KaTeX math, export to DOCX / PDF / image, print |
@@ -77,7 +77,7 @@ One window hosting every editor as a tab — the first thing you see when the ap
 | Main process | Node (TypeScript), `WebContentsView` tab host, `node:sqlite` FTS5 index |
 | Frontend | React 19 + TypeScript 7.0, one Vite 8 build per app |
 | Documents | Tiptap 3 (Docs / Markdown) |
-| Spreadsheets | Univer 0.25; `.xlsx` parsing and formula evaluation in a Rust sidecar (calamine + IronCalc) |
+| Spreadsheets | Univer 1.2; `.xlsx` parsing and formula evaluation in a Rust sidecar (calamine + IronCalc) |
 | Slides | Konva 10 / react-konva 19 |
 | PDF | pdf.js 6, PDFium WASM (`@embedpdf/pdfium`), pdf-lib |
 | Code editing | CodeMirror 6 (HTML / Markdown source views) |
@@ -202,7 +202,7 @@ The repository currently has **no CI configuration**, so every gate above is loc
 ## FAQ
 
 **Do I need an account or a network connection?**
-No. There is no account system and no upload; editing, saving, search and conversion all happen locally. The app never checks for updates; the only network activity is fetching images a document points at.
+No. There is no account system and no upload; editing, saving, search and conversion all happen locally. The app never checks for updates and collects no usage data. By default the only network activity is fetching images a document points at. Slides can also download missing fonts (only when a font CDN address is injected at build time; without it that entry point stays off).
 
 **Can MS Office / WPS open the files after saving?**
 Yes. Saves are OOXML patches: only edited nodes change, the remaining bytes stay as they were, so structures and extended properties Office relies on are preserved.
@@ -220,7 +220,7 @@ Check that all five renderer dev servers are alive (:5173–:5177) — each edit
 
 ## Acknowledgements
 
-YiiOffice builds on [Electron](https://www.electronjs.org/) · [Univer](https://github.com/dream-num/univer) · [Tiptap](https://tiptap.dev/) / [ProseMirror](https://prosemirror.net/) · [Konva](https://konvajs.org/) · [PDFium](https://pdfium.googlesource.com/pdfium/) · [pdf.js](https://github.com/mozilla/pdf.js) · [pdf-lib](https://github.com/Hopding/pdf-lib) · [CodeMirror](https://codemirror.net/) · [calamine](https://github.com/tafia/calamine) · [IronCalc](https://github.com/ironcalc/IronCalc) · [HarfBuzz](https://github.com/harfbuzz/harfbuzz) · [Mermaid](https://mermaid.js.org/) · [KaTeX](https://katex.org/) · [JSZip](https://stuk.github.io/jszip/) · [Fluent UI System Icons](https://github.com/microsoft/fluentui-system-icons) · [GenOffice](https://www.genoffice.com/)
+YiiOffice builds on [Electron](https://www.electronjs.org/) · [Univer](https://github.com/dream-num/univer) · [Tiptap](https://tiptap.dev/) / [ProseMirror](https://prosemirror.net/) · [Konva](https://konvajs.org/) · [PDFium](https://pdfium.googlesource.com/pdfium/) · [pdf.js](https://github.com/mozilla/pdf.js) · [pdf-lib](https://github.com/Hopding/pdf-lib) · [CodeMirror](https://codemirror.net/) · [calamine](https://github.com/tafia/calamine) · [IronCalc](https://github.com/ironcalc/IronCalc) · [HarfBuzz](https://github.com/harfbuzz/harfbuzz) · [Mermaid](https://mermaid.js.org/) · [KaTeX](https://katex.org/) · [JSZip](https://stuk.github.io/jszip/) · [Fluent UI System Icons](https://github.com/microsoft/fluentui-system-icons) · [GenOffice](https://genoffice.ai)
 
 `npm run notices` regenerates the third-party licence list shipped with the app (`tools/gen-third-party-notices.mjs`).
 

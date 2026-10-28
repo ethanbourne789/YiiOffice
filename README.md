@@ -54,7 +54,7 @@
 | 编辑器          | 文件格式                                 | 内核                                                 | 主要能力                                                                                                          |
 | ------------ | ------------------------------------ | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | **Docs**     | `.docx`                              | Tiptap 3 + `docx-engine`                           | 分页/多页视图、页眉页脚、页码与分节、样式库、标尺与页面设置、脚注尾注、批注、文档比较、公式与域、墨迹、查找替换、字数统计、文档保护、加密文档、打印与导出 PDF                             |
-| **Sheets**   | `.xlsx` `.xlsm` `.xls` `.csv` `.tsv` | Univer 0.25 + `xlsx-gateway` + Rust `xlsx-sidecar` | 公式与函数库（插入函数、参数提示）、格式单元格、条件格式、数据验证、排序/筛选/高级筛选、分级显示、数据透视、图表、合并与冻结、定位、单变量求解、合并计算、填充序列、选择性粘贴、名称管理器、工作表保护、分页打印、CSV |
+| **Sheets**   | `.xlsx` `.xlsm` `.xls` `.csv` `.tsv` | Univer 1.2 + `xlsx-gateway` + Rust `xlsx-sidecar` | 公式与函数库（插入函数、参数提示）、格式单元格、条件格式、数据验证、排序/筛选/高级筛选、分级显示、数据透视、图表、合并与冻结、定位、单变量求解、合并计算、填充序列、选择性粘贴、名称管理器、工作表保护、分页打印、CSV |
 | **Slides**   | `.pptx`                              | Konva 10 + `pptx-engine` / `pptx-render`           | 母版与版式、文本/形状/图片/图表编辑、动画与切换（含 Morph）、放映与演讲者视图、备注与批注、自定义放映、非破坏性裁剪、墨迹、导出 SVG/图片                                   |
 | **PDF**      | `.pdf`                               | pdf.js 6 + PDFium WASM + pdf-lib                   | 文本与图像就地编辑、批注与标注、表单设计与填写、密文涂黑（Redaction）、签名与图章、大纲导航、页面操作、密码保护、PDF → Word/PPT/Excel 本地转换                        |
 | **Markdown** | `.md` `.markdown` `.txt` `.json`     | Tiptap + CodeMirror 6                              | 所见即所得与源码双视图、表格/代码块/图片、Mermaid 图表、KaTeX 公式、导出 DOCX / PDF / 图片、打印                                               |
@@ -77,7 +77,7 @@
 | 后端    | Node 主进程（TypeScript），`WebContentsView` 多标签宿主，`node:sqlite` FTS5 索引    |
 | 前端    | React 19 + TypeScript 7.0，每个 app 独立 Vite 8 构建                         |
 | 文档    | Tiptap 3（Docs / Markdown）                                             |
-| 表格    | Univer 0.25；`.xlsx` 解析与公式计算走 Rust sidecar（calamine + IronCalc）        |
+| 表格    | Univer 1.2；`.xlsx` 解析与公式计算走 Rust sidecar（calamine + IronCalc）        |
 | 幻灯片   | Konva 10 / react-konva 19                                             |
 | PDF   | pdf.js 6、PDFium WASM（`@embedpdf/pdfium`）、pdf-lib                      |
 | 代码编辑  | CodeMirror 6（HTML / Markdown 源码视图）                                    |
@@ -202,7 +202,7 @@ npm run test:e2e                # Playwright 端到端，需先跑过 build:all
 ## 常见问题
 
 **Q：需要联网或注册账号吗？**
-A：都不需要。没有账号体系，也不会上传文件；编辑、保存、搜索、格式转换都在本机完成。程序不会联网检查更新，唯一的联网行为是加载文档里引用的网络图片。
+A：都不需要。没有账号体系，也不会上传文件；编辑、保存、搜索、格式转换都在本机完成。程序不会联网检查更新、不会统计使用数据。默认联网行为只有一处：加载文档里引用的网络图片。此外，幻灯片可下载缺失字体（需构建时注入字体 CDN 地址，未注入则该入口关闭）。
 
 **Q：保存后 MS Office / WPS 能正常打开吗？**
 A：能。保存走 OOXML 补丁回写，只改动被编辑的节点，其余字节保持不变，不会破坏 Office 能识别的结构与扩展属性。
@@ -220,7 +220,7 @@ A：先确认五个渲染端 dev server（:5173–:5177）都活着 —— 每�
 
 ## 致谢
 
-YiiOffice 建立在这些开源项目之上：[Electron](https://www.electronjs.org/) · [Univer](https://github.com/dream-num/univer) · [Tiptap](https://tiptap.dev/) / [ProseMirror](https://prosemirror.net/) · [Konva](https://konvajs.org/) · [PDFium](https://pdfium.googlesource.com/pdfium/) · [pdf.js](https://github.com/mozilla/pdf.js) · [pdf-lib](https://github.com/Hopding/pdf-lib) · [CodeMirror](https://codemirror.net/) · [calamine](https://github.com/tafia/calamine) · [IronCalc](https://github.com/ironcalc/IronCalc) · [HarfBuzz](https://github.com/harfbuzz/harfbuzz) · [Mermaid](https://mermaid.js.org/) · [KaTeX](https://katex.org/) · [JSZip](https://stuk.github.io/jszip/) · [Fluent UI System Icons](https://github.com/microsoft/fluentui-system-icons) · [GenOffice](https://www.genoffice.com/)
+YiiOffice 建立在这些开源项目之上：[Electron](https://www.electronjs.org/) · [Univer](https://github.com/dream-num/univer) · [Tiptap](https://tiptap.dev/) / [ProseMirror](https://prosemirror.net/) · [Konva](https://konvajs.org/) · [PDFium](https://pdfium.googlesource.com/pdfium/) · [pdf.js](https://github.com/mozilla/pdf.js) · [pdf-lib](https://github.com/Hopding/pdf-lib) · [CodeMirror](https://codemirror.net/) · [calamine](https://github.com/tafia/calamine) · [IronCalc](https://github.com/ironcalc/IronCalc) · [HarfBuzz](https://github.com/harfbuzz/harfbuzz) · [Mermaid](https://mermaid.js.org/) · [KaTeX](https://katex.org/) · [JSZip](https://stuk.github.io/jszip/) · [Fluent UI System Icons](https://github.com/microsoft/fluentui-system-icons) · [GenOffice](https://genoffice.ai)
 
 第三方许可证清单由 `npm run notices` 生成（`tools/gen-third-party-notices.mjs`），随安装包一起分发。
 
