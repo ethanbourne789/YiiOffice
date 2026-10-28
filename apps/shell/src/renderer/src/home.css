@@ -1680,43 +1680,8 @@ body.vib .home {
   color: var(--text);
 }
 
-.file-search-settings {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  border: 0;
-  border-radius: 8px;
-  background: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition:
-    background 120ms ease,
-    color 120ms ease,
-    transform 120ms ease;
-}
-.file-search-settings:hover {
-  color: var(--text);
-  background: var(--bg-hover-strong);
-}
-.file-search-settings:active {
-  transform: scale(0.92);
-}
-
 .search-results {
   padding-bottom: 24px;
-}
-.search-rerank-badge {
-  align-self: center;
-  padding: 1px 6px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--accent);
-  background: var(--accent-soft);
 }
 .search-status {
   display: flex;

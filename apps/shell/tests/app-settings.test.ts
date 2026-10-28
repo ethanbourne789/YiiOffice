@@ -1,9 +1,10 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   readAppSettings,
+  removeAppSetting,
   writeAppSetting,
   writeAppSettings,
   writeAppSettingThen,
@@ -93,6 +94,28 @@ describe('writeAppSettings', () => {
       onboardingSeen: true,
       analyticsEnabled: false,
     })
+  })
+})
+
+describe('removeAppSetting', () => {
+  it('drops the key and keeps every other one', () => {
+    writeFileSync(
+      settingsPath,
+      JSON.stringify({ language: 'zh', fileSearch: { rerank: true, keys: { openrouter: 'sk-x' } } }),
+    )
+    removeAppSetting(settingsPath, 'fileSearch')
+    expect(JSON.parse(readFileSync(settingsPath, 'utf8'))).toEqual({ language: 'zh' })
+  })
+
+  it('is a no-op for a key that is not there', () => {
+    writeFileSync(settingsPath, JSON.stringify({ language: 'zh' }))
+    removeAppSetting(settingsPath, 'fileSearch')
+    expect(JSON.parse(readFileSync(settingsPath, 'utf8'))).toEqual({ language: 'zh' })
+  })
+
+  it('does not create the file when it does not exist yet', () => {
+    removeAppSetting(settingsPath, 'fileSearch')
+    expect(existsSync(settingsPath)).toBe(false)
   })
 })
 

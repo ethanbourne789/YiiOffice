@@ -124,8 +124,6 @@ export const strings = {
     saveLocation: '默认保存位置',
     setAutoSave: '所有文档自动保存',
     setAutoSaveDesc: '在每个编辑器中默认开启自动保存，仍可在单个窗口中关闭。',
-    searchRerankedBy: '已由 Jev 按相关性重排',
-    searchJevSettings: 'Jev 语义排序',
     setDefaultApp: '设为 Office 文档默认程序',
     setDefaultAppDesc: '双击 .docx、.xlsx、.pptx 文件时用 YiiOffice 打开。',
     setDefaultAppIs: 'YiiOffice 已是默认程序。',
@@ -267,8 +265,6 @@ export const strings = {
     setAutoSave: 'Auto-save all documents',
     setAutoSaveDesc:
       'Turn on AutoSave by default in every editor. You can still switch it off for a single window.',
-    searchRerankedBy: 'Reordered by relevance with Jev',
-    searchJevSettings: 'Jev semantic reranking',
     setDefaultApp: 'Default app for Office documents',
     setDefaultAppDesc: 'Open .docx, .xlsx and .pptx files in YiiOffice when double-clicked.',
     setDefaultAppIs: 'YiiOffice is already the default.',

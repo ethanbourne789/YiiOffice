@@ -77,39 +77,6 @@ export interface FileSearchHit extends RecentEntry {
   needles: string[]
 }
 
-/**
- * Endpoints the search reranker can judge against. The hosted Jev routes are
- * OpenRouter and TypeSafe's own API; Perplexity and Cloudflare host their own
- * decision models; Kev and Rizzo Flow are local /v1/systemone servers;
- * `custom` points at any other /v1/systemone-compatible server.
- */
-export type DecisionEndpoint =
-  'openrouter' | 'direct' | 'perplexity' | 'cloudflare' | 'kev' | 'rizzo' | 'custom'
-
-/** home search options persisted in app-settings.json under `fileSearch` */
-export interface FileSearchSettings {
-  /** send the top local hits to a decision model for reranking; default off */
-  rerank: boolean
-  endpoint: DecisionEndpoint
-  /** one API key per endpoint; local endpoints (kev/rizzo/custom) may stay empty */
-  keys: Record<DecisionEndpoint, string>
-  /** `custom` endpoint only: base URL of a /v1/systemone-compatible server */
-  customBaseUrl: string
-  /** `custom` endpoint only: model id the server expects */
-  customModel: string
-  /** `cloudflare` endpoint only: Workers AI account id */
-  cloudflareAccountId: string
-  /** `cloudflare` endpoint only: Workers AI model path, e.g. @cf/cloudflare/clef */
-  cloudflareModel: string
-}
-
-export interface FileSearchRerank {
-  /** paths in the decision model's order, most relevant first; paths not judged keep their local order after these */
-  order: string[]
-  /** calibrated 0–2 relevance per judged path */
-  scores: Record<string, number>
-}
-
 export interface FileSearchPage {
   hits: FileSearchHit[]
   total: number
@@ -143,12 +110,6 @@ export interface HomeApi {
   recents(query?: RecentQuery): Promise<RecentPage>
   /** search indexed files by name, folder and content */
   searchFiles(query: FileSearchQuery): Promise<FileSearchPage>
-  /** decision-model order for the hits currently shown (≤ 20 paths); null when reranking is off or unavailable */
-  rerankSearch(query: { q: string; paths: string[] }): Promise<FileSearchRerank | null>
-  getFileSearchSettings(): Promise<FileSearchSettings>
-  setFileSearchSettings(patch: Partial<FileSearchSettings>): Promise<FileSearchSettings>
-  /** one two-document judgement against the (possibly unsaved) settings */
-  testFileSearchRerank(settings: FileSearchSettings): Promise<{ ok: boolean; error?: string }>
   /** starred files (independent of the recent list), newest first (paged) */
   starred(query?: RecentQuery): Promise<RecentPage>
   /** starred group names that currently have at least one file, in creation order */
@@ -315,10 +276,6 @@ export interface MoveResult {
 export const HOME_CHANNELS = {
   recents: 'home:recents',
   searchFiles: 'home:search-files',
-  rerankSearch: 'home:rerank-search',
-  getFileSearchSettings: 'home:get-file-search-settings',
-  setFileSearchSettings: 'home:set-file-search-settings',
-  testFileSearchRerank: 'home:test-file-search-rerank',
   starred: 'home:starred',
   statPaths: 'home:stat-paths',
   toggleStar: 'home:toggle-star',

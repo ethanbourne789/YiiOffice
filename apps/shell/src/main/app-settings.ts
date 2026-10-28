@@ -48,6 +48,34 @@ export function writeAppSetting(path: string, key: string, value: unknown): void
 }
 
 /**
+ * Remove a key from app-settings.json. Used to drop settings whose feature is
+ * gone: the leftover value may hold credentials (an API key the user typed
+ * into a panel that no longer exists), and nothing else would ever rewrite it.
+ * A missing key is not an error.
+ */
+export function removeAppSetting(path: string, key: string): void {
+  const settings = readAppSettings(path)
+  if (!(key in settings)) return
+  delete settings[key]
+  const tempPath = `${path}.${process.pid}.${randomUUID()}.tmp`
+  try {
+    writeFileSync(tempPath, JSON.stringify(settings, null, 2), {
+      encoding: 'utf8',
+      flag: 'wx',
+      flush: true,
+    })
+    renameSync(tempPath, path)
+  } catch (error) {
+    try {
+      unlinkSync(tempPath)
+    } catch {
+      // The write may have failed before the temporary file was created.
+    }
+    throw error
+  }
+}
+
+/**
  * Persist `key` and run `apply` only once the bytes are on disk. writeAppSetting
  * rethrows when userData/app-settings.json is unwritable, so a caller that
  * updates its cached value first keeps showing a preference that was never

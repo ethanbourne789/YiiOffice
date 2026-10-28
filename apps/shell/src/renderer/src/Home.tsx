@@ -16,7 +16,6 @@ import type {
   RecentEntry,
   FileSearchHit,
   FileSearchPage,
-  FileSearchRerank,
 } from '../../shared/home-api'
 import { markText } from '../../shared/text-marks'
 import { useDismissablePopover } from '@yiioffice/ui'
@@ -866,9 +865,6 @@ export function Home() {
   // ── File search (names + indexed content); active while the box has text ──
   const [searchQuery, setSearchQuery] = useState('')
   const [searchPage, setSearchPage] = useState<FileSearchPage | null>(null)
-  const [rerank, setRerank] = useState<{ key: string; result: FileSearchRerank } | null>(null)
-  // bumped when the Jev settings change so the current results are judged again (or the order dropped)
-  const [rerankSettingsTick] = useState(0)
   const [settingsRequest, setSettingsRequest] = useState<SettingsTarget | null>(null)
   const [settingsModalOpen, setSettingsModalOpen] = useState(false)
   useEffect(
@@ -1100,27 +1096,6 @@ export function Home() {
     timer = window.setTimeout(run, 150)
     return () => window.clearTimeout(timer)
   }, [q, filter])
-
-  // Jev judges the top local hits once they settle; the main process answers null when reranking is off.
-  // The key changes only with the query, filter or candidate set, so index polls do not restart the timer.
-  // JSON, not join('\n'): a query can itself contain newlines, and splitting the
-  // joined key back apart would then shift the path list by one or more slots.
-  const rerankKey =
-    q && searchPage && searchPage.hits.length >= 2
-      ? JSON.stringify([q, filter, searchPage.hits.slice(0, 20).map((h) => h.path)])
-      : ''
-  useEffect(() => {
-    if (!rerankKey) return
-    const key = rerankKey
-    const paths = (JSON.parse(key) as [string, string, string[]])[2]
-    const timer = window.setTimeout(() => {
-      void window.aiOffice.rerankSearch({ q, paths }).then((result) => {
-        if (result) setRerank({ key, result })
-        else setRerank((cur) => (cur && cur.key === key ? null : cur))
-      })
-    }, 600)
-    return () => window.clearTimeout(timer)
-  }, [q, filter, rerankKey, rerankSettingsTick])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -2364,30 +2339,6 @@ export function Home() {
     searchInputRef.current?.focus()
   }
 
-  const renderSearchSettingsButton = () => (
-    <button
-      className="file-search-settings"
-      title={t('searchJevSettings')}
-      aria-label={t('searchJevSettings')}
-      onClick={() => setSettingsRequest({ section: 'general' } as any)}
-    >
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M12 20V4M12 4l-4 4M12 4l4 4" />
-        <path d="M3 12h6M3 16h5M3 20h4" />
-      </svg>
-    </button>
-  )
-
   const renderSearchBox = () => (
     <div className={`file-search${searchActive ? ' active' : ''}`}>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -2493,20 +2444,11 @@ export function Home() {
           renderEmpty(t('searchNoResults', { q: state.q }))
         ) : state.kind === 'results' ? (
           <ul className="search-list">
-            {orderedSearchHits(searchPage!.hits).map(renderSearchRow)}
+            {searchPage!.hits.map(renderSearchRow)}
           </ul>
         ) : null}
       </div>
     )
-  }
-
-  const rerankApplied = rerank && rerank.key === rerankKey ? rerank.result : null
-
-  /** judged hits in Jev's order, then the rest in local order */
-  const orderedSearchHits = (hits: readonly FileSearchHit[]): FileSearchHit[] => {
-    if (!rerankApplied) return [...hits]
-    const rank = new Map(rerankApplied.order.map((path, i) => [path, i]))
-    return [...hits].sort((a, b) => (rank.get(a.path) ?? Infinity) - (rank.get(b.path) ?? Infinity))
   }
 
   const renderSearchHeading = () => {
@@ -2522,11 +2464,6 @@ export function Home() {
     const total = searchPage?.total ?? 0
     return (
       <div className="recents-heading">
-        {rerankApplied && (
-          <span className="search-rerank-badge" title={t('searchRerankedBy')}>
-            Jev
-          </span>
-        )}
         <span className="file-count">
           {t(total === 1 ? 'searchResultCountOne' : 'searchResultCount', { n: total })}
         </span>
@@ -2589,7 +2526,6 @@ export function Home() {
             )}
             <div className="file-search-group">
               {renderSearchBox()}
-              {renderSearchSettingsButton()}
             </div>
             {searchActive ? (
               renderSearchHeading()
@@ -2743,7 +2679,6 @@ export function Home() {
             )}
             <div className="file-search-group">
               {renderSearchBox()}
-              {renderSearchSettingsButton()}
             </div>
             {searchActive ? (
               renderSearchHeading()

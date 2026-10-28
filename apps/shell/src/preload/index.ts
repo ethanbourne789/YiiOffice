@@ -12,8 +12,6 @@ import type {
   RenameResult,
   UiLanguage,
   FileSearchPage,
-  FileSearchRerank,
-  FileSearchSettings,
 } from '../shared/home-api'
 import { HOME_CHANNELS } from '../shared/home-api'
 import type { TabsApi, TabSummary } from '../shared/tabs-api'
@@ -63,30 +61,6 @@ const homeApi: HomeApi = {
   },
   async searchFiles(query) {
     return asSearchPage(await ipcRenderer.invoke(HOME_CHANNELS.searchFiles, query))
-  },
-  async rerankSearch(query) {
-    const result: unknown = await ipcRenderer.invoke(HOME_CHANNELS.rerankSearch, query)
-    return result && typeof result === 'object' && Array.isArray((result as FileSearchRerank).order)
-      ? (result as FileSearchRerank)
-      : null
-  },
-  async getFileSearchSettings() {
-    return (await ipcRenderer.invoke(HOME_CHANNELS.getFileSearchSettings)) as FileSearchSettings
-  },
-  async setFileSearchSettings(patch) {
-    return (await ipcRenderer.invoke(
-      HOME_CHANNELS.setFileSearchSettings,
-      patch,
-    )) as FileSearchSettings
-  },
-  async testFileSearchRerank(input) {
-    const raw = ((await ipcRenderer.invoke(HOME_CHANNELS.testFileSearchRerank, input)) ?? {}) as {
-      ok?: unknown
-      error?: unknown
-    }
-    return raw.ok === true
-      ? { ok: true }
-      : { ok: false, error: typeof raw.error === 'string' ? raw.error : 'Connection failed' }
   },
   async starred(query) {
     return asRecentPage(await ipcRenderer.invoke(HOME_CHANNELS.starred, query))

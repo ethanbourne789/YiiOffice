@@ -11,7 +11,8 @@ import { applyMenuFor, installBackToHomeItems, installDockMenu } from './shell-m
 import { registerHomeIpc } from './shell-home-ipc'
 import { broadcastChromePressed, registerTabsIpc } from './shell-tabs-ipc'
 import { currentLang, tm } from './shell-i18n'
-import { currentTheme, ensureTabManager, refreshTitleBarOverlay, revealShellWindow, takeLastDockIndex, setShellWindow, setShellWindowFactory, setTabManager, shellWindow, tabManager } from './shell-state'
+import { currentTheme, ensureTabManager, refreshTitleBarOverlay, revealShellWindow, takeLastDockIndex, setShellWindow, setShellWindowFactory, setTabManager, shellWindow, tabManager, APP_SETTINGS_PATH } from './shell-state'
+import { removeAppSetting } from './app-settings'
 
 
 import { collectLaunchPaths } from './launch-paths'
@@ -20,7 +21,7 @@ import { configureDocsRuntime, recordRecentFile, replaceRecentFile, registerDocs
 import { configureSheetsRuntime, exportSheetsPdfHeadless, markSheetsShuttingDown, pendingUnsavedNewRecoveries, setSheetsCloseTabHook, setSheetsHostWindowHook, setSheetsShellWindow, setSheetsWorkbookOpenedHook, startSheetsCaptureServer, stopSheetsSidecar } from '../../../sheets/src/main/sheets-main'
 import { configureSlidesRuntime, exportSlidesPdfHeadless, setSlidesCloseTabHook, setSlidesOpenedHook, setSlidesHostWindowHook, setSlidesShellWindow, setSlidesShowBleed } from '../../../slides/src/main/slides-main'
 import { configurePdfRuntime, setPdfRenamedHook, setPdfRedactionSavedHook } from '../../../pdf/src/main/pdf-main'
-import { configureMarkdownRuntime, exportMarkdownPdfHeadless, setMarkdownDocxExportedHook, setMarkdownFileSavedHook } from '../../../markdown/src/main/markdown-main'
+import { configureMarkdownRuntime, dropStaleMarkdownSettings, exportMarkdownPdfHeadless, setMarkdownDocxExportedHook, setMarkdownFileSavedHook } from '../../../markdown/src/main/markdown-main'
 
 
 import { TABS_CHANNELS } from '../shared/tabs-api'
@@ -529,6 +530,16 @@ app.whenReady().then(async () => {
   }
 
   void installMainProcessProxy()
+  // the search reranker (and its API keys) is gone: drop the leftover settings
+  // so a removed feature's credentials do not sit in app-settings.json forever
+  try {
+    removeAppSetting(APP_SETTINGS_PATH(), 'fileSearch')
+  } catch (error) {
+    console.warn('[settings] could not drop the stale fileSearch entry:', error)
+  }
+  // the Markdown image host is gone for the same reason: its plaintext
+  // credentials must not sit in markdown-settings.json forever
+  dropStaleMarkdownSettings()
   app.setAccessibilitySupportEnabled(true)
   // Settle the shared uiLang from saved settings BEFORE any tab renderer can
   // ask 'app:get-language': the editor handlers return the i18n module's

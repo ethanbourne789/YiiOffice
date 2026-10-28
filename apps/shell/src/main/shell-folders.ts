@@ -33,11 +33,10 @@ import {
 } from './detached-windows'
 import type { FileTargetSources } from './file-targets'
 import { HOME_CHANNELS } from '../shared/home-api'
-import type { FileSearchSettings, NewFileOpts } from '../shared/home-api'
+import type { NewFileOpts } from '../shared/home-api'
 import extractWorkerPath from './file-index/extract-worker?modulePath'
 import { FileIndexer } from './file-index/indexer'
 import { FileIndexStore } from './file-index/store'
-import { normalizeFileSearchSettings, SearchReranker } from './file-index/rerank'
 import { indexUnavailableReason, markIndexAvailable, markIndexUnavailable } from './file-index/status'
 
 // ---- folder roots ----
@@ -195,15 +194,10 @@ const folderWatchers = new Map<string, FolderWatcher>()
 export let fileIndexStore: FileIndexStore | null = null
 /** likewise; a search / open / folder change all just call refresh() on it */
 export let fileIndexer: FileIndexer | null = null
-let searchReranker: SearchReranker | null = null
 
 /** the reason the file index is unavailable, or null when it works */
 export function fileIndexUnavailable(): string | null {
   return indexUnavailableReason()
-}
-
-export function readFileSearchSettings(): FileSearchSettings {
-  return normalizeFileSearchSettings(readAppSettings(APP_SETTINGS_PATH()).fileSearch)
 }
 
 /** the search index lives in userData and follows the save folder plus recents/starred */
@@ -253,13 +247,6 @@ export function ensureFolderWatchers(): void {
     })
     folderWatchers.set(root, watcher)
   }
-}
-
-/** the reranker is built on the first rerank request and reused for the session */
-export function ensureSearchReranker(): SearchReranker | null {
-  if (!fileIndexStore) return null
-  searchReranker ??= new SearchReranker(fileIndexStore)
-  return searchReranker
 }
 
 /** close the index and every watcher; called once, from will-quit */

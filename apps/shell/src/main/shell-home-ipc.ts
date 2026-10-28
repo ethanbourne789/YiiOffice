@@ -19,8 +19,6 @@ import type {
   DocTheme,
   FileSearchPage,
   FileSearchQuery,
-  FileSearchRerank,
-  FileSearchSettings,
   FolderListing,
   FolderRoot,
   MoveConflictPolicy,
@@ -39,7 +37,6 @@ import { createDefaultAppService, execFileRunner } from './default-app'
 import { handleDroppedFiles } from './dropped-files'
 import { showErrorDialog } from './error-dialog'
 import { isMoveSource, isUserVisibleFile } from './file-targets'
-import { normalizeFileSearchSettings, probeDecision } from './file-index/rerank'
 import { emptySearchPage, unavailableSearchPage } from './file-index/search-page'
 import {
   FOLDER_ROOTS_KEY,
@@ -68,7 +65,6 @@ import {
   afterFolderMoved,
   ensureFileIndexer,
   ensureFolderWatchers,
-  ensureSearchReranker,
   extraFolderRoots,
   fileIndexer,
   fileIndexStore,
@@ -76,7 +72,7 @@ import {
   fileTargetSources,
   insideAnyRoot,
   isAnyRoot,
-  readFileSearchSettings,  refreshFileIndex,
+  refreshFileIndex,
   rememberPendingDir,
   SEARCH_EXT_FAMILY,
   statMaybeFile,
@@ -155,45 +151,6 @@ function registerHomeIpc(): void {
       index: indexer.progress(),
     }
   })
-
-  handleFromShell(
-    HOME_CHANNELS.rerankSearch,
-    async (_event, raw: unknown): Promise<FileSearchRerank | null> => {
-      const settings = readFileSearchSettings()
-      if (!settings.rerank) return null
-      const query = (raw && typeof raw === 'object' ? raw : {}) as { q?: unknown; paths?: unknown }
-      const q = typeof query.q === 'string' ? query.q.trim().slice(0, 200) : ''
-      const paths = Array.isArray(query.paths)
-        ? query.paths.filter((p): p is string => typeof p === 'string').slice(0, 20)
-        : []
-      const reranker = ensureSearchReranker()
-      if (!q || paths.length < 2 || !reranker) return null
-      return reranker.rerank(q, paths, settings)
-    },
-  )
-
-  handleFromShell(HOME_CHANNELS.getFileSearchSettings, (): FileSearchSettings =>
-    readFileSearchSettings(),
-  )
-
-  handleFromShell(
-    HOME_CHANNELS.setFileSearchSettings,
-    (_event, patch: unknown): FileSearchSettings => {
-      const current = readFileSearchSettings()
-      const p = (patch && typeof patch === 'object' ? patch : {}) as Partial<FileSearchSettings>
-      const next = normalizeFileSearchSettings({
-        ...current,
-        ...p,
-        keys: { ...current.keys, ...(p.keys ?? {}) },
-      })
-      writeAppSetting(APP_SETTINGS_PATH(), 'fileSearch', next)
-      return next
-    },
-  )
-
-  handleFromShell(HOME_CHANNELS.testFileSearchRerank, (_event, input: unknown) =>
-    probeDecision(normalizeFileSearchSettings(input)),
-  )
 
   // Starred files sort by mtime, which requires stat-ing them all first; they are hand-picked and few, so this is fine
   handleFromShell(HOME_CHANNELS.starred, (_event, query: unknown): RecentPage => {
