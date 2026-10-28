@@ -40,7 +40,6 @@ import { buildSlashItems } from './editor/slashCommand'
 import type { SlashController, SlashMenuState } from './editor/slashCommand'
 import { dirOf, setImageBaseDir, VIEW_IMAGE_EVENT } from './editor/localImage'
 import { Ribbon } from './components/Ribbon'
-import { ImageHostDialog } from './components/ImageHostDialog'
 import { OutlinePane } from './components/OutlinePane'
 import { SourcePane } from './components/SourcePane'
 import { SlashMenu, type SlashMenuHandle } from './components/SlashMenu'
@@ -212,8 +211,6 @@ export default function App() {
     setSaveState('idle')
     window.markdownApi.setDirty(true)
   }, [])
-
-  const [imageHostOpen, setImageHostOpen] = useState(false)
 
   const insertImage = useCallback(() => {
     void (async () => {
@@ -984,7 +981,6 @@ export default function App() {
         onToggleAutoSave={setAutoSave}
         imageEnabled={Boolean(filePath)}
         onInsertImage={insertImage}
-        onImageHost={() => setImageHostOpen(true)}
         frontmatterOpen={fmOpen}
         onToggleFrontmatter={() => setFmOpen((v) => !v)}
         sourceViewOpen={sourceViewOpen}
@@ -1110,9 +1106,6 @@ export default function App() {
         <SlashMenu ref={slashMenuRef} state={slashState} onDismiss={() => setSlashState(null)} />
       )}
       <ToastHost />
-      {imageHostOpen && (
-        <ImageHostDialog onClose={() => setImageHostOpen(false)} onSaved={() => {}} />
-      )}
       {viewImage && (
         <ImageViewer
           src={viewImage}
