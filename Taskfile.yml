@@ -1,0 +1,27 @@
+version: '3'
+
+tasks:
+  frontend:
+    desc: Build all renderer bundles
+    dir: frontend
+    cmds:
+      - npm install
+      - node tools/build-renderers.mjs shell docs
+
+  test:
+    desc: Run Go and frontend unit tests
+    cmds:
+      - go test ./...
+      - npm --prefix frontend run test
+
+  build:
+    desc: Build Windows desktop binary
+    deps: [frontend]
+    cmds:
+      - go build -tags production -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui" -o build/bin/YiiOffice.exe .
+
+  dev:
+    desc: Run the app directly (builds frontend first, then runs Go binary)
+    deps: [frontend]
+    cmds:
+      - wails3 dev
