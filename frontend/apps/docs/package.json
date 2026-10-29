@@ -23,6 +23,7 @@
     "@yiioffice/i18n": "*",
     "@yiioffice/pptx-render": "*",
     "@yiioffice/ui": "*",
+    "@yiioffice/wails-bridge": "*",
     "marked": "^18.1.2",
     "opentype.js": "^2.0.0",
     "react": "^19.3.0",

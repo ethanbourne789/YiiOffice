@@ -11,6 +11,7 @@
     "@yiioffice/electron-utils": "*",
     "@yiioffice/i18n": "*",
     "@yiioffice/ui": "*",
+    "@yiioffice/wails-bridge": "*",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",

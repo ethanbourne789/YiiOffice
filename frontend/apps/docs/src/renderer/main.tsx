@@ -1,3 +1,6 @@
+import { installBridge } from '@yiioffice/wails-bridge'
+installBridge()
+
 import { createRoot } from 'react-dom/client'
 import { htmlDir, htmlLang, type Lang } from '@yiioffice/i18n'
 import { App } from './App'
