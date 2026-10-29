@@ -72,3 +72,58 @@ func TestLanguageRoundTrip(t *testing.T) {
 		t.Fatal("store not updated")
 	}
 }
+
+func TestDocumentThemeRoundTrip(t *testing.T) {
+	r, store := newTestRouter(t)
+	if got := call(t, r, ChannelGetDocumentTheme); got != "auto" {
+		t.Fatalf("default got %v", got)
+	}
+	call(t, r, ChannelSetDocumentTheme, "dark")
+	if got := call(t, r, ChannelGetDocumentTheme); got != "dark" {
+		t.Fatalf("got %v", got)
+	}
+	if store.Snapshot().DocumentTheme != "dark" {
+		t.Fatal("store not updated")
+	}
+}
+
+func TestSetDocumentThemeRejectsInvalidValue(t *testing.T) {
+	r, _ := newTestRouter(t)
+	sepiaArg := json.RawMessage(`"sepia"`)
+	if _, err := r.Invoke(context.Background(), ChannelSetDocumentTheme, []json.RawMessage{sepiaArg}); err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestAutoSaveDefaultRoundTrip(t *testing.T) {
+	r, store := newTestRouter(t)
+	if got := call(t, r, ChannelGetAutoSaveDefault); got != true {
+		t.Fatalf("default got %v", got)
+	}
+	call(t, r, ChannelSetAutoSaveDefault, false)
+	if got := call(t, r, ChannelGetAutoSaveDefault); got != false {
+		t.Fatalf("got %v", got)
+	}
+	if store.Snapshot().AutoSaveDefault {
+		t.Fatal("store not updated")
+	}
+}
+
+func TestDefaultSaveDirRoundTrip(t *testing.T) {
+	r, store := newTestRouter(t)
+	if got := call(t, r, ChannelGetDefaultSaveDir); got != "" {
+		t.Fatalf("default got %v", got)
+	}
+	if err := store.SetDefaultSaveDir("/my/docs"); err != nil {
+		t.Fatal(err)
+	}
+	if got := call(t, r, ChannelGetDefaultSaveDir); got != "/my/docs" {
+		t.Fatalf("got %v", got)
+	}
+}
+
+func TestOpenSettingsEmitsEvent(t *testing.T) {
+	r, _ := newTestRouter(t)
+	call(t, r, ChannelOpenSettings)
+	// No assertion on platform.Emit — just verify it doesn't error
+}

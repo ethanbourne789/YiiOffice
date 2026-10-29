@@ -35,3 +35,21 @@ func OpenExternal(rawURL string) error {
 	}
 	return current.Browser.OpenURL(rawURL)
 }
+
+// NewWindow creates a new webview window.
+func NewWindow(opts application.WebviewWindowOptions) {
+	if current == nil {
+		return
+	}
+	current.Window.NewWithOptions(opts)
+}
+
+// CloseWindow closes the window by name.
+func CloseWindow(name string) {
+	if current == nil {
+		return
+	}
+	if w, ok := current.Window.GetByName(name); ok {
+		w.Close()
+	}
+}

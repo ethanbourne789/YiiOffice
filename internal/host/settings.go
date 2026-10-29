@@ -13,13 +13,17 @@ import (
 
 // Settings is the persisted preference document.
 type Settings struct {
-	Language string `json:"language"`
-	Theme    string `json:"theme"`
+	Language        string `json:"language"`
+	Theme           string `json:"theme"`
+	DocumentTheme   string `json:"documentTheme"`
+	AutoSaveDefault bool   `json:"autoSaveDefault"`
+	DefaultSaveDir  string `json:"defaultSaveDir"`
 }
 
 var (
-	validLanguages = map[string]bool{"zh": true, "en": true}
-	validThemes    = map[string]bool{"light": true, "dark": true, "system": true}
+	validLanguages       = map[string]bool{"zh": true, "en": true}
+	validThemes          = map[string]bool{"light": true, "dark": true, "system": true}
+	validDocumentThemes  = map[string]bool{"light": true, "dark": true, "auto": true}
 )
 
 // SettingsStore serialises reads and writes of settings.json.
@@ -34,7 +38,7 @@ type SettingsStore struct {
 func NewSettingsStore(dir string) (*SettingsStore, error) {
 	s := &SettingsStore{
 		path: filepath.Join(dir, "settings.json"),
-		data: Settings{Language: "zh", Theme: "system"},
+		data: Settings{Language: "zh", Theme: "system", DocumentTheme: "auto", AutoSaveDefault: true},
 	}
 	raw, err := os.ReadFile(s.path)
 	switch {
@@ -73,6 +77,24 @@ func (s *SettingsStore) SetTheme(theme string) error {
 	return s.update(func(d *Settings) { d.Theme = theme })
 }
 
+// SetDocumentTheme validates and persists the document editor theme.
+func (s *SettingsStore) SetDocumentTheme(theme string) error {
+	if !validDocumentThemes[theme] {
+		return fmt.Errorf("invalid document theme: %s", theme)
+	}
+	return s.update(func(d *Settings) { d.DocumentTheme = theme })
+}
+
+// SetAutoSaveDefault persists the auto-save default toggle.
+func (s *SettingsStore) SetAutoSaveDefault(enabled bool) error {
+	return s.update(func(d *Settings) { d.AutoSaveDefault = enabled })
+}
+
+// SetDefaultSaveDir persists the default save directory.
+func (s *SettingsStore) SetDefaultSaveDir(dir string) error {
+	return s.update(func(d *Settings) { d.DefaultSaveDir = dir })
+}
+
 func (s *SettingsStore) update(mutate func(*Settings)) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -86,12 +108,21 @@ func (s *SettingsStore) update(mutate func(*Settings)) error {
 }
 
 func mergeDefaults(loaded Settings) Settings {
-	out := Settings{Language: "zh", Theme: "system"}
+	out := Settings{Language: "zh", Theme: "system", DocumentTheme: "auto", AutoSaveDefault: true}
 	if validLanguages[loaded.Language] {
 		out.Language = loaded.Language
 	}
 	if validThemes[loaded.Theme] {
 		out.Theme = loaded.Theme
+	}
+	if validDocumentThemes[loaded.DocumentTheme] {
+		out.DocumentTheme = loaded.DocumentTheme
+	}
+	if loaded.AutoSaveDefault != out.AutoSaveDefault {
+		out.AutoSaveDefault = loaded.AutoSaveDefault
+	}
+	if loaded.DefaultSaveDir != "" {
+		out.DefaultSaveDir = loaded.DefaultSaveDir
 	}
 	return out
 }

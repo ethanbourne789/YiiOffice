@@ -134,3 +134,15 @@ func (h *TabHost) ActiveTab() *Tab {
 	}
 	return nil
 }
+
+// GetByID returns a tab by ID, or nil if not found.
+func (h *TabHost) GetByID(id string) *Tab {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for _, t := range h.tabs {
+		if t.ID == id {
+			return t
+		}
+	}
+	return nil
+}

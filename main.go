@@ -40,7 +40,7 @@ func main() {
 
 	router := bridge.NewRouter()
 	bridge.RegisterHome(router, store, buildinfo.Version)
-	bridge.RegisterTabs(router, host.NewTabHost())
+	bridge.RegisterTabs(router, host.NewTabHost(), host.NewDetachedHost())
 	bridge.RegisterOpenExternal(router, func(u string) error {
 		return platform.OpenExternal(u)
 	})

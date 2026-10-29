@@ -11,7 +11,8 @@ import (
 func TestTabsListReturnsHomeTab(t *testing.T) {
 	r := NewRouter()
 	th := host.NewTabHost()
-	RegisterTabs(r, th)
+	dh := host.NewDetachedHost()
+	RegisterTabs(r, th, dh)
 	got, err := r.Invoke(context.Background(), ChannelTabsList, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -27,7 +28,7 @@ func TestTabsListReturnsHomeTab(t *testing.T) {
 
 func TestTabsActivateRequiresId(t *testing.T) {
 	r := NewRouter()
-	RegisterTabs(r, host.NewTabHost())
+	RegisterTabs(r, host.NewTabHost(), host.NewDetachedHost())
 	if _, err := r.Invoke(context.Background(), ChannelTabsActivate, nil); err == nil {
 		t.Fatal("expected error")
 	}
@@ -40,7 +41,7 @@ func TestTabsActivateSetsActive(t *testing.T) {
 	th := host.NewTabHost()
 	th.AddTab(host.TabKindDocs, "Doc1", "")
 	r := NewRouter()
-	RegisterTabs(r, th)
+	RegisterTabs(r, th, host.NewDetachedHost())
 
 	// Activate tab-1
 	_, err := r.Invoke(context.Background(), ChannelTabsActivate, []json.RawMessage{json.RawMessage(`"tab-1"`)})
@@ -60,7 +61,7 @@ func TestTabsClose(t *testing.T) {
 	th := host.NewTabHost()
 	th.AddTab(host.TabKindDocs, "Doc1", "")
 	r := NewRouter()
-	RegisterTabs(r, th)
+	RegisterTabs(r, th, host.NewDetachedHost())
 
 	// Close tab-1
 	_, err := r.Invoke(context.Background(), ChannelTabsClose, []json.RawMessage{json.RawMessage(`"tab-1"`)})
@@ -83,7 +84,7 @@ func TestTabsClose(t *testing.T) {
 
 func TestTabsCloseRequiresId(t *testing.T) {
 	r := NewRouter()
-	RegisterTabs(r, host.NewTabHost())
+	RegisterTabs(r, host.NewTabHost(), host.NewDetachedHost())
 	if _, err := r.Invoke(context.Background(), ChannelTabsClose, nil); err == nil {
 		t.Fatal("expected error for missing id")
 	}
@@ -95,7 +96,7 @@ func TestTabsReorder(t *testing.T) {
 	th.AddTab(host.TabKindSheets, "Sheet1", "")
 	// [home, tab-1, tab-2]
 	r := NewRouter()
-	RegisterTabs(r, th)
+	RegisterTabs(r, th, host.NewDetachedHost())
 
 	// Move tab-2 (index 2) to index 1
 	_, err := r.Invoke(context.Background(), ChannelTabsReorder, []json.RawMessage{
@@ -112,11 +113,73 @@ func TestTabsReorder(t *testing.T) {
 
 func TestTabsReorderRequiresArgs(t *testing.T) {
 	r := NewRouter()
-	RegisterTabs(r, host.NewTabHost())
+	RegisterTabs(r, host.NewTabHost(), host.NewDetachedHost())
 	if _, err := r.Invoke(context.Background(), ChannelTabsReorder, nil); err == nil {
 		t.Fatal("expected error for missing from")
 	}
 	if _, err := r.Invoke(context.Background(), ChannelTabsReorder, []json.RawMessage{json.RawMessage(`0`)}); err == nil {
 		t.Fatal("expected error for missing to")
+	}
+}
+
+func TestTabsDetach(t *testing.T) {
+	th := host.NewTabHost()
+	th.AddTab(host.TabKindDocs, "Doc1", "")
+	dh := host.NewDetachedHost()
+	r := NewRouter()
+	RegisterTabs(r, th, dh)
+
+	_, err := r.Invoke(context.Background(), ChannelTabsDetach, []json.RawMessage{json.RawMessage(`"tab-1"`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(dh.List()) != 1 {
+		t.Fatalf("expected 1 detached window, got %d", len(dh.List()))
+	}
+}
+
+func TestTabsDetachRequiresId(t *testing.T) {
+	r := NewRouter()
+	RegisterTabs(r, host.NewTabHost(), host.NewDetachedHost())
+	if _, err := r.Invoke(context.Background(), ChannelTabsDetach, nil); err == nil {
+		t.Fatal("expected error for missing id")
+	}
+}
+
+func TestTabsDockTornWindow(t *testing.T) {
+	th := host.NewTabHost()
+	th.AddTab(host.TabKindDocs, "Doc1", "")
+	dh := host.NewDetachedHost()
+	r := NewRouter()
+	RegisterTabs(r, th, dh)
+
+	// Detach first
+	_, err := r.Invoke(context.Background(), ChannelTabsDetach, []json.RawMessage{json.RawMessage(`"tab-1"`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(dh.List()) != 1 {
+		t.Fatalf("expected 1 detached window, got %d", len(dh.List()))
+	}
+
+	// Dock using the window name
+	detached := dh.List()[0]
+	_, err = r.Invoke(context.Background(), ChannelTabsDockTornWindow, []json.RawMessage{json.RawMessage(`"` + detached.WindowName + `"`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(dh.List()) != 0 {
+		t.Fatalf("expected 0 detached windows after dock, got %d", len(dh.List()))
+	}
+}
+
+func TestTabsDockTornWindowUnknown(t *testing.T) {
+	r := NewRouter()
+	RegisterTabs(r, host.NewTabHost(), host.NewDetachedHost())
+
+	// Dock unknown window should not error
+	_, err := r.Invoke(context.Background(), ChannelTabsDockTornWindow, []json.RawMessage{json.RawMessage(`"nonexistent"`)})
+	if err != nil {
+		t.Fatal(err)
 	}
 }
