@@ -1,0 +1,26 @@
+{
+  "name": "@yiioffice/xlsx-gateway",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module",
+  "description": "xlsx write gateway and workbook domain logic (OOXML patching, CSV import, workbook DSL, pivots, charts) shared by the sheets app and the yiioffice CLI; no Electron, no Univer",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1",
+    "@yiioffice/zip-gate": "*",
+    "numfmt": "^4.1.1",
+    "zod": "^4.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "vitest": "^5.0.5"
+  }
+}
