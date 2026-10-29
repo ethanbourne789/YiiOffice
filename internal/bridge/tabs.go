@@ -115,4 +115,28 @@ func RegisterTabs(r *Router, th *host.TabHost, dh *host.DetachedHost) {
 		}
 		return map[string]any{"index": index}, nil
 	})
+
+	// --- Menu channels ---
+	// Wails V3 beta.28 menu API is incomplete; using frontend-rendered menus as fallback.
+	mb := host.NewMenuBuilder(th)
+
+	r.Handle(ChannelTabsShowMenu, func(context.Context, []json.RawMessage) (any, error) {
+		return mb.BuildTabStripMenu(), nil
+	})
+
+	r.Handle(ChannelTabsShowNewMenu, func(context.Context, []json.RawMessage) (any, error) {
+		return mb.BuildNewMenu(), nil
+	})
+
+	r.Handle(ChannelTabsShowTabMenu, func(_ context.Context, args []json.RawMessage) (any, error) {
+		tabID, err := DecodeArg[string](args, 0)
+		if err != nil {
+			return nil, err
+		}
+		return mb.BuildTabMenu(tabID), nil
+	})
+
+	r.Handle(ChannelTabsShowAppMenu, func(context.Context, []json.RawMessage) (any, error) {
+		return mb.BuildAppMenu(), nil
+	})
 }

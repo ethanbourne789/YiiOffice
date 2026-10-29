@@ -31,6 +31,10 @@ const (
 	ChannelTabsEndTornDrag       = "tabs:end-torn-drag"
 	ChannelTabsDockPreview       = "tabs:dock-preview"
 	ChannelTabsDockIndex         = "tabs:dock-index"
+	ChannelTabsShowMenu          = "tabs:show-menu"
+	ChannelTabsShowNewMenu       = "tabs:show-new-menu"
+	ChannelTabsShowTabMenu       = "tabs:show-tab-menu"
+	ChannelTabsShowAppMenu       = "tabs:show-app-menu"
 
 	ChannelOpenExternal = "shell:open-external"
 
