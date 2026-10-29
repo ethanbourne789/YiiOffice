@@ -14,7 +14,7 @@ export function rendererConfig({ app, port }: RendererConfigOptions): UserConfig
     plugins: [react()],
     server: { port, strictPort: true },
     build: {
-      outDir: `../../dist/${app}`,
+      outDir: `../../../../dist/${app}`,
       emptyOutDir: true,
       target: 'chrome120',
       sourcemap: false,
