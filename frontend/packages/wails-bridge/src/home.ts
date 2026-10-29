@@ -65,6 +65,9 @@ export interface HomeBridge {
   // Default app
   getDefaultAppStatus(): Promise<any>
   setDefaultApp(): Promise<void>
+
+  // File search
+  searchFiles(query: { q: string; ext?: string; offset?: number; limit?: number }): Promise<any>
 }
 
 export function createHomeApi(): HomeBridge {
@@ -239,6 +242,11 @@ export function createHomeApi(): HomeBridge {
     },
     async setDefaultApp() {
       await invoke('home:set-default-app')
+    },
+
+    // File search
+    async searchFiles(query) {
+      return await invoke<unknown>('home:search-files', query)
     },
   }
 }

@@ -1,43 +1,45 @@
 import { useEffect, useState } from 'react'
+import type { TabSummary } from '../shared/tabs-api'
 import { Home } from './Home'
 import { TabBar } from './TabBar'
-
-function TabHostSpike() {
-  return (
-    <iframe
-      title="docs-spike"
-      src="/docs/index.html"
-      style={{ position: 'absolute', inset: 0, border: 'none', width: '100%', height: '100%' }}
-    />
-  )
-}
+import { TabFrame } from './TabFrame'
 
 export function AppFrame() {
-  const spike = new URLSearchParams(window.location.search).get('spike') === '1'
-
-  const [homeActive, setHomeActive] = useState(true)
+  const [tabs, setTabs] = useState<TabSummary[]>([])
+  const [activeTabId, setActiveTabId] = useState('')
 
   useEffect(() => {
-    const applyTabs = (tabs: Awaited<ReturnType<typeof window.aiOfficeTabs.list>>) => {
-      const active = tabs.find((tab) => tab.active)
-      setHomeActive(!active || active.kind === 'home')
+    const applyTabs = (list: TabSummary[]) => {
+      setTabs(list)
+      const active = list.find((t) => t.active)
+      if (active && active.kind !== 'home') {
+        setActiveTabId(active.id)
+      } else {
+        setActiveTabId('')
+      }
     }
     void window.aiOfficeTabs.list().then(applyTabs)
     return window.aiOfficeTabs.onChanged(applyTabs)
   }, [])
 
-  if (spike) {
-    return <TabHostSpike />
-  }
+  const hasEditorTabs = tabs.some((t) => t.kind !== 'home')
+  const homeActive = !hasEditorTabs
 
   return (
     <div className="app-frame">
       <TabBar />
-      {/* docs/sheets tabs render as WebContentsView children of this window, positioned
-       * by the main process to cover this area — only Home paints its own content here. */}
-      <div className="app-frame-content" style={{ visibility: homeActive ? 'visible' : 'hidden' }}>
+      <div
+        className="app-frame-content"
+        style={{ visibility: homeActive ? 'visible' : 'hidden' }}
+      >
         <Home />
       </div>
+      {hasEditorTabs && (
+        <TabFrame
+          tabs={tabs.filter((t) => t.kind !== 'home')}
+          activeTabId={activeTabId}
+        />
+      )}
     </div>
   )
 }
