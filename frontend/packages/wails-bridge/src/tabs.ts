@@ -7,10 +7,11 @@ export interface TabSummary {
   active: boolean
 }
 
-/** Phase 1 subset: the strip renders an empty list until Phase 2 adds the tab host. */
 export interface TabsBridge {
   list(): Promise<TabSummary[]>
   activate(id: string): Promise<void>
+  close(id: string): Promise<void>
+  reorder(from: number, to: number): Promise<void>
   onChanged(handler: (tabs: TabSummary[]) => void): () => void
 }
 
@@ -23,6 +24,14 @@ export function createTabsApi(): TabsBridge {
     async activate(id) {
       if (typeof id !== 'string' || !id) throw new Error('Invalid tab id.')
       await invoke('tabs:activate', id)
+    },
+    async close(id) {
+      if (typeof id !== 'string' || !id) throw new Error('Invalid tab id.')
+      await invoke('tabs:close', id)
+    },
+    async reorder(from, to) {
+      if (typeof from !== 'number' || typeof to !== 'number') throw new Error('Invalid indices.')
+      await invoke('tabs:reorder', from, to)
     },
     onChanged(handler) {
       return on('tabs:changed', (data) => {

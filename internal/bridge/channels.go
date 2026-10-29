@@ -10,11 +10,15 @@ const (
 	ChannelGetTheme      = "home:get-theme"
 	ChannelSetTheme      = "home:set-theme"
 
-	ChannelTabsList     = "tabs:list"
-	ChannelTabsActivate = "tabs:activate"
+	ChannelTabsList          = "tabs:list"
+	ChannelTabsActivate      = "tabs:activate"
+	ChannelTabsClose         = "tabs:close"
+	ChannelTabsReorder       = "tabs:reorder"
+	ChannelTabsChromePressed = "tabs:chrome-pressed"
 
 	ChannelOpenExternal = "shell:open-external"
 
 	EventThemeChanged    = "app:theme-changed"
 	EventLanguageChanged = "app:language-changed"
+	EventTabsChanged     = "tabs:changed"
 )
