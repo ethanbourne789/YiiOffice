@@ -1,0 +1,187 @@
+package index
+
+import (
+	"log"
+	"path/filepath"
+	"strings"
+	"sync"
+)
+
+// FileIndexer keeps the store in sync with the filesystem.
+type FileIndexer struct {
+	store     *FileIndexStore
+	roots     []string
+	mu        sync.Mutex
+	refreshCh chan struct{}
+	done      chan struct{}
+	running   bool
+}
+
+// NewFileIndexer creates an indexer for the given roots.
+func NewFileIndexer(store *FileIndexStore, roots []string) *FileIndexer {
+	if roots == nil {
+		roots = []string{}
+	}
+	return &FileIndexer{
+		store:     store,
+		roots:     roots,
+		refreshCh: make(chan struct{}, 1),
+		done:      make(chan struct{}),
+	}
+}
+
+// SetRoots updates the directories to index.
+func (ix *FileIndexer) SetRoots(roots []string) {
+	ix.mu.Lock()
+	defer ix.mu.Unlock()
+	ix.roots = roots
+}
+
+// Refresh schedules a full index refresh (debounced).
+func (ix *FileIndexer) Refresh() {
+	select {
+	case ix.refreshCh <- struct{}{}:
+	default:
+	}
+	ix.mu.Lock()
+	wasRunning := ix.running
+	ix.mu.Unlock()
+	if !wasRunning {
+		go ix.loop()
+	}
+}
+
+// Stop shuts down the indexer gracefully.
+func (ix *FileIndexer) Stop() {
+	close(ix.done)
+}
+
+// RunOnce performs a single index refresh synchronously (for testing).
+func (ix *FileIndexer) RunOnce() {
+	ix.run()
+}
+
+func (ix *FileIndexer) loop() {
+	ix.mu.Lock()
+	ix.running = true
+	ix.mu.Unlock()
+
+	for {
+		select {
+		case <-ix.done:
+			ix.mu.Lock()
+			ix.running = false
+			ix.mu.Unlock()
+			return
+		case <-ix.refreshCh:
+			ix.run()
+			select {
+			case <-ix.refreshCh:
+			default:
+				ix.mu.Lock()
+				ix.running = false
+				ix.mu.Unlock()
+				return
+			}
+		}
+	}
+}
+
+func (ix *FileIndexer) run() {
+	ix.mu.Lock()
+	roots := make([]string, len(ix.roots))
+	copy(roots, ix.roots)
+	ix.mu.Unlock()
+
+	// 1. Scan all roots
+	var allFiles []ScannedFile
+	for _, root := range roots {
+		result := ScanDir(root)
+		allFiles = append(allFiles, result.Files...)
+	}
+
+	// 2. Diff against existing index
+	existing, err := ix.store.GetIndexedFiles()
+	if err != nil {
+		log.Printf("index: failed to load existing files: %v", err)
+		existing = []IndexedFile{}
+	}
+
+	existingMap := make(map[string]IndexedFile, len(existing))
+	for _, f := range existing {
+		existingMap[f.Path] = f
+	}
+
+	diskMap := make(map[string]ScannedFile, len(allFiles))
+	for _, f := range allFiles {
+		diskMap[f.Path] = f
+	}
+
+	// 3. Remove deleted files
+	var removed []string
+	for _, e := range existing {
+		if _, ok := diskMap[e.Path]; !ok {
+			removed = append(removed, e.Path)
+		}
+	}
+	if len(removed) > 0 {
+		if err := ix.store.Remove(removed); err != nil {
+			log.Printf("index: failed to remove files: %v", err)
+		}
+	}
+
+	// 4. Find changed files
+	var changed []ScannedFile
+	for _, f := range allFiles {
+		ex, ok := existingMap[f.Path]
+		if !ok || ex.MtimeMs != f.MtimeMs || ex.SizeBytes != f.SizeBytes {
+			changed = append(changed, f)
+		}
+	}
+
+	// 5. Index changed files
+	for _, f := range changed {
+		if err := ix.indexFile(f); err != nil {
+			log.Printf("index: failed to index %s: %v", f.Path, err)
+		}
+	}
+}
+
+func (ix *FileIndexer) indexFile(sf ScannedFile) error {
+	name := filepath.Base(sf.Path)
+	ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(sf.Path)), ".")
+
+	result := ExtractText(sf.Path)
+
+	var status IndexStatus
+	var body *string
+	var nameTokens, pathTokens, bodyTokens TokenResult
+
+	nameTokens = Tokenize(name)
+	pathTokens = Tokenize(filepath.Dir(sf.Path))
+	// Append the filename tokens to the path tokens for full path search
+	filenameTokens := Tokenize(name)
+	pathTokens.Bi = append(pathTokens.Bi, filenameTokens.Bi...)
+	pathTokens.Uni = append(pathTokens.Uni, filenameTokens.Uni...)
+
+	switch result.Kind {
+	case "text":
+		status = IndexOK
+		body = &result.Text
+		bodyTokens = Tokenize(result.Text)
+	case "name-only":
+		status = IndexNameOnly
+	default:
+		status = IndexError
+	}
+
+	nameU := nameTokens.Uni
+	pathU := pathTokens.Uni
+	bodyU := bodyTokens.Uni
+
+	return ix.store.Upsert(
+		sf.Path, name, ext, sf.MtimeMs, sf.SizeBytes, status, body,
+		nameTokens.Bi, pathTokens.Bi, bodyTokens.Bi,
+		nameU, pathU, bodyU,
+	)
+}
