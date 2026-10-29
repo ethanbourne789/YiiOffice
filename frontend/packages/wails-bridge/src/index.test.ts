@@ -59,4 +59,25 @@ describe('wails bridge', () => {
     const api = (window as unknown as { aiOffice: { setTheme(t: string): Promise<void> } }).aiOffice
     await expect(api.setTheme('sepia')).rejects.toThrow(/Invalid theme/)
   })
+
+  it('routes https links through shell:open-external and blocks navigation', async () => {
+    const runtime = installFakeRuntime()
+    installBridge()
+
+    const anchor = document.createElement('a')
+    anchor.href = 'https://example.com/x'
+    anchor.target = '_blank'
+    document.body.append(anchor)
+
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true })
+    anchor.dispatchEvent(event)
+
+    expect(event.defaultPrevented).toBe(true)
+    expect(runtime.Call.ByName).toHaveBeenCalledWith(
+      'bridge.Service.Invoke',
+      'shell:open-external',
+      ['https://example.com/x'],
+    )
+    anchor.remove()
+  })
 })

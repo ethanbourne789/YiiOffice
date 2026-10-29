@@ -27,3 +27,11 @@ func Emit(name string, data ...any) {
 	}
 	current.Event.Emit(name, data...)
 }
+
+// OpenExternal opens a URL in the user's default browser.
+func OpenExternal(rawURL string) error {
+	if current == nil {
+		return nil
+	}
+	return current.Browser.OpenURL(rawURL)
+}
