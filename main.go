@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"path/filepath"
 	"context"
 	"os"
 	"os/exec"
@@ -24,6 +25,7 @@ import (
 	"gitee.com/ethanbourne789/yiioffice/internal/index"
 	"gitee.com/ethanbourne789/yiioffice/internal/platform"
 	"gitee.com/ethanbourne789/yiioffice/internal/update"
+	"gitee.com/ethanbourne789/yiioffice/internal/sidecar"
 	"gitee.com/ethanbourne789/yiioffice/internal/watchdog"
 )
 
@@ -135,7 +137,7 @@ func main() {
 			application.NewService(bridge.NewService(router)),
 		},
 		SingleInstance: &application.SingleInstanceOptions{},
-		OnBeforeClose: func() bool {
+		ShouldQuit: func() bool {
 			return closeGuard.ShouldAllowClose()
 		},
 	})
@@ -162,7 +164,18 @@ func main() {
 	bridge.RegisterEditorCommon(router, store)
 	bridge.RegisterSearch(router, idxLifecycle, rm)
 	bridge.RegisterDocs(router, rm, idxLifecycle)
-	bridge.RegisterSheets(router)
+
+	// Initialize xlsx sidecar (non-fatal if binary is missing)
+	sidecarDir := filepath.Join(dataDir, "native")
+	var xlsxMgr *sidecar.XlsxManager
+	if sm, err := sidecar.NewXlsxManager(sidecarDir); err != nil {
+		log.Printf("info: xlsx sidecar not available: %v (sheets will use stub mode)", err)
+	} else {
+		xlsxMgr = sm
+		defer xlsxMgr.Stop()
+	}
+
+	bridge.RegisterSheets(router, xlsxMgr)
 	bridge.RegisterSlides(router, rm)
 	bridge.RegisterPdf(router, rm)
 	bridge.RegisterMarkdown(router, rm)

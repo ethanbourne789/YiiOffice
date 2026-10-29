@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+
+	"gitee.com/ethanbourne789/yiioffice/internal/sidecar"
 )
 
 const (
@@ -66,27 +68,44 @@ type sheetsReadFileRequest struct {
 	Path string `json:"path"`
 }
 
-// RegisterSheets wires the sheets editor channels.
-func RegisterSheets(r *Router) {
+// workbookReadRangeRequest for workbook:read-range.
+type workbookReadRangeRequest struct {
+	SessionID string `json:"session_id"`
+	Sheet     string `json:"sheet"`
+	Range     string `json:"range"`
+}
+
+// workbookReadFormulasRequest for workbook:read-formulas.
+type workbookReadFormulasRequest struct {
+	SessionID string `json:"session_id"`
+	Sheet     string `json:"sheet"`
+}
+
+// workbookFindCellsRequest for workbook:find-cells.
+type workbookFindCellsRequest struct {
+	SessionID string `json:"session_id"`
+	Sheet     string `json:"sheet"`
+	Query     string `json:"query"`
+}
+
+// workbookSessionRequest for workbook:close, recalc, read-media.
+type workbookSessionRequest struct {
+	SessionID string `json:"session_id"`
+}
+
+// RegisterSheets wires the sheets editor channels. sm is an optional sidecar manager.
+func RegisterSheets(r *Router, sm *sidecar.XlsxManager) {
 	stub := func(_ context.Context, _ []json.RawMessage) (any, error) {
 		return nil, nil
 	}
 
-	// Register all stub channels (sidecar ops, file dialogs, export, lifecycle)
+	// Channels that remain stubs (UI dialogs, export, lifecycle, menus).
 	stubChannels := []string{
 		ChannelWorkbookSelect,
 		ChannelWorkbookSelectForMerge,
 		ChannelWorkbookOpenForMerge,
-		ChannelWorkbookReadRange,
-		ChannelWorkbookReadFormulas,
-		ChannelWorkbookFindCells,
 		ChannelWorkbookSidecarCrashed,
 		ChannelWorkbookReopen,
-		ChannelWorkbookReadRowOutline,
-		ChannelWorkbookRecalc,
-		ChannelWorkbookReadMedia,
-		ChannelWorkbookReadPivotDefinition,
-		ChannelWorkbookClose,
 		ChannelWorkbookSaveEditsBegin,
 		ChannelWorkbookSaveEditsChunk,
 		ChannelWorkbookSaveEditsAbort,
@@ -118,6 +137,81 @@ func RegisterSheets(r *Router) {
 	}
 	for _, ch := range stubChannels {
 		r.Handle(ch, stub)
+	}
+
+	// Wire sidecar-backed channels when manager is available.
+	if sm != nil {
+		r.Handle(ChannelWorkbookReadRange, func(_ context.Context, args []json.RawMessage) (any, error) {
+			req, err := DecodeArg[workbookReadRangeRequest](args, 0)
+			if err != nil {
+				return nil, err
+			}
+			resp, err := sm.ReadRange(req.SessionID, req.Sheet, req.Range)
+			return resp.Result, err
+		})
+
+		r.Handle(ChannelWorkbookReadFormulas, func(_ context.Context, args []json.RawMessage) (any, error) {
+			req, err := DecodeArg[workbookReadFormulasRequest](args, 0)
+			if err != nil {
+				return nil, err
+			}
+			resp, err := sm.ReadFormulas(req.SessionID, req.Sheet)
+			return resp.Result, err
+		})
+
+		r.Handle(ChannelWorkbookFindCells, func(_ context.Context, args []json.RawMessage) (any, error) {
+			req, err := DecodeArg[workbookFindCellsRequest](args, 0)
+			if err != nil {
+				return nil, err
+			}
+			resp, err := sm.FindCells(req.SessionID, req.Sheet, req.Query)
+			return resp.Result, err
+		})
+
+		r.Handle(ChannelWorkbookReadRowOutline, func(_ context.Context, args []json.RawMessage) (any, error) {
+			req, err := DecodeArg[workbookReadFormulasRequest](args, 0)
+			if err != nil {
+				return nil, err
+			}
+			resp, err := sm.ReadRowOutline(req.SessionID, req.Sheet)
+			return resp.Result, err
+		})
+
+		r.Handle(ChannelWorkbookRecalc, func(_ context.Context, args []json.RawMessage) (any, error) {
+			req, err := DecodeArg[workbookSessionRequest](args, 0)
+			if err != nil {
+				return nil, err
+			}
+			resp, err := sm.Recalc(req.SessionID)
+			return resp.Result, err
+		})
+
+		r.Handle(ChannelWorkbookReadMedia, func(_ context.Context, args []json.RawMessage) (any, error) {
+			req, err := DecodeArg[workbookSessionRequest](args, 0)
+			if err != nil {
+				return nil, err
+			}
+			resp, err := sm.ReadMedia(req.SessionID)
+			return resp.Result, err
+		})
+
+		r.Handle(ChannelWorkbookReadPivotDefinition, func(_ context.Context, args []json.RawMessage) (any, error) {
+			req, err := DecodeArg[workbookReadFormulasRequest](args, 0)
+			if err != nil {
+				return nil, err
+			}
+			resp, err := sm.ReadPivotDefinition(req.SessionID, req.Sheet)
+			return resp.Result, err
+		})
+
+		r.Handle(ChannelWorkbookClose, func(_ context.Context, args []json.RawMessage) (any, error) {
+			req, err := DecodeArg[workbookSessionRequest](args, 0)
+			if err != nil {
+				return nil, err
+			}
+			resp, err := sm.Close(req.SessionID)
+			return resp.Result, err
+		})
 	}
 
 	// workbook:save — write base64 content to file
