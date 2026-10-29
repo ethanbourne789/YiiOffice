@@ -29,6 +29,21 @@ tasks:
     cmds:
       - go build -tags production -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui" -o build/bin/YiiOffice.exe .
 
+  dist:win:
+    desc: Build Windows production binary
+    deps: [frontend]
+    cmds:
+      - |
+        go build -tags production -trimpath -buildvcs=false
+          -ldflags "-w -s -H windowsgui -X gitee.com/ethanbourne789/yiioffice/internal/buildinfo.Version={{default '0.0.0-dev' .APP_VERSION}}"
+          -o build/bin/YiiOffice.exe .
+
+  dist:win:installer:
+    desc: Build NSIS installer
+    deps: [dist:win]
+    cmds:
+      - makensis build\windows\nsis\installer.nsi
+
   dev:
     desc: Run the app directly (builds frontend first, then runs Go binary)
     deps: [frontend]

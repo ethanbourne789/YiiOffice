@@ -248,6 +248,18 @@ func (rm *RecentManager) UnstarPaths(paths []string) {
 	rm.saveStarred()
 }
 
+// IsStarred reports whether a path is in the starred list.
+func (rm *RecentManager) IsStarred(path string) bool {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+	for _, s := range rm.starred {
+		if strings.EqualFold(s.Path, path) {
+			return true
+		}
+	}
+	return false
+}
+
 // SortByTime sorts entries by timestamp descending (utility for tests).
 func SortByTime(entries []RecentEntry) {
 	sort.Slice(entries, func(i, j int) bool {

@@ -49,9 +49,9 @@ func TestCheckAssociation(t *testing.T) {
 			if err != nil {
 				t.Errorf("CheckAssociation(%q) error: %v", tc.input, err)
 			}
-			// Status should be a valid string (not empty)
-			if status == "" {
-				t.Errorf("CheckAssociation(%q) returned empty status", tc.input)
+			// Status should be one of the valid values
+			if status != "associated" && status != "available" && status != "unknown" {
+				t.Errorf("CheckAssociation(%q) returned invalid status %q, expected one of: associated, available, unknown", tc.input, status)
 			}
 		})
 	}
@@ -66,5 +66,24 @@ func TestCheckAssociationNormalizesExtension(t *testing.T) {
 
 	if status1 != status2 {
 		t.Errorf("CheckAssociation(.docx) = %q, CheckAssociation(docx) = %q; should be equal", status1, status2)
+	}
+}
+
+func TestCheckAssociationStatusValues(t *testing.T) {
+	m := &DefaultAppManager{}
+
+	// Verify that status values are among the expected set
+	for _, ext := range officeTypes {
+		status, err := m.CheckAssociation(ext)
+		if err != nil {
+			t.Errorf("CheckAssociation(%q) unexpected error: %v", ext, err)
+			continue
+		}
+		switch status {
+		case "associated", "available":
+			// Both are valid
+		default:
+			t.Errorf("CheckAssociation(%q) returned unexpected status %q", ext, status)
+		}
 	}
 }
