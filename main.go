@@ -12,6 +12,7 @@ import (
 	"gitee.com/ethanbourne789/yiioffice/internal/assets"
 	"gitee.com/ethanbourne789/yiioffice/internal/bridge"
 	"gitee.com/ethanbourne789/yiioffice/internal/buildinfo"
+	"gitee.com/ethanbourne789/yiioffice/internal/host"
 	"gitee.com/ethanbourne789/yiioffice/internal/platform"
 )
 
@@ -28,8 +29,17 @@ func main() {
 		log.Fatal(err)
 	}
 
+	dataDir, err := host.AppDataDir()
+	if err != nil {
+		log.Fatal(err)
+	}
+	store, err := host.NewSettingsStore(dataDir)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	router := bridge.NewRouter()
-	// Handlers registered in Task 7 (RegisterHome) and Task 8 (RegisterTabs)
+	bridge.RegisterHome(router, store, buildinfo.Version)
 
 	app := application.New(application.Options{
 		Name:        "YiiOffice",
