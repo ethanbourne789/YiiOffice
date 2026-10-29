@@ -14,6 +14,15 @@ tasks:
       - go test ./...
       - npm --prefix frontend run test
 
+  verify:
+    desc: Gate G1 checks
+    cmds:
+      - go vet ./...
+      - go test ./...
+      - npm --prefix frontend run test
+      - node frontend/tools/build-renderers.mjs shell docs
+      - go build -tags production
+
   build:
     desc: Build Windows desktop binary
     deps: [frontend]

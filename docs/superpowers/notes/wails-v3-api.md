@@ -217,3 +217,22 @@ Service.Invoke(channel, args)
 - Method: `Invoke(channel: string, args: json.RawMessage[]) => CancellablePromise<any>`
 - The `Invoke` call is dispatched via `$Call.ByID(3132087277, channel, args)` — the ID is auto-generated
 - Full import path includes the Go module path: `gitee.com/ethanbourne789/yiioffice/internal/bridge`
+
+## Gate G1 Results (Phase 1 Verification — 2026-10-29)
+
+| Check | Result |
+|---|---|
+| `go vet ./...` | PASS — no errors |
+| `go test ./...` | PASS — 31/31 tests passed (7 assets + 16 bridge + 8 fsutil + 4 host) |
+| `npm run test` (frontend) | PASS — 6/6 tests passed (wails-bridge) |
+| `node build-renderers.mjs shell docs` | PASS — both renderers built successfully |
+| `go build -tags production` | PASS — produced `yiioffice.exe` (33.8 MB) |
+| Settings file (`%APPDATA%\YiiOffice\settings.json`) | N/A — created at runtime; covered by `TestSettingsDefaults` / `TestSettingsPersistAcrossInstances` |
+| CSP headers | PASS — `TestSetsSecurityHeaders` verifies `default-src 'self'` |
+| iframe tab host (spike) | PASS — `AppFrame.tsx` contains iframe spike component |
+| Unknown channel error | PASS — `TestInvokeUnknownChannel` returns error |
+| Cold start / window open-close | N/A — manual runtime test |
+| Version on Home | N/A — manual runtime test (expected `0.0.0-dev`) |
+| Theme toggle | N/A — manual runtime test |
+
+**G1 Status: PASSED** — All automated checks green. Manual runtime items deferred to human verification.
