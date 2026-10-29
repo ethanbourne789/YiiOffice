@@ -40,6 +40,7 @@ func main() {
 
 	router := bridge.NewRouter()
 	bridge.RegisterHome(router, store, buildinfo.Version)
+	bridge.RegisterTabs(router)
 
 	app := application.New(application.Options{
 		Name:        "YiiOffice",

@@ -2,7 +2,19 @@ import { useEffect, useState } from 'react'
 import { Home } from './Home'
 import { TabBar } from './TabBar'
 
+function TabHostSpike() {
+  return (
+    <iframe
+      title="docs-spike"
+      src="/docs/index.html"
+      style={{ position: 'absolute', inset: 0, border: 'none', width: '100%', height: '100%' }}
+    />
+  )
+}
+
 export function AppFrame() {
+  const spike = new URLSearchParams(window.location.search).get('spike') === '1'
+
   const [homeActive, setHomeActive] = useState(true)
 
   useEffect(() => {
@@ -13,6 +25,10 @@ export function AppFrame() {
     void window.aiOfficeTabs.list().then(applyTabs)
     return window.aiOfficeTabs.onChanged(applyTabs)
   }, [])
+
+  if (spike) {
+    return <TabHostSpike />
+  }
 
   return (
     <div className="app-frame">
