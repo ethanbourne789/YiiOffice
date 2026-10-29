@@ -42,6 +42,8 @@ func main() {
 	bridge.RegisterHome(router, store, buildinfo.Version)
 	rm := host.NewRecentManager(dataDir)
 	bridge.RegisterRecent(router, rm)
+	fm := host.NewFolderManager(dataDir)
+	bridge.RegisterFolder(router, fm)
 	bridge.RegisterTabs(router, host.NewTabHost(), host.NewDetachedHost())
 	bridge.RegisterOpenExternal(router, func(u string) error {
 		return platform.OpenExternal(u)
