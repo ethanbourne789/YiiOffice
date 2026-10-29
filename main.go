@@ -10,6 +10,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"gitee.com/ethanbourne789/yiioffice/internal/assets"
+	"gitee.com/ethanbourne789/yiioffice/internal/bridge"
 	"gitee.com/ethanbourne789/yiioffice/internal/buildinfo"
 	"gitee.com/ethanbourne789/yiioffice/internal/platform"
 )
@@ -27,11 +28,17 @@ func main() {
 		log.Fatal(err)
 	}
 
+	router := bridge.NewRouter()
+	// Handlers registered in Task 7 (RegisterHome) and Task 8 (RegisterTabs)
+
 	app := application.New(application.Options{
 		Name:        "YiiOffice",
 		Description: "YiiOffice desktop office suite",
 		Assets: application.AssetOptions{
 			Handler: assets.New(dist),
+		},
+		Services: []application.Service{
+			application.NewService(bridge.NewService(router)),
 		},
 	})
 	platform.Set(app)

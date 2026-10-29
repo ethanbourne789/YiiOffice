@@ -201,3 +201,19 @@ app.RegisterService(service Service)
 - `server` — headless server mode
 - `devtools` — enable devtools on macOS
 - `private_mac_apis` — private macOS APIs
+
+## JS Bindings
+
+Bindings output directory: `frontend/bindings/` (NOT `bindings/` at root).
+
+Generated binding for the bridge `Service`:
+
+```js
+import { Service } from 'gitee.com/ethanbourne789/yiioffice/internal/bridge'
+Service.Invoke(channel, args)
+```
+
+- Exported name: `Service` (named export from the bridge package index)
+- Method: `Invoke(channel: string, args: json.RawMessage[]) => CancellablePromise<any>`
+- The `Invoke` call is dispatched via `$Call.ByID(3132087277, channel, args)` — the ID is auto-generated
+- Full import path includes the Go module path: `gitee.com/ethanbourne789/yiioffice/internal/bridge`
