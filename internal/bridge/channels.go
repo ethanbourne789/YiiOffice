@@ -56,6 +56,17 @@ const (
 	ChannelMovePaths        = "home:move-paths"
 	ChannelFolderDelete     = "home:folder-delete"
 
+	ChannelOpenPath        = "home:open-path"
+	ChannelNewDoc          = "home:new-doc"
+	ChannelNewSheet        = "home:new-sheet"
+	ChannelNewSlide        = "home:new-slide"
+	ChannelNewMarkdown     = "home:new-markdown"
+	ChannelNewPdf          = "home:new-pdf"
+	ChannelRenameFile      = "home:rename-file"
+	ChannelDuplicateFile   = "home:duplicate-file"
+	ChannelDeleteFiles     = "home:delete-files"
+	ChannelOpenTrash       = "home:open-trash"
+
 	EventFolderChanged      = "home:folder-changed"
 
 	EventThemeChanged           = "app:theme-changed"
