@@ -116,6 +116,13 @@ func RegisterTabs(r *Router, th *host.TabHost, dh *host.DetachedHost) {
 		return map[string]any{"index": index}, nil
 	})
 
+	// Dirty tabs query (for close guard)
+	r.Handle(ChannelTabsGetDirtyTabs, func(context.Context, []json.RawMessage) (any, error) {
+		// Frontend will track dirty state. Return empty list as fallback.
+		// TODO: wire up to frontend dirty state via IPC.
+		return []host.DirtyTab{}, nil
+	})
+
 	// --- Menu channels ---
 	// Wails V3 beta.28 menu API is incomplete; using frontend-rendered menus as fallback.
 	mb := host.NewMenuBuilder(th)

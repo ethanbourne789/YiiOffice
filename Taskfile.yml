@@ -49,3 +49,13 @@ tasks:
     deps: [frontend]
     cmds:
       - wails3 dev
+
+  e2e:
+    desc: Run E2E tests against dev server
+    cmds:
+      - cd e2e && npx playwright test
+
+  e2e:ui:
+    desc: Run E2E tests in UI mode
+    cmds:
+      - cd e2e && npx playwright test --ui
