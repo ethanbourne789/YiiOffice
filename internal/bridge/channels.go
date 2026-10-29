@@ -16,6 +16,8 @@ const (
 	ChannelGetDefaultSaveDir  = "home:get-default-save-dir"
 	ChannelPickDefaultSaveDir = "home:pick-default-save-dir"
 	ChannelOpenSettings       = "home:open-settings"
+	ChannelBrowse             = "home:browse"
+	ChannelRevealPath         = "home:reveal-path"
 
 	ChannelTabsList              = "tabs:list"
 	ChannelTabsActivate          = "tabs:activate"
@@ -31,6 +33,15 @@ const (
 	ChannelTabsDockIndex         = "tabs:dock-index"
 
 	ChannelOpenExternal = "shell:open-external"
+
+	ChannelRecents         = "home:recents"
+	ChannelStarred         = "home:starred"
+	ChannelStarredGroups   = "home:starred-groups"
+	ChannelSetStarredGroup = "home:set-starred-group"
+	ChannelToggleStar      = "home:toggle-star"
+	ChannelUnstarPaths     = "home:unstar-paths"
+	ChannelStatPaths       = "home:stat-paths"
+	ChannelRemoveRecent    = "home:remove-recent"
 
 	EventThemeChanged           = "app:theme-changed"
 	EventLanguageChanged        = "app:language-changed"

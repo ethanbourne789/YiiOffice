@@ -1,7 +1,11 @@
 // Package platform isolates every direct dependency on the Wails V3 beta API.
 package platform
 
-import "github.com/wailsapp/wails/v3/pkg/application"
+import (
+	"os/exec"
+
+	"github.com/wailsapp/wails/v3/pkg/application"
+)
 
 var current *application.App
 
@@ -52,4 +56,12 @@ func CloseWindow(name string) {
 	if w, ok := current.Window.GetByName(name); ok {
 		w.Close()
 	}
+}
+
+// RevealPath opens the file explorer at the given path (Windows).
+func RevealPath(path string) error {
+	if path == "" {
+		return nil
+	}
+	return exec.Command("explorer", "/select,"+path).Start()
 }

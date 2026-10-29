@@ -40,10 +40,22 @@ func main() {
 
 	router := bridge.NewRouter()
 	bridge.RegisterHome(router, store, buildinfo.Version)
+	rm := host.NewRecentManager(dataDir)
+	bridge.RegisterRecent(router, rm)
 	bridge.RegisterTabs(router, host.NewTabHost(), host.NewDetachedHost())
 	bridge.RegisterOpenExternal(router, func(u string) error {
 		return platform.OpenExternal(u)
 	})
+	bridge.RegisterDialogs(router, func() ([]string, error) {
+		app := platform.App()
+		if app == nil {
+			return nil, nil
+		}
+		files, err := app.Dialog.OpenFile().
+			SetTitle("Open File").
+			PromptForMultipleSelection()
+		return files, err
+	}, platform.RevealPath)
 
 	app := application.New(application.Options{
 		Name:        "YiiOffice",
