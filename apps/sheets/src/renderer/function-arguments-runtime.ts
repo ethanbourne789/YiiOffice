@@ -123,6 +123,11 @@ export function createFunctionArgumentsHost(
     observeRangePick(target, onPick) {
       const runtime = getRuntime()
       if (!runtime) return () => {}
+      // Univer 1.2 dropped the facade's SelectionMoveEnd event (it exists as a
+      // name but never fires); the workbook's onSelectionChange is the live
+      // source for the same selection.
+      const workbook = runtime.univerAPI.getActiveWorkbook()
+      if (!workbook) return () => {}
       // Ending the cell editor re-emits the selection; only a pointer on the
       // grid after the dialog opened counts as a pick.
       let armed = false
@@ -132,14 +137,12 @@ export function createFunctionArgumentsHost(
         }
       }
       document.addEventListener('pointerdown', arm, true)
-      const disposable = runtime.univerAPI.addEvent(
-        runtime.univerAPI.Event.SelectionMoveEnd,
-        (params) => {
-          const range = params.selections[0]
-          if (!armed || !range || params.workbook.getId() !== target.unitId) return
-          onPick(pickedRangeRef(range, params.worksheet.getSheetName(), target.sheetName))
-        },
-      )
+      const disposable = workbook.onSelectionChange((selections) => {
+        const range = selections[0]
+        if (!armed || !range) return
+        const sheetName = workbook.getActiveSheet()?.getSheetName() ?? target.sheetName
+        onPick(pickedRangeRef(range, sheetName, target.sheetName))
+      })
       return () => {
         document.removeEventListener('pointerdown', arm, true)
         disposable.dispose()

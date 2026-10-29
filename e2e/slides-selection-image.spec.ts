@@ -1,9 +1,18 @@
 import { test, expect } from '@playwright/test'
-import { createServer, type ViteDevServer } from 'vite'
-import react from '@vitejs/plugin-react'
+import { createServer, type Plugin, type ViteDevServer } from 'vite'
+import { createRequire } from 'node:module'
 import { resolve } from 'node:path'
 import { PNG } from 'pngjs'
 import type { RenderNode, RenderSlide } from '../packages/pptx-render/src/render-tree'
+
+// @vitejs/plugin-react is a devDependency of apps/slides and npm nests it there
+// (several apps carry their own copy), so a bare import from e2e/ cannot resolve
+// it — and that fails the whole Playwright run at collection, not just this file.
+const react = (
+  createRequire(resolve('apps/slides/package.json'))('@vitejs/plugin-react') as {
+    default: () => Plugin
+  }
+).default
 
 let server: ViteDevServer
 let url: string

@@ -58,21 +58,21 @@ function minimalPdf(): Buffer {
 }
 
 test.describe('theme visual adoption', () => {
-  test('html editor surface follows dark theme', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'yiioffice-theme-html-'))
-    const htmlPath = join(dir, 'doc.html')
-    await writeFile(htmlPath, '<html><body><p>Body.</p></body></html>\n')
+  test('source text editor surface follows dark theme', async () => {
+    // The HTML preview that used to host this CodeMirror surface is gone; a
+    // .txt still opens in the same source pane, so it keeps the coverage.
+    const dir = await mkdtemp(join(tmpdir(), 'yiioffice-theme-txt-'))
+    const txtPath = join(dir, 'notes.txt')
+    await writeFile(txtPath, 'first line\nsecond line\n')
 
     const launched = await launchShell({
       onboardingSeen: true,
-      videoDir: 'theme-visual-html',
-      openFile: htmlPath,
+      videoDir: 'theme-visual-txt',
+      openFile: txtPath,
     })
     try {
       const shellPage = await findShellPage(launched.app)
-      const editorPage = await waitForPageWithUrl(launched.app, '://html/')
-      // preview is the default view; the source pane is what this test measures
-      await editorPage.locator('.rb-view', { hasText: /Source/ }).click()
+      const editorPage = await waitForPageWithUrl(launched.app, '://markdown/')
       await expect(editorPage.locator('.source-editor .cm-content')).toBeVisible()
 
       const lightBg = await bodyBg(editorPage)
@@ -84,9 +84,9 @@ test.describe('theme visual adoption', () => {
         .locator('.source-editor .cm-content')
         .evaluate((el) => getComputedStyle(el).color)
       expect(luminance(textColor)).toBeGreaterThan(180)
-      await editorPage.screenshot({ path: screenshotPath('theme-html-dark') })
+      await editorPage.screenshot({ path: screenshotPath('theme-txt-dark') })
     } finally {
-      await closeAndSaveVideo(launched, 'theme-visual-html')
+      await closeAndSaveVideo(launched, 'theme-visual-txt')
     }
   })
 

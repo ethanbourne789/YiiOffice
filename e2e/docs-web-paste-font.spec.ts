@@ -97,15 +97,15 @@ test.describe('docs web-HTML paste fonts', () => {
           return out
         })
 
-      const paste = async (_html: string, _text: string): Promise<void> => {
+      const paste = async (html: string, text: string): Promise<void> => {
         await app.evaluate(
           async ({ clipboard, ClipboardItem }, payload) => {
+            // one clipboard entry carrying both flavours, like a browser copy
             await clipboard.write([
-              new ClipboardItem({ 'text/html': payload.html }),
-              new ClipboardItem({ 'text/plain': payload.text }),
+              new ClipboardItem({ 'text/html': payload.html, 'text/plain': payload.text }),
             ])
           },
-          { html: payload.html, text: payload.text },
+          { html, text },
         )
         await editorPage.keyboard.press('Control+v')
         await editorPage.waitForTimeout(400)
@@ -132,7 +132,7 @@ test.describe('docs web-HTML paste fonts', () => {
       state = await runs()
       expect(state.find((r) => r.text.includes('internal bare'))?.font).toBeNull()
     } finally {
-      await closeAndSaveVideo(launched)
+      await closeAndSaveVideo(launched, 'docs-web-paste-font')
     }
   })
 })

@@ -34,9 +34,11 @@ export function wrapWithEnterActivation(
       'div',
       {
         // display:contents keeps the row's flex layout untouched while the
-        // div still sees the input's bubbled keydown
+        // div still sees the input's keydown. Capture phase, not bubble:
+        // Univer 1.2's MenuItemInput calls stopPropagation() on every keydown
+        // it handles, so a bubble handler on this wrapper never runs.
         style: { display: 'contents' },
-        onKeyDown: (event: ReactKeyboardEvent) => {
+        onKeyDownCapture: (event: ReactKeyboardEvent) => {
           if (event.key !== 'Enter') return
           const row = (event.target as HTMLElement).closest('button')
           // next tick: let the commit re-render land before the click reads it

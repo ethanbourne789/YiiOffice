@@ -43,8 +43,8 @@ test.describe('home file search', () => {
       '# Notes\n\nDiscussed the annual budget review.\n',
     )
     writeFileSync(
-      join(root, 'landing.html'),
-      '<html><body><h1>Launch</h1><p>Budget approved.</p></body></html>',
+      join(root, 'landing.txt'),
+      'Launch\n\nBudget approved.\n',
     )
     writeFileSync(join(root, 'unrelated.md'), 'nothing to see here')
   })
@@ -69,7 +69,7 @@ test.describe('home file search', () => {
       const rows = page.locator('.search-row')
       await expect(rows).toHaveCount(2, { timeout: 30_000 })
       await expect(page.locator('.search-name', { hasText: 'meeting-notes.md' })).toBeVisible()
-      await expect(page.locator('.search-name', { hasText: 'landing.html' })).toBeVisible()
+      await expect(page.locator('.search-name', { hasText: 'landing.txt' })).toBeVisible()
       await expect(page.locator('.search-snippet .search-hit').first()).toHaveText(/budget/i)
       await expect(page.locator('.recents-heading .file-count')).toHaveText('2 results')
 

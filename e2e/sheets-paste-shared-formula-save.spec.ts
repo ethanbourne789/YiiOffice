@@ -116,11 +116,15 @@ test.describe('sheets: tiled paste of formulas survives save', () => {
         const files = (await readdir(saveDir)).filter((f) => f.endsWith('.xlsx'))
         expect(files).toHaveLength(1)
         const xml = await xlsxEntry(join(saveDir, files[0]), 'xl/worksheets/sheet1.xml')
-        // both pasted repetitions keep values and a row-shifted formula
-        expect(xml).toContain('<c r="A2" s="1"><v>10</v></c>')
-        expect(xml).toContain('<c r="A3" s="1"><v>10</v></c>')
-        expect(xml).toMatch(/<c r="C2" s="1"><f>A2&amp;"-x"<\/f><\/c>/)
-        expect(xml).toMatch(/<c r="C3" s="1"><f>A3&amp;"-x"<\/f><\/c>/)
+        // Both pasted repetitions keep values and a row-shifted formula. The
+        // style index is deliberately not pinned: pasted cells carry whatever
+        // xf the source had (none here), and Univer renumbers its style table
+        // between releases, so `s="1"` was pinning an upstream allocation
+        // rather than behaviour.
+        expect(xml).toMatch(/<c r="A2"( s="\d+")?><v>10<\/v><\/c>/)
+        expect(xml).toMatch(/<c r="A3"( s="\d+")?><v>10<\/v><\/c>/)
+        expect(xml).toMatch(/<c r="C2"( s="\d+")?><f>A2&amp;"-x"<\/f><\/c>/)
+        expect(xml).toMatch(/<c r="C3"( s="\d+")?><f>A3&amp;"-x"<\/f><\/c>/)
       }).toPass({ timeout: 15_000 })
     } finally {
       await closeAndSaveVideo(launched, 'sheets-paste-shared-formula-save')

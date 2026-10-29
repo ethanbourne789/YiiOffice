@@ -52,10 +52,19 @@ test('Slides copy provides an OS image while internal paste stays editable and s
     await page.keyboard.press('Control+a')
     await page.keyboard.press('Control+c')
     await expect
-      .poll(() => app.evaluate(({ clipboard }) => !clipboard.readImage().isEmpty()))
+      .poll(() => app.evaluate(async ({ clipboard }) => clipboard.has('image/png')))
       .toBe(true)
+    // Electron 45 turned the clipboard into the async ClipboardItem API —
+    // readImage()/toPNG() are gone, so pull the PNG blob out of the entry.
     const bytes = Buffer.from(
-      await app.evaluate(({ clipboard }) => clipboard.readImage().toPNG().toString('base64')),
+      await app.evaluate(async ({ clipboard }) => {
+        for (const item of await clipboard.read()) {
+          if (!item.types.includes('image/png')) continue
+          const blob = await item.getType('image/png')
+          return Buffer.from(await blob.arrayBuffer()).toString('base64')
+        }
+        return ''
+      }),
       'base64',
     )
     const png = PNG.sync.read(bytes)

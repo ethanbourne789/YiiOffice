@@ -158,8 +158,14 @@ export async function writeElementClipboardImage(token: string, pngBase64: unkno
     if (!normalizedPng.length) return false
     const html = `<img src="data:image/png;base64,${normalizedPng.toString('base64')}" data-yiioffice-slides-elements="${encodeURIComponent(token)}">`
     if (!(await elementClipboardMarkerMatches(token))) return false
-    // @ts-expect-error Electron ClipboardItem accepts NativeImage for image/png
-    await clipboard.write([new ClipboardItem({ 'image/png': decoded }), new ClipboardItem({ 'text/html': html })])
+    // Electron 45's ClipboardItem only takes strings and Blobs — a NativeImage
+    // throws "payload values must be a string or a Blob" — and the old
+    // writeImage() escape hatch disappeared with the sync clipboard API.
+    const pngBlob = new Blob([new Uint8Array(normalizedPng)], { type: 'image/png' })
+    await clipboard.write([
+      new ClipboardItem({ 'image/png': pngBlob }),
+      new ClipboardItem({ 'text/html': html }),
+    ])
     return true
   } catch {
     return false

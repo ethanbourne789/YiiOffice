@@ -1918,10 +1918,11 @@ export function registerDocsIpc(): void {
           /* malformed payload: plain img */
         }
       }
-      // Electron 45: clipboard.write now accepts a ClipboardItem[] (async).
+      // Electron 45: clipboard.write now accepts a ClipboardItem[] (async), and
+      // its payloads must be strings or Blobs — a NativeImage throws
+      // "payload values must be a string or a Blob".
       await clipboard.write([
-        // @ts-expect-error Electron ClipboardItem accepts NativeImage for image/png
-        new ClipboardItem({ 'image/png': image }),
+        new ClipboardItem({ 'image/png': new Blob([new Uint8Array(bytes)], { type: 'image/png' }) }),
         new ClipboardItem({ 'text/html': `<img src="${htmlSrc}" width="${width}" height="${height}"${metaAttr}>` }),
       ])
       return true

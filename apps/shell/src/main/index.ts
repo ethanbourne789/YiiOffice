@@ -469,8 +469,21 @@ app.whenReady().then(async () => {
   // clipboard-read, notifications, …) to whatever the page asks for. A
   // document body can embed content that triggers these; allow only what the
   // editors actually use and deny the rest.
+  //
+  // `clipboard-sanitized-write` is the one that matters for copying: Electron 45
+  // routes `navigator.clipboard.write*` (grid Ctrl+C, Copy Hyperlink, Univer's
+  // BrowserClipboardService) through a permission *request* under that name, not
+  // the legacy `clipboard-write`. Denying it leaves the OS clipboard untouched
+  // with only a NotAllowedError in the renderer, so pastes elsewhere paste
+  // whatever was already on the clipboard.
   session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
-    const allowed = new Set(['clipboard-read', 'clipboard-write', 'fullscreen', 'display-capture'])
+    const allowed = new Set([
+      'clipboard-read',
+      'clipboard-write',
+      'clipboard-sanitized-write',
+      'fullscreen',
+      'display-capture',
+    ])
     callback(allowed.has(permission))
   })
   // first scan waits for the windows to come up; later ones follow folder changes

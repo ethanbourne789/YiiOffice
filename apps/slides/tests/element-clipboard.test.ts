@@ -97,9 +97,16 @@ describe('element clipboard PNG writer', () => {
     await expect(writeElementClipboardImage('copy token', 'cG5n')).resolves.toBe(true)
 
     expect(electron.clipboard.write).toHaveBeenCalledOnce()
-    expect(electron.clipboard.write).toHaveBeenCalledWith(
+    const written = electron.clipboard.write.mock.calls[0]?.[0] as Array<{
+      items: Record<string, unknown>
+    }>
+    // Electron 45 rejects NativeImage payloads, so image/png goes in as a Blob.
+    const image = written.find((entry) => 'image/png' in entry.items)?.items['image/png']
+    expect(image).toBeInstanceOf(Blob)
+    expect((image as Blob).type).toBe('image/png')
+    expect(Buffer.from(await (image as Blob).arrayBuffer()).toString()).toBe('normalized-png')
+    expect(written).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ items: { 'image/png': decoded } }),
         expect.objectContaining({
           items: {
             'text/html':
