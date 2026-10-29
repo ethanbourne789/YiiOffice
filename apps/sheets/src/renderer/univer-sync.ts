@@ -3379,14 +3379,10 @@ async function loadRange(
         }, 250)
         state.retryTimers.set(sheetId, timer)
       }
-    } else if (isActiveSheet(runtime, sheetId)) {
-      setMessage(
-        t('appStreamingRows', {
-          name: state.file.name,
-          rows: sheet?.rowCount.toLocaleString() ?? '?',
-        }),
-      )
     }
+    // no message for the completed branch: it already set `appReady` above, and
+    // re-stating the streaming progress here left the bar stuck on
+    // "… N rows available" for files that index in one pass.
   } catch (error: unknown) {
     if (lazyWorkbookRef.current === state && isActiveSheet(runtime, sheetId)) {
       setMessage(error instanceof Error ? error.message : t('appLoadRangeFailed'))

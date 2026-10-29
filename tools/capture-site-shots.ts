@@ -3,15 +3,18 @@
  *
  * Boots the real built shell against a scratch userData dir, opens a sample
  * document per editor, and writes light + dark shots of the shell home and each
- * editor. PNG frames are re-encoded to WebP through Chromium so the page stays
- * light.
+ * editor — once per UI language, because the landing page ships a Chinese and an
+ * English edition and the chrome inside the shots has to match. PNG frames are
+ * re-encoded to WebP through Chromium so the page stays light.
  *
  * Run: npx tsx tools/capture-site-shots.ts   (after `npm run build:all`)
+ * Env: SHOT=sheets  LOCALES=en   narrow the run while iterating on framing
  */
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { chromium, type ElectronApplication, type Page } from '@playwright/test'
 import { launchShell, waitForPageWithUrl } from '../e2e/helpers'
 
@@ -21,6 +24,7 @@ const RAW_DIR = join(tmpdir(), 'yiioffice-shot-raw')
 const VIEW = { width: 1600, height: 1000 } as const
 
 type Theme = 'light' | 'dark'
+type Locale = 'zh' | 'en'
 
 interface Shot {
   name: string
@@ -31,9 +35,267 @@ interface Shot {
   clipHeight?: number
 }
 
+/* ------------------------------------------------------------------- copy */
+
+interface SampleCopy {
+  folder: string
+  files: Record<'report' | 'sales' | 'deck' | 'review' | 'notes', string>
+  docx: {
+    kicker: string
+    title: string
+    intro: string
+    sections: Array<{ heading: string; paragraphs: string[]; table?: boolean }>
+    tableHead: [string, string, string, string]
+    tableRows: Array<[string, string, string, string]>
+    note: string
+  }
+  xlsx: {
+    sheet: string
+    head: [string, string, string, string, string, string]
+    /** region, product line, orders, revenue, yoy, share */
+    rows: Array<[string, string, number, number, number, number]>
+  }
+  pptx: {
+    kicker: string
+    title: string
+    sub: string
+    bulletsTitle: string
+    bullets: string[]
+    chartTitle: string
+    series: string
+  }
+  md: string
+}
+
+export const COPY: Record<Locale, SampleCopy> = {
+  zh: {
+    folder: '工作文档',
+    files: {
+      report: '年度运营报告.docx',
+      sales: '区域销售.xlsx',
+      deck: '产品发布.pptx',
+      review: '季度评审.pdf',
+      notes: '发布说明.md',
+    },
+    docx: {
+      kicker: '运营中心 · 年度报告',
+      title: '2026 年度运营报告',
+      intro:
+        '本年度的主线是把交付从「按项目排期」改成「按版本节奏」。四个季度里，我们把发布周期从六周压缩到两周，同时把客户侧的可见变更全部搬到了版本说明里。',
+      sections: [
+        {
+          heading: '一、全年概览',
+          paragraphs: [
+            '全年营业收入 2,376 万元，同比增长 29.0%；毛利率 52.7%，较上年提升 4.5 个百分点。增长主要来自中大型客户的续约扩张，而不是新客获取成本的下降。',
+            '团队规模从 3,410 人扩张到 5,286 人，其中工程与设计占比 46%。人员扩张集中在第二、第三季度，第四季度基本停止招聘，转为内部培养。',
+          ],
+        },
+        { heading: '二、关键指标', paragraphs: [], table: true },
+        {
+          heading: '三、区域表现',
+          paragraphs: [
+            '华东依然是收入主体，贡献 42% 的营业收入；华南与华北的增速更快，分别为 34% 与 31%。西南区域的试点在第四季度跑通，明年会作为独立区域核算。',
+            '海外业务仍处在早期，收入占比不足 4%。我们暂时不打算为其单独建立销售团队，而是跟随现有客户的海外分支自然增长。',
+          ],
+        },
+        {
+          heading: '四、明年的三件事',
+          paragraphs: [
+            '第一，把版本节奏稳定在两周，不再为单个客户插入计划外的排期。',
+            '第二，把文档、表格、演示三条线的保存链路统一到同一套补丁回写逻辑上，减少格式回归。',
+            '第三，把内部工具的维护成本压到收入的 5% 以内，超出的部分一律砍掉或外包。',
+          ],
+        },
+      ],
+      tableHead: ['指标', '2025 年', '2026 年', '变化'],
+      tableRows: [
+        ['营业收入', '1,842 万元', '2,376 万元', '+29.0%'],
+        ['毛利率', '48.2%', '52.7%', '+4.5 pt'],
+        ['活跃团队', '3,410', '5,286', '+55.0%'],
+      ],
+      note: '注：毛利率按新口径计算，已剔除一次性交付成本；与 2025 年数据不可直接比较。',
+    },
+    xlsx: {
+      sheet: '区域销售',
+      head: ['区域', '产品线', '订单数', '收入(万元)', '同比', '占比'],
+      rows: [
+        ['华东', '文档', 1284, 1062, 0.31, 0.447],
+        ['华东', '表格', 742, 598, 0.24, 0.252],
+        ['华南', '文档', 986, 812, 0.34, 0.342],
+        ['华南', '表格', 528, 401, 0.19, 0.169],
+        ['华北', '文档', 1142, 943, 0.29, 0.397],
+        ['华北', '表格', 611, 468, 0.22, 0.197],
+        ['西南', '文档', 312, 244, 0.41, 0.103],
+        ['西南', '表格', 188, 146, 0.28, 0.061],
+      ],
+    },
+    pptx: {
+      kicker: 'YIIOFFICE · 0.13',
+      title: '文件留在你的磁盘上',
+      sub: '一个本地优先的 Office 套件：原生读写 Word、Excel、PPT 与 PDF。',
+      bulletsTitle: '这一版做了什么',
+      bullets: [
+        '字节保真保存：只重写被改动的 XML 节点',
+        '原子写入：临时文件 + rename，崩溃不留半份文件',
+        '本地全文搜索：FTS5 + CJK 双流分词',
+        '无界面导出：不弹窗口转 PDF',
+      ],
+      chartTitle: '五个编辑器（月度新增）',
+      series: '打开次数',
+    },
+    md: `# 发布说明 · 0.13.0
+
+这个版本把「保存不丢格式」这条主线做完了，同时删掉了最后一个会往外发请求的入口。
+
+## 新增
+
+- 字节保真保存：只重写被修改的 XML 节点
+- 原子写入：临时文件 + rename
+- 本地全文搜索：FTS5 + CJK 双流分词
+
+> 文件双击就开，断网一个功能不少。
+
+## 打开速度
+
+| 文件类型 | 上一版 | 这一版 |
+| --- | --- | --- |
+| .docx（20 页） | 1.8 s | 0.9 s |
+| .xlsx（8 万行） | 4.2 s | 2.6 s |
+| .pptx（40 页） | 2.4 s | 1.3 s |
+
+\`\`\`bash
+npm install
+npm run dev
+\`\`\`
+
+## 流程图
+
+\`\`\`mermaid
+flowchart LR
+  A[打开文件] --> B[解析 OOXML]
+  B --> C[只改动编辑过的节点]
+  C --> D[临时文件]
+  D --> E[rename 落盘]
+\`\`\`
+`,
+  },
+
+  en: {
+    folder: 'Work',
+    files: {
+      report: 'Annual-Report-2026.docx',
+      sales: 'Regional-Sales.xlsx',
+      deck: 'Product-Launch.pptx',
+      review: 'Quarterly-Review.pdf',
+      notes: 'Release-Notes.md',
+    },
+    docx: {
+      kicker: 'OPERATIONS · ANNUAL REPORT',
+      title: 'Operations Report 2026',
+      intro:
+        'The thread this year was moving delivery from project-by-project scheduling to a release cadence. Across four quarters we cut the cycle from six weeks to two, and moved every customer-visible change into the release notes.',
+      sections: [
+        {
+          heading: '1. The year at a glance',
+          paragraphs: [
+            'Revenue reached ¥23.76M, up 29.0% year over year, with gross margin at 52.7% — a 4.5 point improvement. Growth came from expansion inside existing mid-market and enterprise accounts, not from cheaper acquisition.',
+            'Headcount grew from 3,410 to 5,286, with engineering and design at 46%. Hiring was concentrated in Q2 and Q3; Q4 stopped external hiring and switched to internal development.',
+          ],
+        },
+        { heading: '2. Key metrics', paragraphs: [], table: true },
+        {
+          heading: '3. Regional performance',
+          paragraphs: [
+            'East China remains the core at 42% of revenue. South and North grew faster, at 34% and 31%. The Southwest pilot closed its first full quarter and will be reported as its own region next year.',
+            'Overseas business is still early, under 4% of revenue. We are not building a dedicated sales team for it; it will follow the overseas branches of existing customers.',
+          ],
+        },
+        {
+          heading: '4. Three things for next year',
+          paragraphs: [
+            'First, hold the cadence at two weeks and stop inserting off-plan work for single customers.',
+            'Second, unify the save paths of the document, spreadsheet and presentation editors onto one patch layer, to cut format regressions.',
+            'Third, keep internal tooling under 5% of revenue; anything above that gets cut or outsourced.',
+          ],
+        },
+      ],
+      tableHead: ['Metric', '2025', '2026', 'Change'],
+      tableRows: [
+        ['Revenue', '¥18.42M', '¥23.76M', '+29.0%'],
+        ['Gross margin', '48.2%', '52.7%', '+4.5 pt'],
+        ['Active teams', '3,410', '5,286', '+55.0%'],
+      ],
+      note: 'Note: gross margin uses the new definition and excludes one-off delivery costs, so it is not directly comparable with 2025.',
+    },
+    xlsx: {
+      sheet: 'Regional sales',
+      head: ['Region', 'Product line', 'Orders', 'Revenue $K', 'YoY', 'Share'],
+      rows: [
+        ['East', 'Docs', 1284, 1062, 0.31, 0.447],
+        ['East', 'Sheets', 742, 598, 0.24, 0.252],
+        ['South', 'Docs', 986, 812, 0.34, 0.342],
+        ['South', 'Sheets', 528, 401, 0.19, 0.169],
+        ['North', 'Docs', 1142, 943, 0.29, 0.397],
+        ['North', 'Sheets', 611, 468, 0.22, 0.197],
+        ['Southwest', 'Docs', 312, 244, 0.41, 0.103],
+        ['Southwest', 'Sheets', 188, 146, 0.28, 0.061],
+      ],
+    },
+    pptx: {
+      kicker: 'YIIOFFICE · 0.13',
+      title: 'Your files stay on your disk',
+      sub: 'A local-first office suite with native Word, Excel, PowerPoint and PDF support.',
+      bulletsTitle: 'What this release changes',
+      bullets: [
+        'Byte-faithful saves: only the edited XML nodes are rewritten',
+        'Atomic writes: temp file plus rename, so a crash never leaves half a file',
+        'Local full-text search: FTS5 with CJK-aware segmentation',
+        'Headless export: convert to PDF without opening a window',
+      ],
+      chartTitle: 'Five editors (monthly opens)',
+      series: 'Opens',
+    },
+    md: `# Release notes · 0.13.0
+
+This release closes out the "save without losing formatting" work and removes the last code path that reached the network.
+
+## Added
+
+- Byte-faithful saves: only the edited XML nodes are rewritten
+- Atomic writes: temp file plus rename
+- Local full-text search: FTS5 with CJK-aware segmentation
+
+> Double-click a file and it opens; offline costs you nothing.
+
+## Open times
+
+| File type | Previous | This release |
+| --- | --- | --- |
+| .docx (20 pages) | 1.8 s | 0.9 s |
+| .xlsx (80k rows) | 4.2 s | 2.6 s |
+| .pptx (40 slides) | 2.4 s | 1.3 s |
+
+\`\`\`bash
+npm install
+npm run dev
+\`\`\`
+
+## Flow
+
+\`\`\`mermaid
+flowchart LR
+  A[Open file] --> B[Parse OOXML]
+  B --> C[Patch edited nodes only]
+  C --> D[Temp file]
+  D --> E[Rename into place]
+\`\`\`
+`,
+  },
+}
+
 /* ------------------------------------------------------------------ samples */
 
-async function buildReportDocx(path: string): Promise<void> {
+async function buildReportDocx(path: string, copy: SampleCopy): Promise<void> {
   const docx = await import('docx')
   const {
     Document,
@@ -49,6 +311,7 @@ async function buildReportDocx(path: string): Promise<void> {
     BorderStyle,
   } = docx
 
+  const c = copy.docx
   const h2 = (text: string) =>
     new Paragraph({ text, heading: HeadingLevel.HEADING_2, spacing: { before: 200, after: 80 } })
   const p = (text: string) =>
@@ -76,14 +339,28 @@ async function buildReportDocx(path: string): Promise<void> {
       insideVertical: { style: BorderStyle.SINGLE, size: 4, color: 'E2E7ED' },
     },
     rows: [
-      new TableRow({
-        children: ['指标', '2025 年', '2026 年', '变化'].map((t) => cell(t, true)),
-      }),
-      new TableRow({ children: ['营业收入', '1,842 万元', '2,376 万元', '+29.0%'].map((t) => cell(t)) }),
-      new TableRow({ children: ['毛利率', '48.2%', '52.7%', '+4.5 pt'].map((t) => cell(t)) }),
-      new TableRow({ children: ['活跃团队', '3,410', '5,286', '+55.0%'].map((t) => cell(t)) }),
+      new TableRow({ children: c.tableHead.map((t) => cell(t, true)) }),
+      ...c.tableRows.map((row) => new TableRow({ children: row.map((t) => cell(t)) })),
     ],
   })
+
+  type Block = InstanceType<typeof Paragraph> | InstanceType<typeof Table>
+  const body: Block[] = []
+  for (const section of c.sections) {
+    body.push(h2(section.heading))
+    for (const text of section.paragraphs) body.push(p(text))
+    if (section.table) {
+      body.push(table)
+      body.push(
+        new Paragraph({
+          spacing: { before: 120, after: 200 },
+          children: [
+            new TextRun({ text: c.note, italics: true, size: 18, color: '7A8592' }),
+          ],
+        }),
+      )
+    }
+  }
 
   const document = new Document({
     sections: [
@@ -94,47 +371,15 @@ async function buildReportDocx(path: string): Promise<void> {
         children: [
           new Paragraph({
             spacing: { after: 80 },
-            children: [new TextRun({ text: '运营中心 · 年度报告', size: 18, color: '7A8592' })],
+            children: [new TextRun({ text: c.kicker, size: 18, color: '7A8592' })],
           }),
           new Paragraph({
             heading: HeadingLevel.TITLE,
             spacing: { after: 120 },
-            children: [new TextRun({ text: '2026 年度运营报告', bold: true, size: 44 })],
+            children: [new TextRun({ text: c.title, bold: true, size: 44 })],
           }),
-          p(
-            '本年度的主线是把交付从「按项目排期」改成「按版本节奏」。四个季度里，我们把发布周期从六周压缩到两周，同时把客户侧的可见变更全部搬到了版本说明里。',
-          ),
-          h2('一、全年概览'),
-          p(
-            '全年营业收入 2,376 万元，同比增长 29.0%；毛利率 52.7%，较上年提升 4.5 个百分点。增长主要来自中大型客户的续约扩张，而不是新客获取成本的下降。',
-          ),
-          p(
-            '团队规模从 3,410 人扩张到 5,286 人，其中工程与设计占比 46%。人员扩张集中在第二、第三季度，第四季度基本停止招聘，转为内部培养。',
-          ),
-          h2('二、关键指标'),
-          table,
-          new Paragraph({
-            spacing: { before: 120, after: 200 },
-            children: [
-              new TextRun({
-                text: '注：毛利率按新口径计算，已剔除一次性交付成本；与 2025 年数据不可直接比较。',
-                italics: true,
-                size: 18,
-                color: '7A8592',
-              }),
-            ],
-          }),
-          h2('三、区域表现'),
-          p(
-            '华东依然是收入主体，贡献 42% 的营业收入；华南与华北的增速更快，分别为 34% 与 31%。西南区域的试点在第四季度跑通，明年会作为独立区域核算。',
-          ),
-          p(
-            '海外业务仍处在早期，收入占比不足 4%。我们暂时不打算为其单独建立销售团队，而是跟随现有客户的海外分支自然增长。',
-          ),
-          h2('四、明年的三件事'),
-          p('第一，把版本节奏稳定在两周，不再为单个客户插入计划外的排期。'),
-          p('第二，把文档、表格、演示三条线的保存链路统一到同一套补丁回写逻辑上，减少格式回归。'),
-          p('第三，把内部工具的维护成本压到收入的 5% 以内，超出的部分一律砍掉或外包。'),
+          p(c.intro),
+          ...body,
         ],
       },
     ],
@@ -148,23 +393,13 @@ async function buildReportDocx(path: string): Promise<void> {
  * fly, which leaves a "streaming <uuid>.xlsx" note in the status bar. Styling
  * lives in the file so the shot needs no post-load massaging.
  */
-async function buildSalesXlsx(path: string): Promise<void> {
+export async function buildSalesXlsx(path: string, copy: SampleCopy): Promise<void> {
   const JSZip = (await import('jszip')).default
   const NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
   const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
   const XML = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n'
 
-  const rows: Array<Array<string | number>> = [
-    ['区域', '产品线', '订单数', '收入(万元)', '同比', '占比'],
-    ['华东', '文档', 1284, 1062, 0.31, 0.447],
-    ['华东', '表格', 742, 598, 0.24, 0.252],
-    ['华南', '文档', 986, 812, 0.34, 0.342],
-    ['华南', '表格', 528, 401, 0.19, 0.169],
-    ['华北', '文档', 1142, 943, 0.29, 0.397],
-    ['华北', '表格', 611, 468, 0.22, 0.197],
-    ['西南', '文档', 312, 244, 0.41, 0.103],
-    ['西南', '表格', 188, 146, 0.28, 0.061],
-  ]
+  const { head, rows: data, sheet: sheetName } = copy.xlsx
 
   /** column index -> cell style: 1 header, 2 text, 3 number, 4 percentage */
   const styleForColumn = (c: number): string => (c >= 4 ? '4' : c >= 2 ? '3' : '2')
@@ -172,6 +407,8 @@ async function buildSalesXlsx(path: string): Promise<void> {
   const column = (index: number): string => String.fromCharCode(65 + index)
   const esc = (value: string): string =>
     value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+  const rows: Array<Array<string | number>> = [head, ...data]
 
   const sheetRows = rows
     .map((row, r) => {
@@ -187,6 +424,9 @@ async function buildSalesXlsx(path: string): Promise<void> {
     })
     .join('')
 
+  // English headers are wider than the two-character Chinese ones
+  const widths = Object.is(copy, COPY.en) ? [13, 15, 11, 14, 9, 9] : [11, 11, 12, 15, 10, 10]
+
   const sheet =
     `${XML}<worksheet xmlns="${NS}">` +
     '<sheetViews><sheetView tabSelected="1" workbookViewId="0">' +
@@ -194,20 +434,17 @@ async function buildSalesXlsx(path: string): Promise<void> {
     '</sheetView></sheetViews>' +
     '<sheetFormatPr defaultRowHeight="20"/>' +
     '<cols>' +
-    '<col min="1" max="1" width="11" customWidth="1"/>' +
-    '<col min="2" max="2" width="11" customWidth="1"/>' +
-    '<col min="3" max="3" width="12" customWidth="1"/>' +
-    '<col min="4" max="4" width="15" customWidth="1"/>' +
-    '<col min="5" max="5" width="10" customWidth="1"/>' +
-    '<col min="6" max="6" width="10" customWidth="1"/>' +
+    widths
+      .map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`)
+      .join('') +
     '</cols>' +
     `<sheetData>${sheetRows}</sheetData></worksheet>`
 
   const styles =
     `${XML}<styleSheet xmlns="${NS}">` +
     '<fonts count="2">' +
-    '<font><sz val="11"/><name val="等线"/><family val="2"/></font>' +
-    '<font><b/><sz val="11"/><name val="等线"/><family val="2"/></font>' +
+    '<font><sz val="11"/><name val="Calibri"/><family val="2"/></font>' +
+    '<font><b/><sz val="11"/><name val="Calibri"/><family val="2"/></font>' +
     '</fonts>' +
     '<fills count="3">' +
     '<fill><patternFill patternType="none"/></fill>' +
@@ -236,7 +473,7 @@ async function buildSalesXlsx(path: string): Promise<void> {
     '<xf numFmtId="10" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1">' +
     '<alignment horizontal="right"/></xf>' +
     '</cellXfs>' +
-    '<cellStyles count="1"><cellStyle name="常规" xfId="0" builtinId="0"/></cellStyles>' +
+    '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>' +
     '</styleSheet>'
 
   const zip = new JSZip()
@@ -259,7 +496,7 @@ async function buildSalesXlsx(path: string): Promise<void> {
   zip.file(
     'xl/workbook.xml',
     `${XML}<workbook xmlns="${NS}" xmlns:r="${REL}">` +
-      '<sheets><sheet name="区域销售" sheetId="1" r:id="rId1"/></sheets></workbook>',
+      `<sheets><sheet name="${sheetName}" sheetId="1" r:id="rId1"/></sheets></workbook>`,
   )
   zip.file(
     'xl/_rels/workbook.xml.rels',
@@ -274,7 +511,7 @@ async function buildSalesXlsx(path: string): Promise<void> {
   await writeFile(path, await zip.generateAsync({ type: 'nodebuffer' }))
 }
 
-async function buildDeckPptx(path: string): Promise<void> {
+async function buildDeckPptx(path: string, copy: SampleCopy): Promise<void> {
   const mod = await import('pptxgenjs')
   const PptxGenJS = (mod as unknown as { default: new () => any }).default
   const pptx = new PptxGenJS()
@@ -283,10 +520,11 @@ async function buildDeckPptx(path: string): Promise<void> {
   const ink = '101418'
   const muted = '5F6A75'
   const accent = '0F7FFF'
+  const c = copy.pptx
 
   const cover = pptx.addSlide()
   cover.background = { color: 'FFFFFF' }
-  cover.addText('YIIOFFICE · 0.13', {
+  cover.addText(c.kicker, {
     x: 0.7,
     y: 0.9,
     w: 8,
@@ -295,7 +533,7 @@ async function buildDeckPptx(path: string): Promise<void> {
     color: accent,
     charSpacing: 2,
   })
-  cover.addText('文件留在你的磁盘上', {
+  cover.addText(c.title, {
     x: 0.7,
     y: 1.35,
     w: 8,
@@ -304,7 +542,7 @@ async function buildDeckPptx(path: string): Promise<void> {
     bold: true,
     color: ink,
   })
-  cover.addText('一个本地优先的 Office 套件：原生读写 Word、Excel、PPT 与 PDF。', {
+  cover.addText(c.sub, {
     x: 0.7,
     y: 2.55,
     w: 7.4,
@@ -315,19 +553,22 @@ async function buildDeckPptx(path: string): Promise<void> {
   cover.addShape('rect', { x: 0.7, y: 3.5, w: 1.6, h: 0.06, fill: { color: accent } })
 
   const bullets = pptx.addSlide()
-  bullets.addText('这一版做了什么', { x: 0.7, y: 0.6, w: 8, h: 0.6, fontSize: 26, bold: true, color: ink })
+  bullets.addText(c.bulletsTitle, {
+    x: 0.7,
+    y: 0.6,
+    w: 8,
+    h: 0.6,
+    fontSize: 26,
+    bold: true,
+    color: ink,
+  })
   bullets.addText(
-    [
-      { text: '字节保真保存：只重写被改动的 XML 节点', options: { bullet: true } },
-      { text: '原子写入：临时文件 + rename，崩溃不留半份文件', options: { bullet: true } },
-      { text: '本地全文搜索：FTS5 + CJK 双流分词', options: { bullet: true } },
-      { text: '无界面导出：不弹窗口转 PDF', options: { bullet: true } },
-    ],
+    c.bullets.map((text) => ({ text, options: { bullet: true } })),
     { x: 0.8, y: 1.5, w: 7.8, h: 3, fontSize: 16, color: muted, lineSpacing: 34 },
   )
 
   const chart = pptx.addSlide()
-  chart.addText('五个编辑器（月度新增）', {
+  chart.addText(c.chartTitle, {
     x: 0.7,
     y: 0.55,
     w: 8,
@@ -340,7 +581,7 @@ async function buildDeckPptx(path: string): Promise<void> {
     pptx.ChartType.bar,
     [
       {
-        name: '打开次数',
+        name: c.series,
         labels: ['Docs', 'Sheets', 'Slides', 'PDF', 'Markdown'],
         values: [4820, 3910, 2140, 1680, 1220],
       },
@@ -447,43 +688,8 @@ async function buildReviewPdf(path: string): Promise<void> {
   await writeFile(path, await doc.save())
 }
 
-async function buildNotesMd(path: string): Promise<void> {
-  const md = `# 发布说明 · 0.13.0
-
-这个版本把「保存不丢格式」这条主线做完了，同时删掉了最后一个会往外发请求的入口。
-
-## 新增
-
-- 字节保真保存：只重写被修改的 XML 节点
-- 原子写入：临时文件 + rename
-- 本地全文搜索：FTS5 + CJK 双流分词
-
-> 文件双击就开，断网一个功能不少。
-
-## 打开速度
-
-| 文件类型 | 上一版 | 这一版 |
-| --- | --- | --- |
-| .docx（20 页） | 1.8 s | 0.9 s |
-| .xlsx（8 万行） | 4.2 s | 2.6 s |
-| .pptx（40 页） | 2.4 s | 1.3 s |
-
-\`\`\`bash
-npm install
-npm run dev
-\`\`\`
-
-## 流程图
-
-\`\`\`mermaid
-flowchart LR
-  A[打开文件] --> B[解析 OOXML]
-  B --> C[只改动编辑过的节点]
-  C --> D[临时文件]
-  D --> E[rename 落盘]
-\`\`\`
-`
-  await writeFile(path, md, 'utf8')
+async function buildNotesMd(path: string, copy: SampleCopy): Promise<void> {
+  await writeFile(path, copy.md, 'utf8')
 }
 
 /* ------------------------------------------------------------------ launcher */
@@ -499,6 +705,7 @@ async function prepareUserData(recent: string[]): Promise<string> {
 }
 
 async function capture(
+  locale: Locale,
   theme: Theme,
   shot: Shot,
   samplesDir: string,
@@ -508,7 +715,7 @@ async function capture(
   const userDataDir = await prepareUserData(recent)
   const launched = await launchShell({
     userDataDir,
-    lang: 'zh-CN',
+    lang: locale === 'en' ? 'en' : 'zh-CN',
     onboardingSeen: true,
     settings: {
       theme,
@@ -521,9 +728,9 @@ async function capture(
   })
 
   const target = await resize(launched.app, launched.page, shot.urlPart)
-  await settle(target, shot.name, theme)
+  await settle(target, shot.name, theme, locale)
 
-  const png = join(workDir, `${shot.name}-${theme}.png`)
+  const png = join(workDir, `${shot.name}-${theme}-${locale}.png`)
   await target.screenshot({
     path: png,
     scale: 'css',
@@ -558,19 +765,28 @@ async function resize(
 }
 
 /** let fonts, charts and canvas frames land before the shutter */
-async function settle(page: Page, name: string, theme: Theme): Promise<void> {
+async function settle(page: Page, name: string, theme: Theme, locale: Locale): Promise<void> {
   const extra =
     name === 'sheets' ? 2500 : name === 'slides' ? 2200 : name === 'pdf' ? 2600 : 1600
   await page.waitForTimeout(extra)
   if (name === 'sheets') {
-    // the status bar keeps a "streaming …" note while rows arrive; wait it out
+    // the status bar walks through "streaming <uuid>.xlsx" before it settles on
+    // "Ready" / "就绪"; wait for that terminal line so the note never lands in
+    // the frame
     await page
-      .waitForFunction(() => !/\u6d41\u5f0f\u52a0\u8f7d/.test(document.body.innerText), null, {
-        timeout: 20_000,
-      })
+      .waitForFunction(
+        () => {
+          const text = document.body.innerText
+          if (/\u6d41\u5f0f\u52a0\u8f7d|streaming/i.test(text)) return false
+          return /\u5c31\u7eea|\u5df2\u5b8c\u6574\u52a0\u8f7d|ready|fully loaded/i.test(text)
+        },
+        null,
+        { timeout: 25_000, polling: 250 },
+      )
       .catch(() => undefined)
+    await page.waitForTimeout(500)
   }
-  await polish(page, name, theme)
+  await polish(page, name, theme, locale)
   await page
     .evaluate(() => (document as Document & { fonts?: FontFaceSet }).fonts?.ready)
     .catch(() => undefined)
@@ -578,7 +794,45 @@ async function settle(page: Page, name: string, theme: Theme): Promise<void> {
 }
 
 /** small, guarded touches so each editor shows its intended silhouette */
-async function polish(page: Page, name: string, _theme: Theme): Promise<void> {
+async function polish(page: Page, name: string, _theme: Theme, locale: Locale): Promise<void> {
+  if (name === 'sheets') {
+    // column widths in pixels; English headers need more room than the CJK ones
+    const widths: Array<[number, number]> =
+      locale === 'en'
+        ? [
+            [0, 110],
+            [1, 130],
+            [2, 96],
+            [3, 124],
+            [4, 86],
+            [5, 86],
+          ]
+        : [
+            [0, 96],
+            [1, 88],
+            [2, 80],
+            [3, 116],
+            [4, 80],
+            [5, 80],
+          ]
+    const diag = await page.evaluate((columns) => {
+      const out: string[] = []
+      const dbg = (window as unknown as Record<string, any>).__yiiofficeDebug
+      const sheet = dbg?.univerAPI?.getActiveWorkbook?.()?.getActiveSheet?.()
+      if (!sheet) return ['no-sheet']
+      for (const [col, width] of columns) {
+        try {
+          sheet.setColumnWidth(col, width)
+        } catch {
+          out.push(`w${col}!`)
+        }
+      }
+      return out
+    }, widths)
+    if (diag.length) console.log(`    sheets polish: ${diag.join(' ')}`)
+    await page.waitForTimeout(400)
+  }
+
   if (name === 'pdf') {
     // a real click lands on the loading overlay, so drive the handlers directly
     const zoom = (): Promise<number> =>
@@ -666,6 +920,26 @@ async function toWebp(pngPath: string, webpPath: string): Promise<number> {
 
 /* --------------------------------------------------------------------- main */
 
+export async function buildSamples(locale: Locale): Promise<{ dir: string; recent: string[] }> {
+  const copy = COPY[locale]
+  const root = await mkdtemp(join(tmpdir(), `yiioffice-sample-${locale}-`))
+  const dir = join(root, copy.folder)
+  await mkdir(dir, { recursive: true })
+  const report = join(dir, copy.files.report)
+  const sales = join(dir, copy.files.sales)
+  const deck = join(dir, copy.files.deck)
+  const review = join(dir, copy.files.review)
+  const notes = join(dir, copy.files.notes)
+
+  await buildReportDocx(report, copy)
+  await buildSalesXlsx(sales, copy)
+  await buildDeckPptx(deck, copy)
+  await buildReviewPdf(review)
+  await buildNotesMd(notes, copy)
+
+  return { dir, recent: [report, sales, deck, review, notes] }
+}
+
 async function main(): Promise<void> {
   const shellMain = join(ROOT, 'apps/shell/out/main/index.js')
   if (!existsSync(shellMain)) {
@@ -675,53 +949,53 @@ async function main(): Promise<void> {
   await mkdir(OUT_DIR, { recursive: true })
   await mkdir(RAW_DIR, { recursive: true })
 
-  const samplesRoot = await mkdtemp(join(tmpdir(), 'yiioffice-sample-'))
-  const samplesDir = join(samplesRoot, '工作文档')
-  await mkdir(samplesDir, { recursive: true })
-  const report = join(samplesDir, '年度运营报告.docx')
-  const sales = join(samplesDir, '区域销售.xlsx')
-  const deck = join(samplesDir, '产品发布.pptx')
-  const review = join(samplesDir, '季度评审.pdf')
-  const notes = join(samplesDir, '发布说明.md')
+  const wanted = process.env.LOCALES?.split(',').map((value) => value.trim())
+  const locales = (wanted?.length ? wanted : ['zh', 'en']) as Locale[]
+  for (const locale of locales) {
+    if (locale !== 'zh' && locale !== 'en') throw new Error(`LOCALES=${locale} is unknown`)
+  }
 
-  process.stdout.write('building sample documents … ')
-  await buildReportDocx(report)
-  await buildSalesXlsx(sales)
-  await buildDeckPptx(deck)
-  await buildReviewPdf(review)
-  await buildNotesMd(notes)
-  console.log('done')
+  let written = 0
+  for (const locale of locales) {
+    process.stdout.write(`[${locale}] building sample documents … `)
+    const samples = await buildSamples(locale)
+    console.log('done')
 
-  const recent = [report, sales, deck, review, notes]
+    const shots: Shot[] = [
+      { name: 'home', clipHeight: 792 },
+      { name: 'docs', urlPart: '://docs/', file: samples.recent[0] },
+      { name: 'sheets', urlPart: '://sheets/', file: samples.recent[1] },
+      { name: 'slides', urlPart: '://slides/', file: samples.recent[2] },
+      { name: 'pdf', urlPart: '://pdf/', file: samples.recent[3] },
+      { name: 'markdown', urlPart: '://markdown/', file: samples.recent[4] },
+    ]
 
-  const shots: Shot[] = [
-    { name: 'home', clipHeight: 792 },
-    { name: 'docs', urlPart: '://docs/', file: report },
-    { name: 'sheets', urlPart: '://sheets/', file: sales },
-    { name: 'slides', urlPart: '://slides/', file: deck },
-    { name: 'pdf', urlPart: '://pdf/', file: review },
-    { name: 'markdown', urlPart: '://markdown/', file: notes },
-  ]
+    // SHOT=sheets re-captures a single editor while iterating on the framing
+    const only = process.env.SHOT
+    const selected = only ? shots.filter((shot) => shot.name === only) : shots
+    if (!selected.length) throw new Error(`SHOT=${only} matches no shot`)
 
-  // SHOT=sheets re-captures a single editor while iterating on the framing
-  const only = process.env.SHOT
-  const selected = only ? shots.filter((shot) => shot.name === only) : shots
-  if (!selected.length) throw new Error(`SHOT=${only} matches no shot`)
-
-  for (const theme of ['light', 'dark'] as Theme[]) {
-    for (const shot of selected) {
-      const label = `${shot.name}-${theme}`
-      const png = await capture(theme, shot, samplesDir, recent, RAW_DIR)
-      const webp = join(OUT_DIR, `${label}.webp`)
-      const bytes = await toWebp(png, webp)
-      console.log(`  ${label.padEnd(18)} ${(bytes / 1024).toFixed(0)} KB`)
+    for (const theme of ['light', 'dark'] as Theme[]) {
+      for (const shot of selected) {
+        const label = `${shot.name}-${theme}${locale === 'en' ? '-en' : ''}`
+        const png = await capture(locale, theme, shot, samples.dir, samples.recent, RAW_DIR)
+        const webp = join(OUT_DIR, `${label}.webp`)
+        const bytes = await toWebp(png, webp)
+        written += 1
+        console.log(`  ${label.padEnd(21)} ${(bytes / 1024).toFixed(0)} KB`)
+      }
     }
   }
 
-  console.log(`\nwrote ${selected.length * 2} shots to site/assets/screens`)
+  console.log(`\nwrote ${written} shots to site/assets/screens`)
 }
 
-main().catch((error) => {
-  console.error(error)
-  process.exitCode = 1
-})
+/** importing this module (for the sample builders) must not start a capture run */
+const isEntry =
+  process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href
+if (isEntry) {
+  main().catch((error) => {
+    console.error(error)
+    process.exitCode = 1
+  })
+}

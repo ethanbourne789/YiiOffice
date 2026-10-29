@@ -263,24 +263,21 @@ code {
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
   font-size: 1rem;
   font-weight: 660;
   letter-spacing: -0.022em;
   white-space: nowrap;
 }
 
+/* the app icon is a full-bleed blue square, so the rounding lives here; 30px is
+   the smallest size at which the glyph still reads as a mark and not a blob */
 .brand__mark {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
-  background: var(--btn-bg);
-  color: var(--btn-fg);
-  font-size: 0.84rem;
-  font-weight: 760;
-  letter-spacing: 0;
+  display: block;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
 }
 
 .nav__links {
