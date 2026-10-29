@@ -43,6 +43,21 @@ const (
 	ChannelStatPaths       = "home:stat-paths"
 	ChannelRemoveRecent    = "home:remove-recent"
 
+	ChannelGetDefaultAppStatus = "home:get-default-app-status"
+	ChannelSetDefaultApp       = "home:set-default-app"
+
+	ChannelFolderRoots      = "home:folder-roots"
+	ChannelFolderRootAdd    = "home:folder-root-add"
+	ChannelFolderRootDrop   = "home:folder-root-drop"
+	ChannelFolderRootRemove = "home:folder-root-remove"
+	ChannelFolderList       = "home:folder-list"
+	ChannelFolderCreate     = "home:folder-create"
+	ChannelFolderRename     = "home:folder-rename"
+	ChannelMovePaths        = "home:move-paths"
+	ChannelFolderDelete     = "home:folder-delete"
+
+	EventFolderChanged      = "home:folder-changed"
+
 	EventThemeChanged           = "app:theme-changed"
 	EventLanguageChanged        = "app:language-changed"
 	EventDocumentThemeChanged   = "app:document-theme-changed"

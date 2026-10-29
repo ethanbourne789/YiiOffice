@@ -57,6 +57,9 @@ func main() {
 		return files, err
 	}, platform.RevealPath)
 
+	dam := &host.DefaultAppManager{}
+	bridge.RegisterFileAssoc(router, dam)
+
 	app := application.New(application.Options{
 		Name:        "YiiOffice",
 		Description: "YiiOffice desktop office suite",
@@ -66,6 +69,7 @@ func main() {
 		Services: []application.Service{
 			application.NewService(bridge.NewService(router)),
 		},
+		SingleInstance: &application.SingleInstanceOptions{},
 	})
 	platform.Set(app)
 
