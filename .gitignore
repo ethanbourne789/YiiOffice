@@ -1,0 +1,20 @@
+# Go
+/bin/
+*.exe
+*.test
+*.out
+
+# Wails
+/build/bin/
+/build/windows/*.syso
+/build/windows/nsis/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/**/node_modules/
+
+# Editor
+.vscode/
+.idea/
+*.log
