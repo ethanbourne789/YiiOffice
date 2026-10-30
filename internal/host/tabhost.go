@@ -26,14 +26,18 @@ type Tab struct {
 	Title  string  `json:"title"`
 	Path   string  `json:"path,omitempty"`
 	Active bool    `json:"active"`
+	Dirty  bool    `json:"dirty"`
 }
 
-// TabSummary is the serializable view sent to the frontend.
+// TabSummary is the serializable view sent to the frontend. Path is included
+// so a renderer can resolve the file it was opened with (tabId -> path).
 type TabSummary struct {
 	ID     string  `json:"id"`
 	Kind   TabKind `json:"kind"`
 	Title  string  `json:"title"`
+	Path   string  `json:"path,omitempty"`
 	Active bool    `json:"active"`
+	Dirty  bool    `json:"dirty"`
 }
 
 // TabHost manages the ordered list of open tabs.
@@ -56,9 +60,52 @@ func (h *TabHost) List() []TabSummary {
 	defer h.mu.RUnlock()
 	out := make([]TabSummary, len(h.tabs))
 	for i, t := range h.tabs {
-		out[i] = TabSummary{ID: t.ID, Kind: t.Kind, Title: t.Title, Active: t.Active}
+		out[i] = TabSummary{ID: t.ID, Kind: t.Kind, Title: t.Title, Path: t.Path, Active: t.Active, Dirty: t.Dirty}
 	}
 	return out
+}
+
+// SetDirty marks a tab as having unsaved changes. Returns false for unknown IDs.
+func (h *TabHost) SetDirty(id string, dirty bool) bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for _, t := range h.tabs {
+		if t.ID == id {
+			t.Dirty = dirty
+			return true
+		}
+	}
+	return false
+}
+
+// DirtyTabs returns summaries of every tab with unsaved changes.
+func (h *TabHost) DirtyTabs() []TabSummary {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	var out []TabSummary
+	for _, t := range h.tabs {
+		if t.Dirty {
+			out = append(out, TabSummary{ID: t.ID, Kind: t.Kind, Title: t.Title, Path: t.Path, Active: t.Active, Dirty: true})
+		}
+	}
+	return out
+}
+
+// RestoreTab re-adds a previously detached tab, keeping its original ID so
+// renderers can keep their per-tab state. Existing IDs are left untouched.
+func (h *TabHost) RestoreTab(id string, kind TabKind, title string, path string) bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for _, t := range h.tabs {
+		if t.ID == id {
+			return false
+		}
+	}
+	for _, t := range h.tabs {
+		t.Active = false
+	}
+	h.tabs = append(h.tabs, &Tab{ID: id, Kind: kind, Title: title, Path: path, Active: true})
+	return true
 }
 
 // Activate sets the active tab by ID. Returns true if found.

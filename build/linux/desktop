@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=YiiOffice
+Comment=YiiOffice Desktop Office Suite
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/YiiOffice %u
+Terminal=false
+Type=Application
+Icon=YiiOffice
+Categories=Utility;
+StartupWMClass=YiiOffice
+
+ 

@@ -1,15 +1,14 @@
 export interface WailsRuntime {
-  Call: {
-    ByName(name: string, ...args: unknown[]): Promise<unknown>
-  }
   Events: {
-    On(name: string, cb: (data: unknown) => void): void
-    Off?(name: string, cb: (data: unknown) => void): void
+    /**
+     * The official runtime hands the callback a `WailsEvent` envelope
+     * (`{ name, data }`), not the emitted payload itself.
+     */
+    On(name: string, cb: (event: unknown) => void): (() => void) | void
+    /** Removes *every* listener for the given names — prefer the `On` return value. */
+    Off?(...names: string[]): void
   }
 }
-
-/** Generated binding name; update together with wails3 generate bindings output. */
-const SERVICE = 'bridge.Service'
 
 /**
  * Resolves the Wails runtime. Editors run in same-origin iframes, so the top
@@ -23,12 +22,23 @@ export function runtime(): WailsRuntime {
   throw new Error('Wails runtime is not available')
 }
 
-export async function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
-  return (await runtime().Call.ByName(`${SERVICE}.Invoke`, channel, args)) as T
+/** Unwraps the runtime's `WailsEvent` envelope down to the emitted payload. */
+export function eventPayload(event: unknown): unknown {
+  if (event && typeof event === 'object' && 'data' in event && 'name' in event) {
+    return (event as { data: unknown }).data
+  }
+  return event
 }
 
+/**
+ * Subscribes to a Go event and hands the handler the payload Go emitted
+ * (not the runtime envelope).
+ */
 export function on(channel: string, handler: (data: unknown) => void): () => void {
   const rt = runtime()
-  rt.Events.On(channel, handler)
-  return () => rt.Events.Off?.(channel, handler)
+  const off = rt.Events.On(channel, (event) => handler(eventPayload(event)))
+  if (typeof off === 'function') return off
+  // Runtime without an unsubscribe return value: drop the whole channel, the
+  // only handle available. Callers that need isolation rely on the return value.
+  return () => rt.Events.Off?.(channel)
 }

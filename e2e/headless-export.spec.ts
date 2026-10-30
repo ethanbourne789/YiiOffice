@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+﻿import { test, expect } from './fixture'
 import { waitForDocumentReady } from './helpers'
 
 test.describe('Headless Export', () => {

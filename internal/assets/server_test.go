@@ -11,10 +11,15 @@ import (
 
 func testRoot() fstest.MapFS {
 	return fstest.MapFS{
-		"shell/index.html":      {Data: []byte("<html>shell</html>")},
-		"docs/index.html":       {Data: []byte("<html>docs</html>")},
-		"docs/assets/app.js":    {Data: []byte("console.log('docs')")},
-		"shell/assets/main.css": {Data: []byte("body{}")},
+		"shell/index.html":       {Data: []byte("<html>shell</html>")},
+		"docs/index.html":        {Data: []byte("<html>docs</html>")},
+		"docs/assets/app.js":     {Data: []byte("console.log('docs')")},
+		"sheets/index.html":      {Data: []byte("<html>sheets</html>")},
+		"slides/index.html":      {Data: []byte("<html>slides</html>")},
+		"pdf/index.html":         {Data: []byte("<html>pdf</html>")},
+		"markdown/index.html":    {Data: []byte("<html>markdown</html>")},
+		"shell/assets/main.css":  {Data: []byte("body{}")},
+		"shell/assets/main.js":   {Data: []byte("console.log('shell')")},
 	}
 }
 
@@ -77,5 +82,29 @@ func TestUnknownAppReturns404(t *testing.T) {
 	rec := do(t, testRoot(), "/nope/index.html")
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("got %d", rec.Code)
+	}
+}
+
+// TestRootRelativeShellAssets verifies that the shell bundle served at "/" can
+// load its "./assets/..." URLs, which arrive without the /shell/ prefix.
+func TestRootRelativeShellAssets(t *testing.T) {
+	rec := do(t, testRoot(), "/assets/main.css")
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "body{}") {
+		t.Fatalf("got %d %q", rec.Code, rec.Body.String())
+	}
+	rec = do(t, testRoot(), "/assets/main.js")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("js got %d", rec.Code)
+	}
+}
+
+// TestEveryRendererBundleIsMounted guards the app list used by the shell's
+// tab frames; a missing entry makes the whole editor tab 404.
+func TestEveryRendererBundleIsMounted(t *testing.T) {
+	for _, app := range []string{"docs", "sheets", "slides", "pdf", "markdown"} {
+		rec := do(t, testRoot(), "/"+app+"/")
+		if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), app) {
+			t.Fatalf("%s: got %d %q", app, rec.Code, rec.Body.String())
+		}
 	}
 }

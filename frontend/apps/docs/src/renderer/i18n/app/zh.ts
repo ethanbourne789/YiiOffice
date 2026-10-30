@@ -105,6 +105,7 @@ export const zh = {
   appExportedHtml: '已导出 HTML: {path}',
   appExportedPdfMixed: '已导出 PDF: {path}(混合纸张,{n} 组已按页合并)',
   appExportPdfCanceled: '已取消导出 PDF',
+  appPrintUnsupported: '不支持直接打印，请改用「导出 PDF」',
   appExportHtmlCanceled: '已取消导出 HTML',
   appExportingImages: '正在导出图片…',
   appExportImagesProgress: '正在导出 {count} 张图片…',

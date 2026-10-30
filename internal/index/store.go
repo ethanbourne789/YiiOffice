@@ -85,8 +85,7 @@ func NewFileIndexStore(dbPath string) (*FileIndexStore, error) {
 	return s, nil
 }
 
-func (s *FileIndexStore) initSchema() error {
-	schema := `
+const filesDDL = `
 CREATE TABLE IF NOT EXISTS meta (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL
@@ -101,14 +100,69 @@ CREATE TABLE IF NOT EXISTS files (
   status      TEXT NOT NULL DEFAULT 'ok',
   body        TEXT
 );
+`
 
+const ftsDDL = `
 CREATE VIRTUAL TABLE IF NOT EXISTS file_fts USING fts5(
   name, path, body, file_path,
   tokenize='unicode61 remove_diacritics 2'
 );
 `
-	_, err := s.db.Exec(schema)
-	return err
+
+func (s *FileIndexStore) initSchema() error {
+	if _, err := s.db.Exec(filesDDL); err != nil {
+		return err
+	}
+	if _, err := s.db.Exec(ftsDDL); err != nil {
+		return err
+	}
+	return s.rebuildFTSIfStale()
+}
+
+// rebuildFTSIfStale recreates the full-text table when an existing database
+// carries an older column set. CREATE ... IF NOT EXISTS leaves such tables
+// untouched, which would later fail every DELETE/INSERT that names file_path.
+func (s *FileIndexStore) rebuildFTSIfStale() error {
+	rows, err := s.db.Query("PRAGMA table_info(file_fts)")
+	if err != nil {
+		return fmt.Errorf("pragma file_fts: %w", err)
+	}
+	hasPath := false
+	for rows.Next() {
+		var (
+			cid, notNull, pk int
+			name, typ        string
+			dflt             any
+		)
+		if err := rows.Scan(&cid, &name, &typ, &notNull, &dflt, &pk); err != nil {
+			rows.Close()
+			return fmt.Errorf("scan file_fts columns: %w", err)
+		}
+		if name == "file_path" {
+			hasPath = true
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("read file_fts columns: %w", err)
+	}
+	if hasPath {
+		return nil
+	}
+
+	if _, err := s.db.Exec("DROP TABLE file_fts"); err != nil {
+		return fmt.Errorf("drop stale file_fts: %w", err)
+	}
+	if _, err := s.db.Exec(ftsDDL); err != nil {
+		return fmt.Errorf("recreate file_fts: %w", err)
+	}
+	if _, err := s.db.Exec(`
+		INSERT INTO file_fts (name, path, body, file_path)
+		SELECT name, path, COALESCE(body, ''), path FROM files
+	`); err != nil {
+		return fmt.Errorf("rebuild file_fts: %w", err)
+	}
+	return nil
 }
 
 // Close closes the database connection.
@@ -222,9 +276,14 @@ func (s *FileIndexStore) Search(query string, opts SearchOptions) (*SearchResult
 	for rows.Next() {
 		var h SearchHit
 		var body sql.NullString
-		if err := rows.Scan(&h.Path, &h.Name, &h.Ext, &h.MtimeMs, &h.SizeBytes, &body); err != nil {
+		// mtime/size may be stored as REAL by older index versions, so scan
+		// them as float64 and truncate to int64 here.
+		var mtime, size float64
+		if err := rows.Scan(&h.Path, &h.Name, &h.Ext, &mtime, &size, &body); err != nil {
 			return nil, err
 		}
+		h.MtimeMs = int64(mtime)
+		h.SizeBytes = int64(size)
 		hits = append(hits, h)
 	}
 
@@ -283,9 +342,12 @@ func (s *FileIndexStore) GetIndexedFiles() ([]IndexedFile, error) {
 	var files []IndexedFile
 	for rows.Next() {
 		var f IndexedFile
-		if err := rows.Scan(&f.Path, &f.MtimeMs, &f.SizeBytes, &f.Status); err != nil {
+		var mtime, size float64
+		if err := rows.Scan(&f.Path, &mtime, &size, &f.Status); err != nil {
 			return nil, err
 		}
+		f.MtimeMs = int64(mtime)
+		f.SizeBytes = int64(size)
 		files = append(files, f)
 	}
 	return files, nil

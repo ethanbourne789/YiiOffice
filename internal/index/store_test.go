@@ -1,6 +1,7 @@
 package index
 
 import (
+	"database/sql"
 	"path/filepath"
 	"testing"
 )
@@ -260,5 +261,57 @@ func TestEmptySearch(t *testing.T) {
 	}
 	if len(res.Hits) != 0 {
 		t.Fatalf("expected empty hits, got %d", len(res.Hits))
+	}
+}
+
+// TestStaleFTSTableIsRebuilt covers databases created before file_fts carried
+// the file_path column: opening them must rebuild the table instead of failing
+// every later write with "no such column: file_path".
+func TestStaleFTSTableIsRebuilt(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "index.db")
+
+	legacy, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacyDDL := []string{
+		`CREATE TABLE files (
+			path TEXT PRIMARY KEY, name TEXT NOT NULL, ext TEXT NOT NULL,
+			mtime_ms INTEGER NOT NULL, size_bytes INTEGER NOT NULL,
+			status TEXT NOT NULL DEFAULT 'ok', body TEXT)`,
+		`CREATE VIRTUAL TABLE file_fts USING fts5(name, path, body, tokenize='unicode61 remove_diacritics 2')`,
+		`INSERT INTO files (path, name, ext, mtime_ms, size_bytes, status, body)
+			VALUES ('/docs/a.txt', 'a.txt', 'txt', 1000, 10, 'ok', 'hello world')`,
+		`INSERT INTO file_fts (name, path, body) VALUES ('a.txt', '/docs/a.txt', 'hello world')`,
+	}
+	for _, stmt := range legacyDDL {
+		if _, err := legacy.Exec(stmt); err != nil {
+			legacy.Close()
+			t.Fatalf("seed legacy db: %v", err)
+		}
+	}
+	if err := legacy.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	s, err := NewFileIndexStore(dbPath)
+	if err != nil {
+		t.Fatalf("open legacy db: %v", err)
+	}
+	defer s.Close()
+
+	// Writing used to fail with "no such column: file_path".
+	mustUpsert(t, s, "/docs/b.txt", "b.txt", "txt", 2000, 20, IndexOK, "second file")
+
+	res, err := s.Search("hello", SearchOptions{})
+	if err != nil {
+		t.Fatalf("search after rebuild: %v", err)
+	}
+	if res.Total != 1 || res.Hits[0].Path != "/docs/a.txt" {
+		t.Fatalf("legacy row not indexed: %+v", res)
+	}
+
+	if err := s.Remove([]string{"/docs/a.txt"}); err != nil {
+		t.Fatalf("remove after rebuild: %v", err)
 	}
 }

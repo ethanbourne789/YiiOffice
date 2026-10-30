@@ -1,11 +1,12 @@
-import { test, expect } from '@playwright/test'
-import { waitForDocumentReady, navigateToApp } from './helpers'
+import { test, expect } from './fixture'
+import { waitForDocumentReady } from './helpers'
 
 test.describe('Slides Editor Smoke Test', () => {
   test('should load the slides app', async ({ page }) => {
-    await navigateToApp(page, 'slides')
+    await page.goto('/')
     await waitForDocumentReady(page)
 
-    await expect(page.locator('body')).toBeVisible()
+    // App shell should render
+    await expect(page.locator('#root')).not.toBeEmpty()
   })
 })

@@ -19,8 +19,9 @@ const contentSecurityPolicy = "default-src 'self'; " +
 	"frame-src 'self'; " +
 	"object-src 'none'; base-uri 'none'; form-action 'none'"
 
-// apps lists the renderer bundles mounted under /<name>/.
-var apps = []string{"shell", "docs"}
+// apps lists the renderer bundles mounted under /<name>/. Every Vite app in
+// frontend/apps must be listed here, otherwise its tab frame 404s.
+var apps = []string{"shell", "docs", "sheets", "slides", "pdf", "markdown"}
 
 // Server maps URL prefixes to embedded bundle directories.
 type Server struct {
@@ -60,7 +61,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	trimmed := strings.TrimPrefix(clean, "/")
 	app, rest, _ := strings.Cut(trimmed, "/")
 	if _, ok := s.apps[app]; !ok {
-		http.NotFound(w, r)
+		// The shell bundle is served at "/", so its relative "./assets/..." URLs
+		// arrive without a /shell/ prefix. Resolve anything that is not a mounted
+		// app against the shell bundle.
+		s.serveApp(w, r, "shell", trimmed)
 		return
 	}
 	if rest == "" {

@@ -102,6 +102,7 @@ export const en = {
   appExportedHtml: 'HTML exported: {path}',
   appExportedPdfMixed: 'PDF exported: {path} (mixed paper sizes, {n} groups merged by page)',
   appExportPdfCanceled: 'PDF export canceled',
+  appPrintUnsupported: 'Direct printing is not supported; use Export PDF instead',
   appExportHtmlCanceled: 'HTML export canceled',
   appExportingImages: 'Exporting images…',
   appExportImagesProgress: 'Exporting {count} images…',

@@ -1,15 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { installBridge } from './index'
-import { invoke } from './transport'
+
+const shellBridge = vi.hoisted(() => ({ OpenExternal: vi.fn(async () => undefined) }))
+vi.mock('@bindings/gitee.com/ethanbourne789/yiioffice/internal/bridge/shellservice', () => shellBridge)
+
+const homeBridge = vi.hoisted(() => ({ GetAppVersion: vi.fn(async () => '0.13.0') }))
+vi.mock('@bindings/gitee.com/ethanbourne789/yiioffice/internal/bridge/homeservice', () => homeBridge)
 
 interface FakeRuntime {
-  Call: { ByName: ReturnType<typeof vi.fn> }
   Events: { On: ReturnType<typeof vi.fn>; Off: ReturnType<typeof vi.fn> }
 }
 
 function installFakeRuntime(): FakeRuntime {
   const runtime: FakeRuntime = {
-    Call: { ByName: vi.fn(async () => '0.13.0') },
     Events: { On: vi.fn(), Off: vi.fn() },
   }
   ;(window as unknown as { wails?: FakeRuntime }).wails = runtime
@@ -21,16 +24,15 @@ describe('wails bridge', () => {
     delete (window as unknown as { wails?: FakeRuntime }).wails
     delete (window as unknown as { aiOffice?: unknown }).aiOffice
     delete (window as unknown as { aiOfficeTabs?: unknown }).aiOfficeTabs
+    shellBridge.OpenExternal.mockClear()
+    homeBridge.GetAppVersion.mockClear()
   })
 
-  it('invokes the generic router with channel and args array', async () => {
-    const runtime = installFakeRuntime()
-    await invoke('demo:echo', 'a', 1)
-    expect(runtime.Call.ByName).toHaveBeenCalledWith('bridge.Service.Invoke', 'demo:echo', ['a', 1])
-  })
-
-  it('throws a clear error when the runtime is missing', async () => {
-    await expect(invoke('x')).rejects.toThrow(/Wails runtime is not available/)
+  it('installs aiOffice using the runtime module fallback', () => {
+    // @wailsio/runtime is imported and sets window.wails ??= runtimeModule,
+    // so installBridge always has a runtime to use even without explicit setup.
+    installBridge()
+    expect(typeof (window as unknown as { aiOffice: { getAppVersion: unknown } }).aiOffice.getAppVersion).toBe('function')
   })
 
   it('installs aiOffice and aiOfficeTabs once', () => {
@@ -42,15 +44,11 @@ describe('wails bridge', () => {
   })
 
   it('reads the version through the shim', async () => {
-    const runtime = installFakeRuntime()
+    installFakeRuntime()
     installBridge()
     const version = await (window as unknown as { aiOffice: { getAppVersion(): Promise<string> } }).aiOffice.getAppVersion()
     expect(version).toBe('0.13.0')
-    expect(runtime.Call.ByName).toHaveBeenCalledWith(
-      'bridge.Service.Invoke',
-      'home:get-app-version',
-      [],
-    )
+    expect(homeBridge.GetAppVersion).toHaveBeenCalledTimes(1)
   })
 
   it('rejects an unknown theme value before hitting go', async () => {
@@ -61,7 +59,7 @@ describe('wails bridge', () => {
   })
 
   it('routes https links through shell:open-external and blocks navigation', async () => {
-    const runtime = installFakeRuntime()
+    installFakeRuntime()
     installBridge()
 
     const anchor = document.createElement('a')
@@ -73,11 +71,7 @@ describe('wails bridge', () => {
     anchor.dispatchEvent(event)
 
     expect(event.defaultPrevented).toBe(true)
-    expect(runtime.Call.ByName).toHaveBeenCalledWith(
-      'bridge.Service.Invoke',
-      'shell:open-external',
-      ['https://example.com/x'],
-    )
+    expect(shellBridge.OpenExternal).toHaveBeenCalledWith('https://example.com/x')
     anchor.remove()
   })
 })

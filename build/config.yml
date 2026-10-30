@@ -1,0 +1,4 @@
+name: YiiOffice
+binaryname: YiiOffice
+frontend:
+  dir: frontend/dist

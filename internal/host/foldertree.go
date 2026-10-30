@@ -9,32 +9,60 @@ import (
 	"strings"
 )
 
-// FolderRoot represents a user-added folder root in the sidebar.
+// FolderRoot is a row of the home sidebar tree. The default save folder is
+// always the first row and cannot be removed; folder rows added by the user
+// follow it. The JSON shape matches frontend/apps/shell/src/shared/home-api.ts.
 type FolderRoot struct {
+	Path      string `json:"path"`
+	Name      string `json:"name"`
+	Usable    bool   `json:"usable"`
+	Readable  bool   `json:"readable"`
+	Removable bool   `json:"removable"`
+}
+
+// FolderEntry is a sub-folder row of a folder listing.
+type FolderEntry struct {
+	Path string `json:"path"`
+	Name string `json:"name"`
+	// MtimeMs drives nothing today but keeps the row shape uniform.
+	MtimeMs int64 `json:"mtimeMs"`
+	// HasSubfolders drives the expand chevron.
+	HasSubfolders bool `json:"hasSubfolders"`
+}
+
+// FolderListing is one directory of the tree: its sub-folders and the
+// document files sitting directly inside it.
+type FolderListing struct {
+	Dir     string        `json:"dir"`
+	Folders []FolderEntry `json:"folders"`
+	Files   []DocumentEntry `json:"files"`
+	// Missing is set when the directory could not be read (deleted, moved or
+	// on a disconnected drive).
+	Missing bool `json:"missing,omitempty"`
+}
+
+// folderRootRecord is the persisted form of a user-added root.
+type folderRootRecord struct {
 	Path  string `json:"path"`
 	Label string `json:"label,omitempty"`
 }
 
-// FolderEntry is a single item in a folder listing.
-type FolderEntry struct {
-	Name     string `json:"name"`
-	IsDir    bool   `json:"isDir"`
-	Size     int64  `json:"size"`
-	Modified int64  `json:"modified"`
-}
-
 // FolderManager handles folder tree operations.
 type FolderManager struct {
-	dataDir   string
-	rootsFile string
-	roots     []FolderRoot
+	dataDir    string
+	rootsFile  string
+	added      []folderRootRecord
+	defaultDir func() string
 }
 
-// NewFolderManager creates a folder manager that stores roots in dataDir.
-func NewFolderManager(dataDir string) *FolderManager {
+// NewFolderManager creates a folder manager that stores added roots in dataDir.
+// defaultDir resolves the default save folder; nil falls back to
+// <Documents>/YiiOffice.
+func NewFolderManager(dataDir string, defaultDir func() string) *FolderManager {
 	fm := &FolderManager{
-		dataDir:   dataDir,
-		rootsFile: filepath.Join(dataDir, "folder-roots.json"),
+		dataDir:    dataDir,
+		rootsFile:  filepath.Join(dataDir, "folder-roots.json"),
+		defaultDir: defaultDir,
 	}
 	fm.loadRoots()
 	return fm
@@ -43,59 +71,134 @@ func NewFolderManager(dataDir string) *FolderManager {
 func (fm *FolderManager) loadRoots() {
 	raw, err := os.ReadFile(fm.rootsFile)
 	if err == nil {
-		json.Unmarshal(raw, &fm.roots)
+		json.Unmarshal(raw, &fm.added)
 	}
-	if fm.roots == nil {
-		fm.roots = make([]FolderRoot, 0)
-	}
-	// Add default: Documents/YiiOffice
-	if home, err := os.UserHomeDir(); err == nil {
-		defaultRoot := filepath.Join(home, "Documents", "YiiOffice")
-		found := false
-		for _, r := range fm.roots {
-			if strings.EqualFold(r.Path, defaultRoot) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			fm.roots = append(fm.roots, FolderRoot{Path: defaultRoot, Label: "YiiOffice"})
-		}
+	if fm.added == nil {
+		fm.added = make([]folderRootRecord, 0)
 	}
 }
 
 func (fm *FolderManager) saveRoots() {
-	data, _ := json.MarshalIndent(fm.roots, "", "  ")
+	data, _ := json.MarshalIndent(fm.added, "", "  ")
 	os.WriteFile(fm.rootsFile, append(data, '\n'), 0o644)
 }
 
-// GetRoots returns the current folder roots.
+// defaultRootPath resolves the default save folder, creating it when the
+// configured folder or the Documents fallback is missing.
+func (fm *FolderManager) defaultRootPath() string {
+	if fm.defaultDir != nil {
+		if dir := strings.TrimSpace(fm.defaultDir()); dir != "" {
+			return dir
+		}
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, "Documents", "YiiOffice")
+}
+
+// GetRoots returns the tree rows: the default save folder first, then every
+// folder the user added.
 func (fm *FolderManager) GetRoots() []FolderRoot {
-	return fm.roots
+	roots := make([]FolderRoot, 0, len(fm.added)+1)
+	if def := fm.defaultRootPath(); def != "" {
+		roots = append(roots, rootRow(def, false))
+	}
+	for _, r := range fm.added {
+		roots = append(roots, rootRow(r.Path, true))
+	}
+	return roots
+}
+
+// rootRow builds a tree row, probing the folder on disk.
+func rootRow(path string, removable bool) FolderRoot {
+	row := FolderRoot{
+		Path:      path,
+		Name:      filepath.Base(path),
+		Removable: removable,
+	}
+	if row.Name == "" || row.Name == "." || row.Name == string(os.PathSeparator) {
+		row.Name = path
+	}
+
+	info, err := os.Stat(path)
+	if err != nil || !info.IsDir() {
+		// A missing default folder is re-created so the tree stays usable;
+		// an added folder that vanished is reported as unusable instead.
+		if !removable {
+			if mkErr := os.MkdirAll(path, 0o755); mkErr != nil {
+				return row
+			}
+		} else {
+			return row
+		}
+	} else if _, err := os.ReadDir(path); err != nil {
+		// Exists but cannot be listed (permissions, disconnected drive).
+		if !removable {
+			row.Usable = info.Mode().Perm()&0o200 != 0
+		}
+		return row
+	}
+
+	row.Usable = true
+	row.Readable = true
+	return row
 }
 
 // AddRoot adds a new folder root.
 func (fm *FolderManager) AddRoot(path string, label string) {
-	if _, err := os.Stat(path); os.IsNotExist(err) {
+	if _, err := os.Stat(path); err != nil {
 		return
 	}
-	for _, r := range fm.roots {
-		if strings.EqualFold(r.Path, path) {
-			return
-		}
+	if fm.hasPath(path) {
+		return
 	}
 	if label == "" {
 		label = filepath.Base(path)
 	}
-	fm.roots = append(fm.roots, FolderRoot{Path: path, Label: label})
+	fm.added = append(fm.added, folderRootRecord{Path: path, Label: label})
 	fm.saveRoots()
 }
 
-// RemoveRoot removes a folder root by path.
-func (fm *FolderManager) RemoveRoot(path string) {
-	for i, r := range fm.roots {
+// hasPath reports whether path is already the default root or an added root.
+func (fm *FolderManager) hasPath(path string) bool {
+	if def := fm.defaultRootPath(); def != "" && strings.EqualFold(def, path) {
+		return true
+	}
+	for _, r := range fm.added {
 		if strings.EqualFold(r.Path, path) {
-			fm.roots = append(fm.roots[:i], fm.roots[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
+// FindRoot returns the tree row for an added or default root path.
+func (fm *FolderManager) FindRoot(path string) (FolderRoot, bool) {
+	for _, r := range fm.GetRoots() {
+		if strings.EqualFold(r.Path, path) {
+			return r, true
+		}
+	}
+	return FolderRoot{}, false
+}
+
+// RootPaths returns the paths of every root (used for the search index).
+func (fm *FolderManager) RootPaths() []string {
+	roots := fm.GetRoots()
+	out := make([]string, 0, len(roots))
+	for _, r := range roots {
+		out = append(out, r.Path)
+	}
+	return out
+}
+
+// RemoveRoot removes a folder root by path. The default root is ignored.
+func (fm *FolderManager) RemoveRoot(path string) {
+	for i, r := range fm.added {
+		if strings.EqualFold(r.Path, path) {
+			fm.added = append(fm.added[:i], fm.added[i+1:]...)
 			break
 		}
 	}
@@ -103,29 +206,69 @@ func (fm *FolderManager) RemoveRoot(path string) {
 }
 
 // ListFolder lists the contents of a directory.
-func (fm *FolderManager) ListFolder(path string) ([]FolderEntry, error) {
+func (fm *FolderManager) ListFolder(path string) (FolderListing, error) {
+	listing := FolderListing{Dir: path, Folders: []FolderEntry{}, Files: []DocumentEntry{}}
 	entries, err := os.ReadDir(path)
 	if err != nil {
-		return nil, fmt.Errorf("list folder: %w", err)
+		listing.Missing = true
+		return listing, fmt.Errorf("list folder: %w", err)
 	}
-	result := make([]FolderEntry, 0, len(entries))
+
 	for _, e := range entries {
-		info := FolderEntry{Name: e.Name(), IsDir: e.IsDir()}
-		stat, err := e.Info()
-		if err == nil {
-			info.Size = stat.Size()
-			info.Modified = stat.ModTime().UnixMilli()
+		name := e.Name()
+		if strings.HasPrefix(name, ".") {
+			continue
 		}
-		result = append(result, info)
+		full := filepath.Join(path, name)
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		if e.IsDir() {
+			listing.Folders = append(listing.Folders, FolderEntry{
+				Path:          full,
+				Name:          name,
+				MtimeMs:       info.ModTime().UnixMilli(),
+				HasSubfolders: hasVisibleSubfolder(full),
+			})
+			continue
+		}
+		if !IsDocumentPath(name) {
+			continue
+		}
+		listing.Files = append(listing.Files, DocumentEntry{
+			Path:      full,
+			Name:      name,
+			Ext:       strings.ToLower(strings.TrimPrefix(filepath.Ext(name), ".")),
+			MtimeMs:   info.ModTime().UnixMilli(),
+			SizeBytes: info.Size(),
+			Starred:   false,
+		})
 	}
-	// Sort: directories first, then alphabetically
-	sort.Slice(result, func(i, j int) bool {
-		if result[i].IsDir != result[j].IsDir {
-			return result[i].IsDir
-		}
-		return strings.ToLower(result[i].Name) < strings.ToLower(result[j].Name)
+
+	sort.Slice(listing.Folders, func(i, j int) bool {
+		return strings.ToLower(listing.Folders[i].Name) < strings.ToLower(listing.Folders[j].Name)
 	})
-	return result, nil
+	// Newest first, like the home recents list.
+	sort.Slice(listing.Files, func(i, j int) bool {
+		return listing.Files[i].MtimeMs > listing.Files[j].MtimeMs
+	})
+	return listing, nil
+}
+
+// hasVisibleSubfolder reports whether dir holds at least one non-hidden
+// sub-directory (the tree's chevron only expands when there is something to show).
+func hasVisibleSubfolder(dir string) bool {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
+			return true
+		}
+	}
+	return false
 }
 
 // CreateFolder creates a new directory.

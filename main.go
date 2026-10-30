@@ -3,18 +3,19 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"io/fs"
 	"log"
-	"path/filepath"
-	"context"
 	"os"
 	"os/exec"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 
 	"gitee.com/ethanbourne789/yiioffice/internal/assets"
 	"gitee.com/ethanbourne789/yiioffice/internal/bridge"
@@ -25,7 +26,7 @@ import (
 	"gitee.com/ethanbourne789/yiioffice/internal/index"
 	"gitee.com/ethanbourne789/yiioffice/internal/platform"
 	"gitee.com/ethanbourne789/yiioffice/internal/update"
-	"gitee.com/ethanbourne789/yiioffice/internal/sidecar"
+	"gitee.com/ethanbourne789/yiioffice/internal/workbook"
 	"gitee.com/ethanbourne789/yiioffice/internal/watchdog"
 )
 
@@ -77,20 +78,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	router := bridge.NewRouter()
-	bridge.RegisterHome(router, store, buildinfo.Version)
 	rm := host.NewRecentManager(dataDir)
-	bridge.RegisterRecent(router, rm)
-	fm := host.NewFolderManager(dataDir)
-	bridge.RegisterFolder(router, fm)
+	fm := host.NewFolderManager(dataDir, func() string { return store.Snapshot().DefaultSaveDir })
 	tabHost := host.NewTabHost()
-	bridge.RegisterTabs(router, tabHost, host.NewDetachedHost())
+	detachedHost := host.NewDetachedHost()
 	fo := &host.FileOps{}
-	bridge.RegisterFileOps(router, tabHost, fo, rm)
-	bridge.RegisterOpenExternal(router, func(u string) error {
-		return platform.OpenExternal(u)
-	})
-	bridge.RegisterDialogs(router, func() ([]string, error) {
+	openFileFn := func() ([]string, error) {
 		app := platform.App()
 		if app == nil {
 			return nil, nil
@@ -99,21 +92,36 @@ func main() {
 			SetTitle("Open File").
 			PromptForMultipleSelection()
 		return files, err
-	}, platform.RevealPath)
-
+	}
 	dam := &host.DefaultAppManager{}
-	bridge.RegisterFileAssoc(router, dam)
 
-	ub := update.NewBridge(update.New(buildinfo.Version,
-		"https://gitee.com/ethanbourne789/yiioffice/releases/latest"))
-	bridge.RegisterUpdate(router, ub)
-
-	// Window close guard (unsaved document protection)
+	// Window close guard (unsaved document protection). The editors report
+	// dirtiness through TabService.SetDirty; GetDirty converts the host view
+	// into the guard's own type and resets the per-attempt user decision.
+	var quitConfirmed *bool
 	closeGuard := host.NewCloseGuard(tabHost, &host.CloseGuardConfig{
 		GetDirty: func() []host.DirtyTab {
-			// Frontend will implement tabs:get-dirty-tabs via IPC.
-			// For now, return empty (Phase 4+ will wire this up).
-			return nil
+			quitConfirmed = nil
+			summaries := tabHost.DirtyTabs()
+			out := make([]host.DirtyTab, 0, len(summaries))
+			for _, s := range summaries {
+				out = append(out, host.DirtyTab{ID: s.ID, Title: s.Title, Kind: s.Kind})
+			}
+			return out
+		},
+		PromptSave: func(tab host.DirtyTab) host.SaveChoice {
+			if quitConfirmed == nil {
+				titles := make([]string, 0, 4)
+				for _, s := range tabHost.DirtyTabs() {
+					titles = append(titles, s.Title)
+				}
+				answer := platform.ConfirmDiscardChanges(titles)
+				quitConfirmed = &answer
+			}
+			if !*quitConfirmed {
+				return host.Cancel
+			}
+			return host.DontSave
 		},
 	})
 
@@ -127,27 +135,9 @@ func main() {
 	})
 	go wd.Start(context.Background())
 
-	app := application.New(application.Options{
-		Name:        "YiiOffice",
-		Description: "YiiOffice desktop office suite",
-		Assets: application.AssetOptions{
-			Handler: assets.New(dist),
-		},
-		Services: []application.Service{
-			application.NewService(bridge.NewService(router)),
-		},
-		SingleInstance: &application.SingleInstanceOptions{},
-		ShouldQuit: func() bool {
-			return closeGuard.ShouldAllowClose()
-		},
-	})
-	platform.Set(app)
-
-	// Initialize file index (non-fatal if it fails)
-	rootPaths := make([]string, 0, len(fm.GetRoots()))
-	for _, r := range fm.GetRoots() {
-		rootPaths = append(rootPaths, r.Path)
-	}
+	// Initialize file index (non-fatal if it fails). Done before application.New
+	// so the HomeService bindings can receive the lifecycle pointer.
+	rootPaths := fm.RootPaths()
 	var idxLifecycle *index.Lifecycle
 	if lc, err := index.Init(dataDir, rootPaths); err != nil {
 		log.Printf("warning: file index init failed: %v", err)
@@ -160,35 +150,178 @@ func main() {
 		}()
 	}
 
-	// Register editor channels
-	bridge.RegisterEditorCommon(router, store)
-	bridge.RegisterSearch(router, idxLifecycle, rm)
-	bridge.RegisterDocs(router, rm, idxLifecycle)
+	// The Sheets editor runs on the in-process pure-Go workbook engine
+	// (excelize); there is no external sidecar process.
+	wbEngine := workbook.NewEngine()
+	defer wbEngine.CloseAll()
 
-	// Initialize xlsx sidecar (non-fatal if binary is missing)
-	sidecarDir := filepath.Join(dataDir, "native")
-	var xlsxMgr *sidecar.XlsxManager
-	if sm, err := sidecar.NewXlsxManager(sidecarDir); err != nil {
-		log.Printf("info: xlsx sidecar not available: %v (sheets will use stub mode)", err)
+	homeSvc := bridge.NewHomeService(
+		buildinfo.Version, store, rm, fm, tabHost, fo, dam, idxLifecycle, openFileFn,
+		platform.RevealPath,
+	)
+
+	app := application.New(application.Options{
+		Name:        "YiiOffice",
+		Description: "YiiOffice desktop office suite",
+		Assets: application.AssetOptions{
+			Handler: assets.New(dist),
+		},
+		Services: []application.Service{
+			application.NewService(bridge.NewShellService(func(u string) error {
+				return platform.OpenExternal(u)
+			})),
+			application.NewService(bridge.NewTabService(tabHost, detachedHost)),
+			application.NewService(homeSvc),
+			application.NewService(bridge.NewDocsService(rm, idxLifecycle)),
+			application.NewService(bridge.NewSlidesService(rm)),
+			application.NewService(bridge.NewPdfService(rm)),
+			application.NewService(bridge.NewMarkdownService(rm)),
+			application.NewService(bridge.NewWorkbookService(wbEngine, rm)),
+			application.NewService(bridge.NewExportService()),
+			application.NewService(&bridge.DiagService{}),
+		},
+		SingleInstance: &application.SingleInstanceOptions{
+			UniqueID: "gitee.com.ethanbourne789.yiioffice",
+			// A file opened from Explorer while YiiOffice runs is handed to the
+			// running instance instead of starting a second window.
+			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
+				openFilesFromArgs(homeSvc, data.Args)
+			},
+		},
+		ShouldQuit: func() bool {
+			return closeGuard.ShouldAllowClose()
+		},
+	})
+	platform.Set(app)
+
+	// The updater needs the application's host adapter, so it is configured
+	// after application.New and registered as a service for the shell.
+	updateSvc, err := update.New(app, buildinfo.Version)
+	if err != nil {
+		log.Printf("[shell] updater disabled: %v", err)
 	} else {
-		xlsxMgr = sm
-		defer xlsxMgr.Stop()
+		app.RegisterService(application.NewService(updateSvc))
 	}
 
-	bridge.RegisterSheets(router, xlsxMgr)
-	bridge.RegisterSlides(router, rm)
-	bridge.RegisterPdf(router, rm)
-	bridge.RegisterMarkdown(router, rm)
-
-	app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:  "YiiOffice " + buildinfo.Version,
-		Width:  1280,
-		Height: 800,
-		URL:    "/",
+	win := app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Title:          "YiiOffice " + buildinfo.Version,
+		Width:          1280,
+		Height:         800,
+		URL:            "/",
+		Frameless:      true,
+		StartState:     application.WindowStateMaximised,
+		EnableFileDrop: true,
 	})
+
+	installSystemTray(app, win, closeGuard)
+
+	if os.Getenv("YII_DIAG") != "" {
+		installDiagProbe(win)
+	}
+
+	// Files passed on the command line (file association or a second launch
+	// before the running instance existed).
+	openFilesFromArgs(homeSvc, os.Args[1:])
 
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
+	}
+}
+
+// installDiagProbe runs a one-shot script inside the shell renderer and reports
+// its findings through the temporary DiagService. TEMPORARY: remove together
+// with internal/bridge/diag_tmp.go.
+func installDiagProbe(win *application.WebviewWindow) {
+	const probe = `
+(async () => {
+  const LOGID = 437220436
+  const send = (m) => { try { window.wails.Call.ByID(LOGID, String(m)) } catch (e) {} }
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+  window.addEventListener('error', (e) => send('top error: ' + e.message))
+  window.addEventListener('unhandledrejection', (e) => send('top rejection: ' + String(e.reason)))
+  try {
+    let cards = []
+    for (let i = 0; i < 60; i++) {
+      cards = Array.from(document.querySelectorAll('.quick-card'))
+      if (cards.length) break
+      await wait(250)
+    }
+    send('cards=' + cards.map((c) => c.textContent).join('|'))
+    for (let i = 0; i < cards.length; i++) {
+      const all = Array.from(document.querySelectorAll('.quick-card'))
+      if (!all[i]) { send('card ' + i + ' gone'); continue }
+      send('>>> click card ' + i + ' ' + all[i].textContent)
+      all[i].click()
+      await wait(5000)
+      const frames = Array.from(document.querySelectorAll('iframe'))
+      const last = frames[frames.length - 1]
+      if (!last) { send('  no iframe'); continue }
+      try {
+        const d = last.contentDocument
+        const root = d && d.querySelector('#root')
+        send('  src=' + last.getAttribute('src') + ' title=' + (d && d.title) + ' rootChildren=' + (root ? root.children.length : 'no-root') + ' text=' + JSON.stringify((d && d.body ? d.body.innerText : '').slice(0, 160)))
+      } catch (e) { send('  inspect error ' + String(e)) }
+    }
+    send('tabs=' + JSON.stringify(Array.from(document.querySelectorAll('.tab-item')).map((t) => t.textContent)))
+  } catch (e) {
+    send('PROBE ERROR ' + String(e))
+  }
+})()
+`
+	win.OnWindowEvent(events.Common.WindowRuntimeReady, func(*application.WindowEvent) {
+		win.ExecJS(probe)
+	})
+}
+
+//go:embed build/windows/icon.ico
+var trayIcon []byte
+
+// installSystemTray adds the notification-area icon: left click toggles the
+// main window, the menu offers Show/Hide and Quit.
+func installSystemTray(app *application.App, win *application.WebviewWindow, guard *host.CloseGuard) {
+	tray := app.SystemTray.New()
+	tray.SetIcon(trayIcon)
+	tray.SetTooltip("YiiOffice")
+	tray.OnClick(func() {
+		if win.IsVisible() {
+			win.Hide()
+			return
+		}
+		win.Show()
+		win.Focus()
+	})
+
+	menu := app.NewMenu()
+	menu.Add("Show YiiOffice").OnClick(func(_ *application.Context) {
+		win.Show()
+		win.Focus()
+	})
+	menu.Add("Hide YiiOffice").OnClick(func(_ *application.Context) {
+		win.Hide()
+	})
+	menu.AddSeparator()
+	menu.Add("Quit").OnClick(func(_ *application.Context) {
+		if guard != nil && !guard.ShouldAllowClose() {
+			return
+		}
+		app.Quit()
+	})
+	tray.SetMenu(menu)
+}
+
+// openFilesFromArgs opens every supported document path found in args;
+// flags and unknown extensions are skipped.
+func openFilesFromArgs(home *bridge.HomeService, args []string) {
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "-") {
+			continue
+		}
+		if _, ok := host.RouteByExt(arg); !ok {
+			continue
+		}
+		if err := home.OpenPath(arg); err != nil {
+			log.Printf("[shell] open %s: %v", arg, err)
+		}
 	}
 }
 

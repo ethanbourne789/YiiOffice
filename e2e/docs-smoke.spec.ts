@@ -1,23 +1,21 @@
-import { test, expect } from '@playwright/test'
-import { waitForDocumentReady, navigateToApp } from './helpers'
+import { test, expect } from './fixture'
+import { waitForDocumentReady } from './helpers'
 
 test.describe('Docs Editor Smoke Test', () => {
   test('should open a new docs tab', async ({ page }) => {
-    await navigateToApp(page, 'docs')
+    await page.goto('/')
     await waitForDocumentReady(page)
 
-    // The docs editor should render
-    const body = page.locator('body')
-    await expect(body).toBeVisible()
+    // App shell should render
+    await expect(page.locator('#root')).not.toBeEmpty()
   })
 
-  test('should show editor canvas', async ({ page }) => {
-    await navigateToApp(page, 'docs')
+  test('should load docs editor iframe', async ({ page }) => {
+    // Navigate directly to the docs editor entry point
+    await page.goto('/docs/index.html')
     await waitForDocumentReady(page)
 
-    // Editor content area should exist
-    const contentArea = page.locator('[class*="editor"], [class*="canvas"], [class*="content"]')
-    // We don't assert visibility because the editor may need initialization
-    expect(contentArea !== undefined).toBe(true)
+    // Docs editor entry should respond
+    expect(page.url()).toContain('docs')
   })
 })

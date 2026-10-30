@@ -86,7 +86,7 @@ import { hangulSpaceWideningFor, setDocFontTable, setHangulSpaceWidening } from 
 import { adoptEmbeddedFonts } from './embedded-fonts'
 import { defaultEastAsiaFontFor } from './font-list'
 import { hasPrintableHeaderFooter } from './pagination'
-import { clearPrintZoom, setPrintZoom } from './print-zoom'
+import { exportHtmlFile, exportPdfFile, mergePdfParts, pickExportFolder, renderPdfBase64, takeTempPdf, writeBase64File } from '@yiioffice/wails-bridge'
 import { showToast } from '@yiioffice/ui'
 import { buildStandaloneHtml } from './html-export'
 /** An export waiting for the pagination preview to mount; resolve settles the caller's exportPdf promise. */
@@ -1168,81 +1168,59 @@ async function saveOnce(
 }
 
 /**
- * Print via the pagination preview so each printed sheet is exactly one editor page
- * (WYSIWYG). Printing the continuous canvas instead would let Chromium auto-paginate:
- * middle pages lose the per-page top/bottom margins and the breaks drift from the
- * editor. Opens the Word-style print dialog (preview + range); the pagination
- * preview is mounted (visually hidden behind the dialog) as its print source.
+ * Direct printing is not available: the shell exposes no printer pipeline and
+ * only PDF export is supported. The UI keeps a disabled Print entry with a
+ * tooltip, so this path only reports the situation.
  */
 export function printDoc(ctx: FileActionContext): void {
   if (!ctx.doc) return
-  // the print sheet prints the live preview pages: needs the whole document mounted
-  if (isPhasedContentPending()) {
-    void waitForFullContent().then(() => printDoc(ctx))
-    return
-  }
-  if (!document.querySelector('.pagination-preview')) {
-    ctx.printAutoOpenedPreviewRef.current = true
-    ctx.setShowPagePreview(true)
-  }
-  ctx.setShowPrintDialog(true)
+  ctx.setStatus(t('appPrintUnsupported'))
 }
 
 type PrintGroup = { w: number; h: number; from: number; to: number }
 
-function chunkPrintGroups(groups: PrintGroup[], size: number): PrintGroup[] {
-  const chunked: PrintGroup[] = []
-  for (const g of groups) {
-    for (let s = g.from; s <= g.to; s += size) {
-      chunked.push({ w: g.w, h: g.h, from: s, to: Math.min(s + size - 1, g.to) })
-    }
-  }
-  return chunked
+/** Standalone HTML for one pagination-preview sheet: the serializer inlines the
+ * computed styles of the page subtree, then the sheet geometry is forced so the
+ * rendered PDF page is exactly the editor page. */
+function buildPageHtml(page: HTMLElement, title: string, widthPx: number, heightPx: number): string {
+  const html = buildStandaloneHtml(page, { title, lang: getLang(), textWidthPx: widthPx })
+  const override =
+    `<style>html,body{margin:0;padding:0;background:#fff}` +
+    `.doc{width:${widthPx}px;height:${heightPx}px;max-width:none;margin:0;padding:0;` +
+    `box-sizing:border-box;position:relative;overflow:hidden}</style>\n</head>`
+  return html.replace('</head>', override)
 }
 
+async function renderPagePdf(page: HTMLElement, wPx: number, hPx: number, title: string): Promise<string> {
+  const html = buildPageHtml(page, title, wPx, hPx)
+  return renderPdfBase64(html, wPx / 96, hPx / 96)
+}
+
+/** Renders one PDF part per preview sheet and merges them in page order, so
+ * each page keeps its own paper size. */
 async function printGroupsMerged(
   ctx: FileActionContext,
   fileName: string,
   pvPages: HTMLElement[],
   groups: PrintGroup[],
-  scale: number,
   outPath?: string,
 ): Promise<boolean> {
   const parts: string[] = []
-  // every printToPDF flips the whole document between print and screen media;
-  // pv-exporting parks the covered editor's subtree layout for the export's
-  // duration so each flip only relays out the group's own pages (hundreds of
-  // table-heavy pages otherwise stall Chromium's print for minutes per chunk)
   const appRoot = document.querySelector('.app')
   appRoot?.classList.add('pv-exporting')
   try {
-    const queue = [...groups]
-    while (queue.length > 0) {
-      const g = queue.shift() as PrintGroup
-      pvPages.forEach((page, i) => {
-        page.classList.toggle('pv-print-skip', i < g.from || i > g.to)
-        page.classList.toggle('pv-print-tail', i === g.to)
-      })
-      const part = await window.desktop.printPdfBuffer(g.w, g.h, scale)
-      if (part.ok && part.base64) {
-        parts.push(part.base64)
-        continue
+    for (const g of groups) {
+      for (let i = g.from; i <= g.to; i++) {
+        parts.push(await renderPagePdf(pvPages[i], g.w, g.h, fileName))
       }
-      if (g.to > g.from) {
-        // Chromium rejects heavy print jobs non-deterministically; bisect the
-        // failed range so each retry carries fewer pages
-        const mid = Math.floor((g.from + g.to) / 2)
-        queue.unshift({ ...g, to: mid }, { ...g, from: mid + 1 })
-        continue
-      }
-      ctx.setStatus(t('appExportPdfFailed', { error: part.error ?? t('appPrintGroupFailed') }))
-      return false
     }
+  } catch (err) {
+    ctx.setStatus(t('appExportPdfFailed', { error: String(err) }))
+    return false
   } finally {
     appRoot?.classList.remove('pv-exporting')
-    pvPages.forEach((page) => page.classList.remove('pv-print-skip', 'pv-print-tail'))
   }
-  const result = await window.desktop.saveMergedPdf(fileName, parts, outPath)
+  const result = await mergePdfParts(parts, outPath ?? '', fileName)
   const mixed = groups.some((g) => g.w !== groups[0].w || g.h !== groups[0].h)
   ctx.setStatus(
     result.ok
@@ -1286,61 +1264,21 @@ export async function exportPdf(ctx: FileActionContext, outPath?: string): Promi
   printJobActive = true
   try {
     ctx.setStatus(t('appExportingPdf'))
-    // with the pagination preview open: group by actual pv-page size. Mixed paper →
-    // print group by group (other pages hidden for printing), then merge in page order
-    // with pdf-lib; each page keeps its section's paper size
+    // with the pagination preview open every sheet is rendered on its own, so
+    // each PDF page keeps the paper size of its section
     const pvPages = [...document.querySelectorAll('.pv-page')] as HTMLElement[]
     if (pvPages.length > 0) {
-      const scale = setPrintZoom()
-      const pxToTwips = (px: number) => Math.round((px / 96) * 1440)
-      let groups: PrintGroup[] = []
+      const groups: PrintGroup[] = []
       pvPages.forEach((page, i) => {
-        const w = pxToTwips(parseFloat(page.style.width))
-        const h = pxToTwips(parseFloat(page.style.height))
+        const w = Math.round(parseFloat(page.style.width) || page.offsetWidth)
+        const h = Math.round(parseFloat(page.style.height) || page.offsetHeight)
         const last = groups[groups.length - 1]
         if (last && last.w === w && last.h === h) last.to = i
         else groups.push({ w, h, from: i, to: i })
       })
-      // Chromium's printToPDF can fail outright or paint later pages blank when
-      // one job carries many heavy pages (40 table-heavy pages fail reliably;
-      // repeated failed jobs can take down the renderer). Chunk through the
-      // group-merge path so each print job stays small.
-      const PRINT_CHUNK = 10
-      if (pvPages.length > PRINT_CHUNK) groups = chunkPrintGroups(groups, PRINT_CHUNK)
-      if (groups.length > 1) {
-        return await printGroupsMerged(ctx, doc.fileName, pvPages, groups, scale, outPath)
-      }
-      // preview open but uniform paper: single export at the preview size
-      const g = groups[0]
-      if (g) {
-        const result = await window.desktop.exportPdf(doc.fileName, g.w, g.h, outPath, scale)
-        if (result.ok) {
-          ctx.setStatus(t('appExportedPdf', { path: result.path ?? '' }))
-          return true
-        }
-        if (!result.error) {
-          ctx.setStatus(t('appExportPdfCanceled'))
-          return false
-        }
-        // whole-document print job failed: retry the same pages in smaller jobs
-        // and merge (the failed attempt already authorized result.path)
-        const retryPath = outPath ?? result.path
-        if (pvPages.length > 1 && retryPath) {
-          ctx.setStatus(t('appExportingPdf'))
-          return await printGroupsMerged(
-            ctx,
-            doc.fileName,
-            pvPages,
-            chunkPrintGroups([g], PRINT_CHUNK / 2),
-            scale,
-            retryPath,
-          )
-        }
-        ctx.setStatus(t('appExportPdfFailed', { error: result.error }))
-        return false
-      }
+      return await printGroupsMerged(ctx, doc.fileName, pvPages, groups, outPath)
     }
-    // preview closed: mixed paper auto-opens the preview and uses the merge path; uniform paper exports directly
+    // preview closed: mixed paper auto-opens the preview and uses the per-page path; uniform paper exports directly
     const sizeKey = (w: number, h: number) => `${w}x${h}`
     const counts = new Map<string, { w: number; h: number; n: number }>()
     const list =
@@ -1355,10 +1293,10 @@ export async function exportPdf(ctx: FileActionContext, outPath?: string): Promi
       cur.n += 1
       counts.set(key, cur)
     }
-    // headers/footers exist once on the edit canvas (not once per page), so direct
-    // print would show them on the last page only — force the preview-merge path too
+    // headers/footers exist once on the edit canvas (not once per page), so a
+    // direct render would show them on the last page only — force the per-page path too
     const mixedPaper = counts.size > 1
-    // direct print pads every page by the odd-page margins: mirrored even pages need the per-page sheets
+    // direct render pads every page by the odd-page margins: mirrored even pages need the per-page sheets
     if (
       mixedPaper ||
       ctx.mirrorMargins ||
@@ -1378,13 +1316,24 @@ export async function exportPdf(ctx: FileActionContext, outPath?: string): Promi
       if (mixedPaper) ctx.setStatus(t('appMixedExportOpening'))
       return deferExportToPreview(ctx, outPath)
     }
+    const root = ctx.editor?.view.dom as HTMLElement | undefined
+    if (!root) {
+      ctx.setStatus(t('appExportPdfFailed', { error: 'editor not ready' }))
+      return false
+    }
+    // section sizes are twips (1/1440 in); the renderer works in inches
     const major = [...counts.values()][0]
-    const result = await window.desktop.exportPdf(
-      doc.fileName,
-      major?.w ?? ctx.section?.pageWidth ?? 12240,
-      major?.h ?? ctx.section?.pageHeight ?? 15840,
-      outPath,
-    )
+    const wTwip = major?.w ?? ctx.section?.pageWidth ?? 12240
+    const hTwip = major?.h ?? ctx.section?.pageHeight ?? 15840
+    const textWidthPx =
+      Number.parseFloat(getComputedStyle(root).getPropertyValue('--section-content-w')) ||
+      (wTwip / 1440) * 96 - 120
+    const html = buildStandaloneHtml(root, {
+      title: doc.fileName,
+      lang: getLang(),
+      textWidthPx,
+    })
+    const result = await exportPdfFile(html, outPath ?? '', doc.fileName, wTwip / 1440, hTwip / 1440)
     if (result.ok) {
       ctx.setStatus(t('appExportedPdf', { path: result.path ?? '' }))
       return true
@@ -1393,11 +1342,10 @@ export async function exportPdf(ctx: FileActionContext, outPath?: string): Promi
       ctx.setStatus(t('appExportPdfCanceled'))
       return false
     }
-    // direct print of a heavy canvas failed: reroute through the preview so the
-    // retry can print in chunks; the failed attempt already authorized result.path
+    // the direct render failed: reroute through the preview so each sheet is
+    // rendered separately; the failed attempt already authorized result.path
     return deferExportToPreview(ctx, outPath ?? result.path)
   } finally {
-    clearPrintZoom()
     printJobActive = false
   }
 }
@@ -1411,7 +1359,7 @@ const IMAGE_EXPORT_DPI = 192
 export async function exportImages(ctx: FileActionContext): Promise<boolean> {
   const { doc } = ctx
   if (!doc) return false
-  const target = await window.desktop.pickExportImagesTarget()
+  const target = await pickExportFolder('Export as Images')
   if (!target) return false
   ctx.setStatus(t('appExportingImages'))
   const fail = (error: string) => {
@@ -1435,10 +1383,10 @@ export async function exportImages(ctx: FileActionContext): Promise<boolean> {
     },
   }
   if (!(await exportPdf(staged, target.pdfPath))) {
-    void window.desktop.takeExportPdf(target.pdfPath)
+    void takeTempPdf(target.pdfPath)
     return false
   }
-  const pdf = await window.desktop.takeExportPdf(target.pdfPath)
+  const pdf = await takeTempPdf(target.pdfPath)
   if (!pdf.ok || !pdf.base64) return fail(pdf.error ?? '')
   const baseName = doc.fileName.replace(/\.docx$/i, '')
   try {
@@ -1468,11 +1416,8 @@ export async function exportImages(ctx: FileActionContext): Promise<boolean> {
         for (let o = 0; o < u8.length; o += 0x8000) {
           b64 += String.fromCharCode(...u8.subarray(o, o + 0x8000))
         }
-        const r = await window.desktop.writeExportImage(
-          target.dir,
-          `${baseName}-${String(i).padStart(pad, '0')}.png`,
-          btoa(b64),
-        )
+        const filePath = joinPath(target.dir, `${baseName}-${String(i).padStart(pad, '0')}.png`)
+        const r = await writeBase64File(filePath, btoa(b64))
         if (!r.ok) return fail(r.error ?? '')
       }
       ctx.setStatus(t('appExportImagesDone', { count, dir: target.dir }))
@@ -1483,6 +1428,12 @@ export async function exportImages(ctx: FileActionContext): Promise<boolean> {
   } catch (err) {
     return fail(String(err))
   }
+}
+
+/** Appends a file name to a directory path (both Windows and POSIX separators). */
+function joinPath(dir: string, name: string): string {
+  const sep = dir.includes('\\') ? '\\' : '/'
+  return dir.endsWith(sep) ? dir + name : dir + sep + name
 }
 
 /** Resolves true only when an HTML file was written to disk. */
@@ -1500,7 +1451,7 @@ export async function exportHtml(ctx: FileActionContext, outPath?: string): Prom
     lang: getLang(),
     textWidthPx: Number.isFinite(textWidthPx) ? textWidthPx : root.clientWidth,
   })
-  const result = await window.desktop.exportHtml(doc.fileName, html, outPath)
+  const result = await exportHtmlFile(html, outPath ?? '', doc.fileName)
   ctx.setStatus(
     result.ok
       ? t('appExportedHtml', { path: result.path ?? '' })

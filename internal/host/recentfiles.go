@@ -117,34 +117,34 @@ func (rm *RecentManager) AddRecent(path string) {
 }
 
 // GetRecents returns a paginated list of recent files with file stats.
-func (rm *RecentManager) GetRecents(offset, limit int) []map[string]any {
+func (rm *RecentManager) GetRecents(offset, limit int) []DocumentEntry {
 	rm.mu.Lock()
 	recents := make([]RecentEntry, len(rm.recents))
 	copy(recents, rm.recents)
+	stars := make(map[string]bool, len(rm.starred))
+	for _, s := range rm.starred {
+		stars[strings.ToLower(s.Path)] = true
+	}
 	rm.mu.Unlock()
 
+	if limit <= 0 {
+		limit = defaultRecentPageSize
+	}
+	if offset < 0 {
+		offset = 0
+	}
 	if offset >= len(recents) {
-		return nil
+		return []DocumentEntry{}
 	}
 	if offset+limit > len(recents) {
 		limit = len(recents) - offset
 	}
-	page := recents[offset : offset+limit]
 
-	result := make([]map[string]any, 0, len(page))
-	for _, r := range page {
-		info := map[string]any{
-			"path":      r.Path,
-			"ts":        r.Ts,
-			"available": true,
-		}
-		if stat, err := os.Stat(r.Path); err == nil {
-			info["size"] = stat.Size()
-			info["modified"] = stat.ModTime().UnixMilli()
-		} else {
-			info["available"] = false
-		}
-		result = append(result, info)
+	result := make([]DocumentEntry, 0, limit)
+	for _, r := range recents[offset : offset+limit] {
+		entry := StatDocument(r.Path)
+		entry.Starred = stars[strings.ToLower(r.Path)]
+		result = append(result, entry)
 	}
 	return result
 }
@@ -200,11 +200,24 @@ func (rm *RecentManager) ToggleStar(path string) bool {
 	return true
 }
 
-// GetStarred returns all starred files.
-func (rm *RecentManager) GetStarred() []StarredFile {
+// GetStarred returns all starred files as home rows, newest first.
+func (rm *RecentManager) GetStarred() []DocumentEntry {
 	rm.mu.Lock()
-	defer rm.mu.Unlock()
-	return rm.starred
+	starred := make([]StarredFile, len(rm.starred))
+	copy(starred, rm.starred)
+	rm.mu.Unlock()
+
+	result := make([]DocumentEntry, 0, len(starred))
+	for _, s := range starred {
+		entry := StatDocument(s.Path)
+		entry.Starred = true
+		entry.Group = s.Group
+		result = append(result, entry)
+	}
+	sort.SliceStable(result, func(i, j int) bool {
+		return result[i].MtimeMs > result[j].MtimeMs
+	})
+	return result
 }
 
 // GetStarredGroups returns all starred groups.

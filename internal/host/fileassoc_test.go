@@ -1,6 +1,11 @@
 package host
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+
+	"golang.org/x/sys/windows/registry"
+)
 
 func TestGetDefaultAppStatus(t *testing.T) {
 	m := &DefaultAppManager{}
@@ -85,5 +90,56 @@ func TestCheckAssociationStatusValues(t *testing.T) {
 		default:
 			t.Errorf("CheckAssociation(%q) returned unexpected status %q", ext, status)
 		}
+	}
+}
+
+// TestRegisterAssociationsWritesProgid writes into a throwaway tree under HKCU
+// and removes it afterwards, so the real Software\Classes entries stay intact.
+func TestRegisterAssociationsWritesProgid(t *testing.T) {
+	root := "Software\\YiiOfficeTest-" + t.Name()
+	t.Cleanup(func() {
+		for _, ext := range officeTypes {
+			registry.DeleteKey(registry.CURRENT_USER, root+"\\"+ProgID(ext)+"\\shell\\open\\command")
+			registry.DeleteKey(registry.CURRENT_USER, root+"\\"+ProgID(ext)+"\\shell\\open")
+			registry.DeleteKey(registry.CURRENT_USER, root+"\\"+ProgID(ext)+"\\shell")
+			registry.DeleteKey(registry.CURRENT_USER, root+"\\"+ProgID(ext))
+			registry.DeleteKey(registry.CURRENT_USER, root+"\\"+ext+"\\OpenWithProgids")
+			registry.DeleteKey(registry.CURRENT_USER, root+"\\"+ext)
+		}
+		registry.DeleteKey(registry.CURRENT_USER, root)
+	})
+
+	exe := filepath.Join(t.TempDir(), "yiioffice.exe")
+	if err := registerAssociationsFor(root, exe); err != nil {
+		t.Fatalf("registerAssociationsFor: %v", err)
+	}
+
+	key, err := registry.OpenKey(registry.CURRENT_USER, root+"\\"+ProgID(".docx")+"\\shell\\open\\command", registry.QUERY_VALUE)
+	if err != nil {
+		t.Fatalf("open command key: %v", err)
+	}
+	defer key.Close()
+	command, _, err := key.GetStringValue("")
+	if err != nil {
+		t.Fatalf("read command: %v", err)
+	}
+	want := `"` + exe + `" "%1"`
+	if command != want {
+		t.Errorf("command = %q, want %q", command, want)
+	}
+
+	list, err := registry.OpenKey(registry.CURRENT_USER, root+"\\.docx\\OpenWithProgids", registry.QUERY_VALUE)
+	if err != nil {
+		t.Fatalf("open-with key: %v", err)
+	}
+	defer list.Close()
+	if _, _, err := list.GetStringValue(ProgID(".docx")); err != nil {
+		t.Errorf("OpenWithProgids missing %s: %v", ProgID(".docx"), err)
+	}
+}
+
+func TestRegisterAssociationsRejectsEmptyExe(t *testing.T) {
+	if err := registerAssociationsFor("Software\\YiiOfficeTest-noexe", ""); err == nil {
+		t.Fatal("expected an error for an empty executable path")
 	}
 }

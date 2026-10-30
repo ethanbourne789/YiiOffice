@@ -107,3 +107,77 @@ func TestTabHostReorderOutOfBounds(t *testing.T) {
 		t.Fatal("from out of bounds should fail")
 	}
 }
+
+func TestTabHostDirtyTracking(t *testing.T) {
+	h := NewTabHost()
+	id := h.AddTab(TabKindDocs, "Doc1", "")
+
+	if dirty := h.DirtyTabs(); len(dirty) != 0 {
+		t.Fatalf("expected no dirty tabs, got %d", len(dirty))
+	}
+	if !h.SetDirty(id, true) {
+		t.Fatal("SetDirty should report success for a known tab")
+	}
+	dirty := h.DirtyTabs()
+	if len(dirty) != 1 || dirty[0].ID != id || !dirty[0].Dirty {
+		t.Fatalf("expected tab %s in dirty list, got %+v", id, dirty)
+	}
+	if list := h.List(); !list[1].Dirty {
+		t.Fatal("List should expose the dirty flag")
+	}
+
+	h.SetDirty(id, false)
+	if dirty := h.DirtyTabs(); len(dirty) != 0 {
+		t.Fatalf("expected dirty list to clear, got %d", len(dirty))
+	}
+	if h.SetDirty("missing", true) {
+		t.Fatal("SetDirty should fail for an unknown id")
+	}
+}
+
+func TestTabHostRestoreTab(t *testing.T) {
+	h := NewTabHost()
+	id := h.AddTab(TabKindDocs, "Doc1", "")
+	h.CloseTab(id)
+	if !h.RestoreTab(id, TabKindDocs, "Doc1", "") {
+		t.Fatal("restore should succeed for a removed tab")
+	}
+	if tab := h.GetByID(id); tab == nil || tab.Kind != TabKindDocs || !tab.Active {
+		t.Fatalf("restored tab should be active docs tab, got %+v", tab)
+	}
+	if h.RestoreTab(id, TabKindDocs, "Doc1", "") {
+		t.Fatal("restore should refuse a duplicate id")
+	}
+}
+
+func TestCloseGuardReadsTabHostDirtyState(t *testing.T) {
+	h := NewTabHost()
+	id := h.AddTab(TabKindDocs, "Doc1", "")
+	h.SetDirty(id, true)
+
+	blocked := false
+	g := NewCloseGuard(h, &CloseGuardConfig{
+		GetDirty: func() []DirtyTab {
+			var out []DirtyTab
+			for _, ts := range h.DirtyTabs() {
+				out = append(out, DirtyTab{ID: ts.ID, Title: ts.Title, Kind: ts.Kind})
+			}
+			return out
+		},
+		PromptSave: func(tab DirtyTab) SaveChoice {
+			blocked = true
+			return Cancel
+		},
+	})
+	if g.ShouldAllowClose() {
+		t.Fatal("close should be blocked while a tab is dirty")
+	}
+	if !blocked {
+		t.Fatal("the guard should prompt for the dirty tab")
+	}
+
+	h.SetDirty(id, false)
+	if !g.ShouldAllowClose() {
+		t.Fatal("close should be allowed once the tab is clean")
+	}
+}

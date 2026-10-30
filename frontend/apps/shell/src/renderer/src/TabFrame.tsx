@@ -30,7 +30,9 @@ export function TabFrame({ tabs, activeTabId }: { tabs: TabSummary[]; activeTabI
 }
 
 function EditorIframe({ tab, visible }: { tab: TabSummary; visible: boolean }) {
-  const src = APP_URLS[tab.kind] || ''
+  const base = APP_URLS[tab.kind] || ''
+  // The renderer reports unsaved changes back to this tab id (dirty flag + close guard).
+  const src = base ? `${base}?tabId=${encodeURIComponent(tab.id)}` : ''
 
   return (
     <iframe

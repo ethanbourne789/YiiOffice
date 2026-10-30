@@ -1,43 +1,24 @@
-import { test, expect } from '@playwright/test'
-import { waitForDocumentReady, navigateToApp } from './helpers'
+﻿// ADAPTED FROM Electron
+import { test, expect } from './fixture'
+import { launchShell, setupPageAfterLaunch, closeAndSaveVideo, screenshotPath } from './helpers'
 
-test.describe('Home Page', () => {
-  test('should load the home page', async ({ page }) => {
-    await page.goto('/')
-    await waitForDocumentReady(page)
-
-    // The home page should be interactive
-    await expect(page).toHaveTitle(/YiiOffice/i)
-  })
-
-  test('should show version info', async ({ page }) => {
-    await page.goto('/')
-    await waitForDocumentReady(page)
-
-    // Version should be accessible via the bridge
-    const version = await page.evaluate(async () => {
-      try {
-        const wails = (window as any).__wails
-        if (wails?.events?.on) {
-          return 'wails-available'
-        }
-        return 'no-wails'
-      } catch {
-        return 'error'
-      }
+test.describe('home screen', () => {
+  test('renders localized UI when YIIOFFICE_LANG=zh-CN', async ({ page, context }) => {
+    const launched = await launchShell({
+      onboardingSeen: true,
+      lang: 'zh-CN',
+      videoDir: 'home-zh-cn',
     })
-
-    // In dev mode, the Wails bridge may not be available
-    // We just verify the page loads without errors
-    expect(typeof version).toBe('string')
-  })
-
-  test('should have basic page structure', async ({ page }) => {
-    await page.goto('/')
-    await waitForDocumentReady(page)
-
-    // Check that the page has content
-    const body = page.locator('body')
-    await expect(body).toBeVisible()
+    await setupPageAfterLaunch(launched, page, context, {
+      onboardingSeen: true,
+      lang: 'zh-CN',
+      videoDir: 'home-zh-cn',
+    })
+    try {
+      await expect(page.locator('.nav-item .nav-label').first()).toHaveText('最近')
+      await page.screenshot({ path: screenshotPath('home-zh-cn') })
+    } finally {
+      await closeAndSaveVideo(launched, 'home-zh-cn')
+    }
   })
 })

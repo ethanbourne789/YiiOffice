@@ -1,0 +1,3370 @@
+/* Per-app accent (excel-green family) + sheets-only tokens.
+ * Chrome tokens (surface/text/border/…, AI panel --color-*) come from
+ * @yiioffice/ui/tokens.css; nothing here may shadow those names. */
+:root {
+  --excel-green: #217346;
+  --excel-green-dark: #185c37;
+  --excel-green-soft: #e9f3ed;
+  --accent: var(--excel-green);
+  --accent-dark: var(--excel-green-dark);
+  --accent-soft: var(--excel-green-soft);
+
+  --surface-hover: #edf1ee;
+  /* ribbon toggle states match the slides ribbon (--hover / --active-bg):
+     neutral gray, not the app's green-tinted surface hover */
+  --ribbon-hover: var(--color-bg-subtle);
+  --ribbon-active: #eaeaea;
+  --focus: rgb(33 115 70 / 24%);
+  --radius-4: 4px;
+  --radius-6: 6px;
+  --radius-small: var(--radius-4);
+  --radius-medium: var(--radius-6);
+  --shadow-panel: 0 8px 24px rgb(0 0 0 / 10%);
+  --shadow-modal: 0 3px 30px rgb(0 0 0 / 8%);
+
+  /* sheets-local chrome shades */
+  --sheets-error: #b3261e;
+  --sheets-ai-error: #c62828;
+  --sheets-ai-error-border: rgb(198 40 40 / 45%);
+  --sheets-ai-error-bg: rgb(198 40 40 / 8%);
+  --sheets-notice-border: rgb(33 115 70 / 25%);
+  --sheets-statusbar-bg: #f3f4f6;
+  --sheets-statusbar-border: #e1e4e8;
+  --sheets-statusbar-hover: rgb(0 0 0 / 8%);
+  --sheets-zoom-slider: #8a8886;
+  --sheets-focus-ring: rgb(35 36 37 / 20%);
+  --sheets-shimmer-base: #666666;
+  --sheets-shimmer-hi: #d9d9d9;
+  --sheets-scroll-thumb: rgb(0 0 0 / 25%);
+  --sheets-chip-bg: #f3f7f4;
+  --sheets-member-bg: #f6f8f7;
+  --sheets-member-ink: #5c6660;
+  --sheets-validation-prompt-bg: #ffffe1;
+  --sheets-validation-prompt-border: #808080;
+  --sheets-validation-prompt-ink: #555;
+  --sheets-validation-prompt-shadow: rgb(0 0 0 / 18%);
+
+  /* content-side constants: charts, shapes and their selection chrome sit on
+   * the paper-like grid and never follow the theme */
+  --sheets-paper: #ffffff;
+  --sheets-on-accent: #ffffff;
+  --sheets-knob-dot: #ffffff;
+  --sheets-chart-border: #c9cdd1;
+  --sheets-chart-ink: #333;
+  --sheets-chart-label: #555;
+  --sheets-chart-label-dim: #888;
+  --sheets-pie-label-in: #fff;
+  --sheets-pie-label-out: #444;
+  --sheets-pie-label-stroke: rgb(0 0 0 / 25%);
+  --sheets-select-frame: var(--excel-green);
+  /* Excel-blue grid overlays: formula-audit trace boxes (paired with the
+   * #1f5aa8 arrows in trace-arrows.tsx) and page-break preview lines */
+  --sheets-excel-blue: #1f5aa8;
+  --sheets-excel-blue-bg: rgb(31 90 168 / 6%);
+  --sheets-el-selected: #107c41;
+  --sheets-float-btn-bg: rgb(255 255 255 / 92%);
+  --sheets-shape-border: #aeb4b8;
+  --sheets-shape-bg: rgb(255 255 255 / 94%);
+  --sheets-shape-ink: #596068;
+  --sheets-content-danger: #b42318;
+
+  /* dark chips and black translucent masks/shadows hold in both themes */
+  --sheets-chip-remove-bg: #000;
+  --sheets-chip-remove-hover: #4b4e51;
+  --sheets-chip-remove-ink: #fff;
+  --sheets-toast-bg: rgb(35 35 37 / 92%);
+  --sheets-toast-error-bg: rgb(196 49 75 / 95%);
+  --sheets-toast-ink: #fff;
+  --sheets-toast-ok: #34c759;
+  --sheets-on-accent-hover: rgb(255 255 255 / 22%);
+  --sheets-mask-bg: rgb(0 0 0 / 50%);
+  --sheets-mask-bg-strong: rgb(0 0 0 / 50%);
+  --sheets-shadow-drop: 0 6px 20px rgb(0 0 0 / 14%), 0 1px 3px rgb(0 0 0 / 8%);
+  --sheets-shadow-menu: 0 6px 20px rgb(0 0 0 / 18%);
+  --sheets-shadow-pane: 0 4px 18px rgb(0 0 0 / 12%);
+  --sheets-shadow-card: 0 1px 2px rgb(0 0 0 / 4%);
+  --sheets-shadow-chart: 0 1px 3px rgb(0 0 0 / 12%);
+  --sheets-shadow-copilot: 4px 0 16px rgb(24 60 40 / 5%);
+  --sheets-shadow-badge: 0 2px 6px rgb(74 92 255 / 25%);
+  --sheets-shadow-slicer: 0 6px 18px rgb(15 40 30 / 14%);
+  --sheets-shadow-toast: 0 4px 16px rgb(0 0 0 / 18%);
+  --sheets-shadow-composer: 0 6px 30px rgb(0 0 0 / 8%);
+
+  /* Same stack as docs/slides — an Inter fallback here made ribbon labels
+     render in a different face than the other apps on machines with Inter */
+  font-family:
+    'Segoe UI',
+    -apple-system,
+    BlinkMacSystemFont,
+    var(--ui-cjk),
+    sans-serif;
+  color: var(--text);
+  background: var(--surface);
+  font-synthesis: none;
+}
+
+[data-theme='dark'] {
+  --accent: #34a853;
+  --accent-dark: #58b380;
+  --accent-soft: #1d3328;
+  --surface-hover: #333;
+  --ribbon-hover: #333;
+  --ribbon-active: #454545;
+  --focus: rgb(52 168 83 / 40%);
+  --shadow-panel: 0 8px 24px rgb(0 0 0 / 45%);
+  --sheets-error: #e57373;
+  --sheets-ai-error: #f28b82;
+  --sheets-ai-error-border: rgb(242 139 130 / 45%);
+  --sheets-ai-error-bg: rgb(242 139 130 / 12%);
+  --sheets-notice-border: rgb(52 168 83 / 35%);
+  --sheets-statusbar-bg: #252525;
+  --sheets-statusbar-border: #3a3a3a;
+  --sheets-statusbar-hover: rgb(255 255 255 / 10%);
+  --sheets-zoom-slider: #777;
+  --sheets-focus-ring: rgb(228 228 228 / 25%);
+  --sheets-shimmer-base: #8a8a8a;
+  --sheets-shimmer-hi: #d0d0d0;
+  --sheets-scroll-thumb: rgb(255 255 255 / 28%);
+  --sheets-chip-bg: #24312a;
+  --sheets-member-bg: #2f2f2f;
+  --sheets-member-ink: #a9b2ac;
+  --sheets-validation-prompt-bg: #3c3826;
+  --sheets-validation-prompt-border: #8f8663;
+  --sheets-validation-prompt-ink: #f2ecd0;
+  --sheets-validation-prompt-shadow: rgb(0 0 0 / 45%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']):not([data-theme='dark']) {
+    --accent: #34a853;
+    --accent-dark: #58b380;
+    --accent-soft: #1d3328;
+    --surface-hover: #333;
+    --ribbon-hover: #333;
+    --ribbon-active: #454545;
+    --focus: rgb(52 168 83 / 40%);
+    --shadow-panel: 0 8px 24px rgb(0 0 0 / 45%);
+    --sheets-error: #e57373;
+    --sheets-ai-error: #f28b82;
+    --sheets-ai-error-border: rgb(242 139 130 / 45%);
+    --sheets-ai-error-bg: rgb(242 139 130 / 12%);
+    --sheets-notice-border: rgb(52 168 83 / 35%);
+    --sheets-statusbar-bg: #252525;
+    --sheets-statusbar-border: #3a3a3a;
+    --sheets-statusbar-hover: rgb(255 255 255 / 10%);
+    --sheets-zoom-slider: #777;
+    --sheets-focus-ring: rgb(228 228 228 / 25%);
+    --sheets-shimmer-base: #8a8a8a;
+    --sheets-shimmer-hi: #d0d0d0;
+    --sheets-scroll-thumb: rgb(255 255 255 / 28%);
+    --sheets-chip-bg: #24312a;
+    --sheets-member-bg: #2f2f2f;
+    --sheets-member-ink: #a9b2ac;
+    --sheets-validation-prompt-bg: #3c3826;
+    --sheets-validation-prompt-border: #8f8663;
+    --sheets-validation-prompt-ink: #f2ecd0;
+    --sheets-validation-prompt-shadow: rgb(0 0 0 / 45%);
+  }
+}
+
+/* UI CJK fonts per language (documentElement.lang is set at bootstrap and on switch);
+ * the zh expansion must keep the historical stack byte-identical */
+:root {
+  --ui-cjk: 'PingFang SC', 'Microsoft YaHei';
+}
+
+:root:lang(ja) {
+  --ui-cjk: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Yu Gothic', 'Meiryo';
+}
+
+:root:lang(ko) {
+  --ui-cjk: 'Apple SD Gothic Neo', 'Malgun Gothic';
+}
+
+:root:lang(zh-TW) {
+  --ui-cjk: 'PingFang TC', 'Microsoft JhengHei';
+}
+
+/* Cell-content font aliases (document data, theme-independent): without these,
+ * Office sans families the OS lacks silently fall back to Chromium's serif
+ * default on the grid canvas. local() keeps a real installed font first; the
+ * bundled Carlito (metric-compatible with Calibri, shared via
+ * @yiioffice/ui/fonts) guarantees Excel-matching widths before the
+ * Helvetica/Arial approximations. Canvas fillText never triggers @font-face
+ * downloads, so main.tsx loads these explicitly. */
+@font-face {
+  font-family: Aptos;
+  src:
+    local('Aptos'), local('Calibri'), local('Carlito'),
+    url('@yiioffice/ui/fonts/Carlito-Regular.ttf'), local('Helvetica Neue'), local('Arial');
+  font-display: block;
+}
+
+@font-face {
+  font-family: Aptos;
+  font-weight: bold;
+  src:
+    local('Aptos Bold'), local('Calibri Bold'), local('Carlito Bold'),
+    url('@yiioffice/ui/fonts/Carlito-Bold.ttf'), local('Helvetica Neue Bold'), local('Arial Bold');
+  font-display: block;
+}
+
+@font-face {
+  font-family: Aptos;
+  font-style: italic;
+  src:
+    local('Aptos Italic'), local('Calibri Italic'), local('Carlito Italic'),
+    url('@yiioffice/ui/fonts/Carlito-Italic.ttf'), local('Helvetica Neue Italic'),
+    local('Arial Italic');
+  font-display: block;
+}
+
+@font-face {
+  font-family: Aptos;
+  font-weight: bold;
+  font-style: italic;
+  src:
+    local('Aptos Bold Italic'), local('Calibri Bold Italic'), local('Carlito Bold Italic'),
+    url('@yiioffice/ui/fonts/Carlito-BoldItalic.ttf'), local('Helvetica Neue Bold Italic'),
+    local('Arial Bold Italic');
+  font-display: block;
+}
+
+/* 'Aptos Narrow' lives in CELL_FONT_ALIASES (cell-font-fallback.ts): a CSS
+ * face here would shadow the width-corrected substitute for italic runs.
+ * Italics synthesize from the corrected upright faces. */
+
+@font-face {
+  font-family: Carlito;
+  src: local('Carlito'), url('@yiioffice/ui/fonts/Carlito-Regular.ttf');
+  font-display: block;
+}
+
+@font-face {
+  font-family: Carlito;
+  font-weight: bold;
+  src: local('Carlito Bold'), url('@yiioffice/ui/fonts/Carlito-Bold.ttf');
+  font-display: block;
+}
+
+@font-face {
+  font-family: Carlito;
+  font-style: italic;
+  src: local('Carlito Italic'), url('@yiioffice/ui/fonts/Carlito-Italic.ttf');
+  font-display: block;
+}
+
+@font-face {
+  font-family: Carlito;
+  font-weight: bold;
+  font-style: italic;
+  src: local('Carlito Bold Italic'), url('@yiioffice/ui/fonts/Carlito-BoldItalic.ttf');
+  font-display: block;
+}
+
+@font-face {
+  font-family: Calibri;
+  src:
+    local('Calibri'), local('Carlito'), url('@yiioffice/ui/fonts/Carlito-Regular.ttf'),
+    local('Helvetica Neue'), local('Arial');
+  font-display: block;
+}
+
+@font-face {
+  font-family: Calibri;
+  font-weight: bold;
+  src:
+    local('Calibri Bold'), local('Carlito Bold'), url('@yiioffice/ui/fonts/Carlito-Bold.ttf'),
+    local('Helvetica Neue Bold'), local('Arial Bold');
+  font-display: block;
+}
+
+@font-face {
+  font-family: Calibri;
+  font-style: italic;
+  src:
+    local('Calibri Italic'), local('Carlito Italic'), url('@yiioffice/ui/fonts/Carlito-Italic.ttf'),
+    local('Helvetica Neue Italic'), local('Arial Italic');
+  font-display: block;
+}
+
+@font-face {
+  font-family: Calibri;
+  font-weight: bold;
+  font-style: italic;
+  src:
+    local('Calibri Bold Italic'), local('Carlito Bold Italic'),
+    url('@yiioffice/ui/fonts/Carlito-BoldItalic.ttf'), local('Helvetica Neue Bold Italic'),
+    local('Arial Bold Italic');
+  font-display: block;
+}
+
+/* Hangul-named cell-font aliases ('맑은 고딕', '돋움') live in
+ * CELL_FONT_ALIASES (cell-font-fallback.ts), which supports the per-script
+ * width correction Malgun Gothic needs. */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  min-width: 720px;
+  min-height: 100vh;
+  overflow: hidden;
+  /* Grayscale antialiasing to match docs/slides: without it, same-weight text renders noticeably bolder on macOS */
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus);
+}
+
+button:active:not(:disabled) {
+  filter: brightness(0.92);
+}
+
+button:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.app-shell {
+  display: grid;
+  /* minmax(0, 1fr) column: the ribbon's min-content width must clip at the
+     viewport instead of stretching the whole shell past it. */
+  grid-template-columns: minmax(0, 1fr);
+  /* header / body (AI panel + sheet column, status bar inside the sheet column) */
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100vh;
+  background: var(--surface);
+}
+
+/* Go To arrow injected beside Univer's formula-bar Name Box (the
+   defined-name selector) — see the ensure() effect in ExcelShell. */
+.goto-in-bar {
+  flex: none;
+  align-self: stretch;
+  padding: 0 6px;
+  border: 0;
+  border-right: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.goto-in-bar:hover {
+  background: var(--hover);
+}
+
+/* Go To dialog: defined-name list, one row per name with its ref. */
+.goto-name-list {
+  max-height: 180px;
+  margin: 10px 0 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+}
+
+.goto-name-list li + li {
+  border-top: 1px solid var(--border);
+}
+
+.goto-name-list button {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 12px;
+  text-align: left;
+}
+
+.goto-name-list button:hover {
+  background: var(--surface-hover);
+}
+
+.goto-name-list button span {
+  color: var(--text-muted);
+}
+
+.excel-header {
+  position: relative;
+  z-index: 10;
+  /* same divider weight as the docs/slides ribbons: their --border-strong, no drop shadow */
+  border-bottom: 1px solid var(--border-strong);
+  background: var(--surface);
+}
+
+/* The ribbon's dropdown popovers render inside this header, so their z-index
+ * is trapped in the header's stacking context (z-index: 10) and they paint
+ * under the grid's float layers — the slicer stack and the watch window, both
+ * z-index: 1000 in the root stacking order (yiioffice#1767; docs/slides don't
+ * hit this because their .ribbon creates no stacking context). Raising the
+ * popovers instead cannot work: .menu-select-drop and .sheets-color-pop are
+ * both already 1000, a tie the float layers win on DOM order, and the shared
+ * Dropdown's .gs-dd-pop (z-index: 80) is not header-hosted in sheets at all —
+ * its sheets callers are dialogs, plus WorkbookVisuals, which portals to body.
+ *
+ * Scoped to a header-HOSTED popover, never to popover-ness in general: the
+ * two classes here are what the ribbon actually emits (MenuSelect /
+ * ShapeGallerySelect / EditableMenuSelect -> .menu-select-drop; the ribbon
+ * color tools -> .sheets-color-pop inline — the .sheets-color-pop-portal
+ * variant is a child of body and is never trapped). Keying on the host also
+ * keeps the header under a dialog's dim backdrop: html.yiioffice-popover-open
+ * also fires for the Dropdown/ColorDropdown inside Format Cells, Name
+ * Manager, Pivot, Consolidate, Subtotal, Advanced Filter and Insert Function,
+ * all under .dialog-backdrop (z-index: 40) — and "dialogs always dismiss the
+ * popover first" covers only dialogs opened FROM a popover, not popovers
+ * opened INSIDE a dialog. */
+.excel-header:has(.menu-select-drop, .sheets-color-pop) {
+  z-index: 1500;
+}
+
+.ribbon-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  /* tab-row text ink matches the ribbon band below */
+  color: var(--text-primary);
+  /* same tab-row metrics as PowerPoint's ribbon (slides app): 5px top inset, no
+     bottom padding, no divider line — the row blends into the band below */
+  padding: 5px 10px 0;
+  background: var(--surface);
+  /* the tab row doubles as the frameless-window drag region */
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+/* While a popover is open the row must deliver presses (drag regions swallow
+   them), so outside-press dismissal can see presses on the blank band */
+html.yiioffice-popover-open .ribbon-tabs {
+  -webkit-app-region: no-drag;
+}
+
+/* standalone-window chrome insets; in a shell tab (mode=tab) the tab strip
+   above owns the traffic lights / caption buttons */
+.ribbon-tabs-mac {
+  padding-left: 84px;
+}
+
+.ribbon-tabs-win {
+  padding-right: 150px;
+}
+
+.ribbon-tabs > button:not(.qa-btn) {
+  -webkit-app-region: no-drag;
+  position: relative;
+  border: 0;
+  padding: 7px 9px 6px;
+  /* inactive tab ink matches the ribbon band's #232425 (active stays green) */
+  color: inherit;
+  background: transparent;
+  font-size: 13px;
+  /* every tab label is semibold, not just the active one */
+  font-weight: 600;
+  /* transparent border keeps the row height; the visible underline is the
+   * ::after below, sized to the label text rather than the padded button */
+  border-bottom: 2.5px solid transparent;
+  border-radius: 4px 4px 0 0;
+  white-space: nowrap;
+}
+
+.ribbon-tabs-spacer {
+  flex: 1;
+}
+
+.qa-sep {
+  width: 1px;
+  height: 16px;
+  margin: 0 6px;
+  background: var(--border-strong);
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.ribbon-tabs .qa-btn {
+  -webkit-app-region: no-drag;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* same box and 16px glyph as the slides ribbon's .qa-btn */
+  width: 30px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-primary);
+  background: none;
+  cursor: pointer;
+}
+
+.ribbon-tabs .qa-btn svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.ribbon-tabs .qa-btn:hover:not(:disabled) {
+  background: var(--ribbon-hover);
+}
+
+.ribbon-tabs .qa-btn:disabled {
+  color: var(--text-tertiary);
+  /* neutralize the global button:disabled opacity so the glyph reads exactly
+     the shared quick-access gray of the docs and slides buttons */
+  opacity: 1;
+  cursor: default;
+}
+
+/* AutoSave toggle in the tab row — same knob as the docs/slides ribbons,
+   with the Excel-green accent. */
+.autosave-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  margin-left: 4px;
+  margin-right: 4px;
+  -webkit-app-region: no-drag;
+  user-select: none;
+}
+
+.autosave-toggle input {
+  display: none;
+}
+
+.autosave-knob {
+  width: 26px;
+  height: 14px;
+  border-radius: 7px;
+  background: var(--border-strong);
+  position: relative;
+  transition: background 0.15s;
+}
+
+.autosave-knob::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--sheets-knob-dot);
+  transition: left 0.15s;
+}
+
+.autosave-toggle.on .autosave-knob {
+  background: var(--accent);
+}
+
+.autosave-toggle.on .autosave-knob::after {
+  left: 14px;
+}
+
+.autosave-text {
+  font-size: 11px;
+  /* same ink as the docs/slides autosave label */
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* Hovering a tab tints the label, it doesn't paint a box */
+.ribbon-tabs > button:not(.qa-btn):hover {
+  color: var(--accent-dark);
+}
+
+.ribbon-tabs > button:not(.qa-btn).active {
+  color: var(--accent-dark);
+  font-weight: 600;
+}
+
+/* active underline: about the label's width (insets past the tab padding),
+ * ends slightly rounded — same as the slides ribbon */
+.ribbon-tabs > button:not(.qa-btn).active::after {
+  position: absolute;
+  right: 13px;
+  bottom: -2.5px;
+  left: 13px;
+  height: 2.5px;
+  border-radius: 1px;
+  background: var(--accent);
+  content: '';
+}
+
+/* Contextual tabs (Chart Design) stand out even while inactive, with a
+   colored caption. */
+.ribbon-tabs > button:not(.qa-btn).contextual {
+  color: var(--accent-dark);
+  font-weight: 600;
+}
+
+/* Ribbon: compact single band, hairline separators between
+   groups, no group captions. */
+.ribbon {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  /* ribbon text ink, a touch off the app's --text — same shade
+     as the .inline-tools glyphs */
+  color: var(--text-primary);
+  /* band metrics shared with the slides ribbon */
+  height: 80px;
+  /* Groups must never shrink below content (they would paint over each
+     other); anything past the window edge scrolls instead. */
+  /* `scroll`, not `auto`: styled scrollbars are classic (non-overlay), so
+     `scroll` keeps the 5px lane reserved even without overflow — the content
+     area never changes and crossing the overflow threshold cannot cause a
+     vertical layout jump). */
+  overflow-x: scroll;
+  overflow-y: hidden;
+  /* Slim visible scrollbar so mouse users can reach overflowed groups
+     (genspark-ai/yiioffice#55). Its 5px lane is carved out of the bottom
+     padding, keeping the 80px band and the content area unchanged; Chromium
+     paints a thumb only while the row actually overflows. */
+  padding: 6px 12px 1px;
+  background: var(--surface);
+}
+
+.ribbon::-webkit-scrollbar {
+  height: 5px;
+}
+
+.ribbon::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ribbon::-webkit-scrollbar-thumb {
+  border-radius: 2.5px;
+  background: var(--sheets-scroll-thumb);
+}
+
+.ribbon-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 2px 8px;
+}
+
+/* group separator: a hairline inset from the band's top/bottom, like the slides
+   ribbon's .ribbon-sep (a plain border-right would span the full 80px band).
+   The 2px inset matches the groups' vertical padding, so the line spans exactly
+   the tallest group content (the two 30px rows) — same inset across all three
+   apps. */
+.ribbon-group::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  right: 0;
+  bottom: 2px;
+  width: 1px;
+  background: var(--border);
+}
+
+.ribbon-group:last-child::after {
+  display: none;
+}
+
+.ribbon-group-content {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  /* Fill the group's height (docs/slides .ribbon-group-items get this via
+     flex: 1 in their column-direction groups): without it this wrapper sits at
+     natural height, so a .large button's own align-self: stretch tops out
+     ~4px short of the other apps' 64px and the whole stack rides higher. */
+  align-self: stretch;
+}
+
+.ribbon-tool {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 58px;
+  /* icon-beside-label rows match the slides ribbon's .rb-small */
+  padding: 3px 8px;
+  border-radius: var(--radius-small);
+}
+
+.ribbon-tool:not(.large):hover {
+  background: var(--ribbon-hover);
+}
+
+/* Icon over label for the tall Insert-tab buttons — same metrics as the
+   slides ribbon's .rb-big. */
+.ribbon-tool.large {
+  flex-direction: column;
+  justify-content: center;
+  /* content-hugged and centered, same box as the docs/slides .rb-big */
+  gap: 4px;
+  padding: 4px 7px 6px;
+  text-align: center;
+}
+
+/* 12px like the docs/slides .rb-big: buttons `font: inherit` and sheets' body
+   has no font-size, so label wrapper spans got a 16px line box. Declared with
+   .as-button so it survives that rule's own later `font: inherit` shorthand. */
+.ribbon-tool.as-button.large {
+  font-size: 12px;
+}
+
+.ribbon-tool.large small {
+  display: none;
+}
+
+.ribbon-tool.large strong {
+  /* labels never wrap, the button hugs its content (slides .rb-big) — a
+     two-line label would push the icon off the shared center line.
+     Default line-height, not a compact 1.1: the label height feeds the
+     icon-row flex, so it must match the docs/slides .rb-big label. */
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+/* the tall buttons carry the ribbon's big 28px glyph; letterform glyphs
+   (ƒx, $, θ, …) get a 23px face so their cap height (~16.5px) matches the
+   ~17px ink of the drawn 28px svgs beside them, and a regular 400 weight —
+   the base 600 paints ~2.4px stems at this size vs the svgs' 1.5px strokes */
+.ribbon-tool.large .tool-symbol {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  font-size: 23px;
+  font-weight: 400;
+}
+
+.ribbon-tool.large .tool-symbol svg {
+  width: 28px;
+  height: 28px;
+}
+
+/* icon + caret row of tall buttons: stretches across the button like the
+   slides ribbon's .rb-big-icon, so hover/press paint it edge to edge while
+   the label below stays outside */
+.ribbon-tool.large .tool-icon-row {
+  align-self: stretch;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  border-radius: 4px;
+  padding: 3px 4px;
+  margin: 0 -4px;
+}
+
+/* Hovering a tall button tints only its icon row — the label below
+   stays outside the gray (slides .rb-big:hover .rb-big-icon) */
+.ribbon-tool.large:not(.reserved):hover .tool-icon-row {
+  background: var(--ribbon-hover);
+}
+
+.ribbon-tool.large.as-button:disabled:hover .tool-icon-row {
+  background: transparent;
+}
+
+/* The active workbook view (View tab's Normal) shows a pressed state. */
+.ribbon-tool:not(.large).is-current {
+  background: var(--ribbon-active);
+}
+
+.ribbon-tool.large.is-current .tool-icon-row {
+  background: var(--ribbon-active);
+}
+
+.ribbon-tool.accent {
+  min-width: 96px;
+}
+
+/* Bare colored ribbon glyphs — no chip background.
+   Icon-beside-label rows use the slides ribbon's .rb-small icon size (14px);
+   the tall .large buttons scale theirs up to 28px below. */
+.tool-symbol {
+  display: grid;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  /* ribbon glyphs share the toolbar ink (was Excel green) */
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.tool-symbol svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Constant rendered stroke instead of proportional scaling: the 24-canvas
+   svgs carry a 1.5-unit strokeWidth attr, so left alone a 28px glyph paints
+   1.75px lines while a 14px row paints 0.875px hairlines. These overrides
+   pin the painted stroke at ~1.5px for 20px+ glyphs and ~1.25px for the
+   small 13-16px ones (a touch lighter so dense glyphs stay legible).
+   stroke-width is in viewBox units: units = 24 / rendered-px × target-px. */
+.tool-symbol svg {
+  stroke-width: 2.15; /* 14px rows → 1.25px */
+}
+
+.ribbon-tool.large .tool-symbol svg {
+  stroke-width: 1.3; /* 28px → ~1.5px */
+}
+
+.chart-grid .tool-symbol svg {
+  stroke-width: 2.2; /* 13px → ~1.2px */
+}
+
+.chev path {
+  stroke-width: 2.6; /* 10px caret → ~1.1px */
+}
+
+/* every inline-row glyph — toggles, dropdown triggers and labeled buttons —
+   shares one size so icons sitting side by side read identically. 20px puts
+   the padded 24-canvas ink (~61%) at ~12.5px, just under the docs ribbon's
+   optical size (16-canvas at 18px ≈ 14px ink), sized to taste. */
+.inline-tools .tool-symbol svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 1.8; /* 20px → 1.5px */
+}
+
+.ribbon-tool.reserved .tool-symbol {
+  color: var(--text-muted);
+}
+
+.ribbon-tool strong,
+.ribbon-tool small {
+  display: block;
+  white-space: nowrap;
+}
+
+.ribbon-tool strong {
+  /* label weight matches the slides ribbon's .rb-small (regular, not medium) */
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.ribbon-tool small {
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+/* Narrow windows: drop the detail line first, before falling back to
+   horizontal scrolling. */
+@media (max-width: 1600px) {
+  .ribbon-tool small {
+    display: none;
+  }
+
+  .ribbon-tool,
+  .ribbon-tool.accent {
+    min-width: 0;
+  }
+
+  .ribbon-tool.compact-icon span:not(.tool-symbol) {
+    display: none;
+  }
+
+  .ribbon {
+    gap: 1px;
+    /* keep the 6px 12px band padding: docs/slides never compact it, and a
+       narrower inset shifts the shared Genspark entry 2px when switching apps */
+  }
+
+  .ribbon-group {
+    padding: 2px 6px;
+  }
+
+  .number-format {
+    min-width: 60px;
+  }
+}
+
+.inline-tools {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  /* inline glyphs, letterforms and trigger labels share one ink color,
+     a touch off the app's --text */
+  color: var(--text-primary);
+}
+
+/* Two stacked control rows inside one group.
+   Row spacing matches the slides ribbon's .rb-col (4px). */
+.ribbon-rows {
+  display: grid;
+  gap: 4px;
+  align-content: center;
+  justify-items: start;
+}
+
+/* Cut / Copy / Format Painter column beside the tall Paste button. */
+.tool-stack {
+  display: grid;
+  align-content: center;
+  gap: 0;
+}
+
+.tool-stack button {
+  display: grid;
+  min-width: 24px;
+  /* 3 stacked mini rows line up with one tall button, as in the slides ribbon's
+     .rb-clip-col (cut / copy / format painter): 24×20 buttons, gap 0, 14px glyph */
+  height: 20px;
+  place-items: center;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-small);
+  font-size: 14px;
+}
+
+.tool-stack button:hover {
+  background: var(--ribbon-hover);
+}
+
+.tool-stack button.is-active,
+.tool-stack button.is-active:hover {
+  background: var(--ribbon-active);
+}
+
+.inline-tools button.labeled {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 6px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.select-like,
+.number-format {
+  display: inline-flex;
+  align-items: center;
+  /* control metrics from the slides ribbon's .rb-font-btn: 28px tall,
+     0 7px padding, 13px type */
+  height: 28px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-small);
+  padding: 0 7px;
+  background: var(--surface);
+  font-size: 13px;
+}
+
+.select-like {
+  min-width: 104px;
+}
+
+.select-like.compact {
+  min-width: 44px;
+}
+
+/* font family / size dropdowns share the slides ribbon's fixed widths
+   (.rb-font-name 178px / .rb-font-size 68px) instead of sizing to the
+   longest option */
+.select-like.font-name {
+  width: 178px;
+  min-width: 0;
+}
+
+.select-like.font-size {
+  width: 68px;
+  min-width: 0;
+}
+
+/* the font combos are buttons inside .inline-tools, whose flat-toggle reset
+   (border: none / transparent) outranks the base .select-like chrome — put
+   the combobox border back on just these two; .compact triggers stay flat */
+.select-like.font-name,
+.select-like.font-size {
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+}
+
+.number-format {
+  min-width: 76px;
+}
+
+.inline-tools span,
+.inline-tools button {
+  display: grid;
+  /* compact toggle metrics from the slides ribbon's .rb-icon */
+  min-width: 28px;
+  height: 30px;
+  place-items: center;
+  /* UA button padding would widen every 28px toggle; triggers that need
+     horizontal padding get it back via .menu-select > .select-like /
+     .labeled below */
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-small);
+  font-size: 15px;
+}
+
+.inline-tools span:hover,
+.inline-tools button:hover {
+  background: var(--ribbon-hover);
+}
+
+/* Selection echo: the active cell's B/I/U/S state shows as pressed
+   toggles (same neutral pressed gray as the slides ribbon). */
+.inline-tools button.is-active,
+.inline-tools button.is-active:hover {
+  background: var(--ribbon-active);
+}
+
+/* alignment glyphs use the shared 15px inline size (slides .rb-icon) */
+
+/* the glyph span nested inside a toggle / trigger / swatch must not re-apply
+   the 28px toggle box (the `.inline-tools span` rule above also matches it),
+   or every icon button inflates to 28px content + UA button padding ≈ 40px;
+   width auto drops the 20px glyph box so the svg size rules above govern */
+.inline-tools .tool-symbol {
+  min-width: 0;
+  width: auto;
+  height: auto;
+}
+
+/* Color swatches: the glyph is the SAME size as its siblings (15px letter /
+   18px svg) so the row's cap line stays level, and the 16×4 bar hangs below
+   it out of flow (docs' colored-icon pattern) instead of pushing the whole
+   stack taller than the neighbouring glyphs. */
+.inline-tools .swatch-letter {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  height: auto;
+  line-height: 1;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.swatch-letter i {
+  position: absolute;
+  top: calc(100% + 1px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16px;
+  height: 4px;
+  border-radius: 1px;
+}
+
+/* the 24-canvas svgs carry ~3px of box padding below their ink — tuck the
+   bar into it so it hugs the glyph like it hugs the letterforms */
+.swatch-letter .tool-symbol ~ i {
+  top: calc(100% - 3px);
+}
+
+.ribbon-tool.as-button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+
+.ribbon-tool.as-button:not(.large):hover {
+  background: var(--ribbon-hover);
+}
+
+.ribbon-tool.as-button:not(.large).active {
+  background: var(--ribbon-active);
+}
+
+.ribbon-tool.large.as-button.active .tool-icon-row {
+  background: var(--ribbon-active);
+}
+
+.ribbon-tool.as-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.ribbon-tool.as-button:disabled:hover {
+  background: transparent;
+}
+
+/* Reserved ribbon slots that are not implemented yet. */
+.ribbon-tool.reserved {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.ribbon-tool.reserved:hover {
+  background: transparent;
+}
+
+/* dropdown chevron svg (copied from the slides ribbon's RbCaret) */
+.chev {
+  flex-shrink: 0;
+  margin-left: 3px;
+  color: var(--text-muted);
+  vertical-align: -1px;
+}
+
+/* View tab's stacked show/hide checkboxes (the Show group). */
+/* Home Styles group: three stacked dropdown rows. Muted via color, not
+ * opacity — opacity spans the subtree and would render the anchored
+ * .menu-select-drop popups translucent. */
+.styles-stack {
+  display: grid;
+  gap: 1px;
+  color: var(--text-secondary);
+}
+
+.styles-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 4px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* row icons keep a compact box so labels stay close, with the slides
+   ribbon's .rb-small 14px svg size; letterform fallbacks match at 13px */
+.styles-row .tool-symbol {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  font-size: 13px;
+}
+
+.styles-row b {
+  font-weight: 400;
+}
+
+/* Stacked small command rows beside a large button (Insert/Formulas tabs). */
+.row-stack {
+  display: grid;
+  gap: 1px;
+  align-content: center;
+  justify-items: start;
+}
+
+/* Clickable rows keep the same small type as reserved ones (the generic
+   .styles-row.as-button rule resets font to the page default). */
+.ribbon .styles-row.as-button {
+  font-size: 12px;
+  padding: 1px 4px;
+  color: inherit;
+}
+
+.ribbon .styles-row.as-button:hover {
+  color: inherit;
+  background: var(--ribbon-hover);
+  border-radius: var(--radius-small);
+}
+
+.styles-row.reserved {
+  opacity: 0.45;
+}
+
+/* Invisible native select stretched over its host, so a styled row or large
+   button gets a real dropdown menu. */
+.cover-select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+  appearance: none;
+}
+
+/* ── MenuSelect: custom dropdown replacing native selects ──────────────────
+   The panel is fixed + anchored below its trigger (slides .rb-drop pattern),
+   so it escapes the ribbon's scroll clip and never covers ribbon content.
+   anchor-scope keeps each panel bound to its own wrap. */
+
+.menu-select {
+  position: relative;
+  display: inline-flex;
+  anchor-name: --menu-select;
+  anchor-scope: --menu-select;
+}
+
+/* Anchor positioning for the shared Word-style color panel (@yiioffice/ui
+   .gcp-palette draws the chrome; this only places it under its trigger). */
+.sheets-color-pop {
+  position: fixed;
+  position-anchor: --menu-select;
+  top: calc(anchor(bottom) + 4px);
+  left: anchor(left);
+  position-try-fallbacks:
+    flip-inline,
+    flip-block,
+    flip-inline flip-block;
+  position-visibility: anchors-visible;
+  z-index: 1000;
+}
+
+/* body-portal variant for transformed/clipping hosts (Univer float DOM);
+   left/top are set inline against the trigger's viewport rect */
+.sheets-color-pop-portal {
+  position: fixed;
+  z-index: 960;
+}
+
+/* plain color-well trigger (dialog / task-pane color pickers); the current
+   color is painted as an inline background on the button */
+.color-well {
+  width: 48px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.color-well:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* invisible trigger stretched over the host tool (old cover-select markup) */
+.menu-select-cover {
+  position: absolute;
+  inset: 0;
+}
+
+/* combobox-look trigger: a button wearing the old select's classes */
+.menu-select > .select-like {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  height: 28px;
+  /* restore the trigger inset that the .inline-tools button padding reset strips */
+  padding: 0 7px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  font-size: 12px;
+  color: inherit;
+}
+
+.menu-select .menu-select-value {
+  display: inline;
+  min-width: 0;
+  height: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* the `.inline-tools span` toggle rule would bump this to 15px — keep the
+     trigger label on the button's 12px ribbon type */
+  font: inherit;
+}
+
+/* compact triggers hold an icon beside a short label — flex keeps the pair
+   centered; the wide font/number combos stay inline so their labels keep
+   ellipsizing */
+.select-like.compact .menu-select-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* editable combobox trigger (font name/size, #160): a span wearing the
+   .select-like chrome hosting a free-text input + caret button */
+.menu-select > .menu-select-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px;
+  height: 28px;
+  padding: 0 4px 0 7px;
+  cursor: text;
+}
+
+.menu-select-edit input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.menu-select .menu-select-edit .menu-select-caret {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  min-width: 16px;
+  width: 16px;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.menu-select-drop {
+  position: fixed;
+  position-anchor: --menu-select;
+  top: calc(anchor(bottom) + 4px);
+  left: anchor(left);
+  /* near the right window edge, right-align to the trigger */
+  position-try-fallbacks: flip-inline;
+  /* trigger scrolled out of the ribbon → hide the panel with it */
+  position-visibility: anchors-visible;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  min-width: 148px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  box-shadow: var(--sheets-shadow-drop);
+}
+
+.menu-select-drop button {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  border: none;
+  background: none;
+  text-align: left;
+  font-size: 12.5px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.menu-select-drop button:hover {
+  background: var(--ribbon-hover);
+}
+
+.menu-select-drop button.on {
+  background: var(--ribbon-hover);
+  font-weight: 600;
+}
+
+/* group break above the enumerated system fonts */
+.menu-select-drop button.sep-above {
+  border-top: 1px solid var(--border-strong);
+  border-radius: 0 0 4px 4px;
+  margin-top: 4px;
+}
+
+/* Insert tab shape gallery: grouped preview grid inside the dropdown */
+.shape-gallery-drop {
+  width: 322px;
+  max-height: 420px;
+}
+
+.shape-gallery-title {
+  padding: 6px 6px 2px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.shape-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+}
+
+.menu-select-drop .shape-gallery-grid button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  padding: 5px 0;
+  color: var(--text);
+}
+
+/* Insert tab's small chart-type buttons, arranged as an icon cluster. */
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 26px);
+  gap: 1px;
+  align-content: center;
+}
+
+/* the 26×17 grid cells hold a 13px icon */
+.chart-grid .tool-symbol {
+  flex: 0 0 13px;
+  width: 13px;
+  height: 13px;
+}
+
+.chart-grid .tool-symbol svg {
+  width: 13px;
+  height: 13px;
+}
+
+.chart-grid button,
+.chart-grid span {
+  display: grid;
+  height: 17px;
+  place-items: center;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-small);
+  font-size: 11px;
+}
+
+.chart-grid button:hover {
+  background: var(--surface-hover);
+}
+
+.chart-grid .reserved {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.check-column {
+  display: grid;
+  gap: 2px;
+  align-content: center;
+}
+
+/* Page Layout's Gridlines/Headings column captions. */
+.check-head {
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.check-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  padding: 1px 6px;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--text);
+  font-size: 11px;
+  text-align: left;
+}
+
+button.check-item:hover {
+  background: var(--surface-hover);
+}
+
+.check-box {
+  display: grid;
+  width: 13px;
+  height: 13px;
+  place-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: 2px;
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 9px;
+  font-style: normal;
+}
+
+.reserved-check {
+  opacity: 0.45;
+}
+
+/* Spreadsheet area — full width (AI panel removed) */
+.sheet-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+}
+
+/* formula-bar row + spreadsheet */
+.sheet-main {
+  display: grid;
+  /* workbook / status bar */
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.workbook-area {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+  position: relative;
+}
+
+.workbook-opening-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.csv-empty-notice {
+  position: absolute;
+  z-index: 20;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--sheets-notice-border);
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  font-size: 12px;
+}
+
+.csv-empty-notice span {
+  flex: 1;
+}
+
+.csv-empty-notice button {
+  border: 1px solid var(--sheets-notice-border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  background: var(--surface);
+  color: var(--accent-dark);
+  cursor: pointer;
+}
+
+.csv-empty-notice button.csv-empty-notice-close {
+  border: 0;
+  background: transparent;
+  font-size: 16px;
+}
+
+/* ================= status bar (unified with docs/slides) ================= */
+
+.status-bar {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 12px;
+  height: 24px;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  background: var(--sheets-statusbar-bg);
+  border-top: 1px solid var(--sheets-statusbar-border);
+}
+
+.status-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-msg {
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.zoom-btn {
+  border: none;
+  background: none;
+  color: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  line-height: 1;
+}
+
+.zoom-btn:hover {
+  background: var(--sheets-statusbar-hover);
+}
+
+.zoom-slider {
+  width: 110px;
+  accent-color: var(--sheets-zoom-slider);
+  height: 3px;
+}
+
+.zoom-value {
+  min-width: 38px;
+  text-align: right;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  padding: 0 4px;
+  height: 20px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.zoom-value:hover,
+.view-btn:hover {
+  background: var(--sheets-statusbar-hover);
+}
+
+.view-btn {
+  border: none;
+  background: none;
+  color: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  width: 22px;
+  height: 20px;
+  border-radius: 3px;
+  line-height: 1;
+}
+
+.view-btn[aria-checked='true'] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.view-switch {
+  display: flex;
+  gap: 2px;
+  margin-right: 6px;
+}
+
+.status-stats-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 180px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: var(--shadow-menu);
+}
+
+.status-stats-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.status-stats-menu button:hover {
+  background: var(--hover);
+}
+
+.zoom-dialog .zoom-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 12px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.zoom-dialog .zoom-choices legend {
+  padding: 0 4px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.zoom-dialog .dialog-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.zoom-dialog .zoom-custom input[type='number'] {
+  width: 64px;
+  margin-left: 6px;
+}
+
+.sheet-main {
+  position: relative;
+}
+
+/* the grid stays ltr under an RTL UI: Univer inherits this through ctx.direction */
+
+.spreadsheet {
+  direction: ltr;
+  min-width: 0;
+  min-height: 0;
+  background: var(--surface);
+}
+
+/* Outline (Group) gutter: strips beside the grid, sized by the deepest level. */
+.workbook-area.has-outline {
+  grid-template-columns: var(--outline-gutter-w, 0px) minmax(0, 1fr);
+}
+
+.workbook-area.has-outline > .spreadsheet {
+  grid-area: 1 / 2;
+}
+
+.outline-gutter {
+  display: block;
+  position: absolute;
+  z-index: 1;
+  background: var(--surface-subtle);
+  user-select: none;
+}
+
+/* Fills the reserved grid column; absolute so its bitmap never sizes the grid. */
+.outline-gutter-rows {
+  inset: 0 auto 0 0;
+  width: var(--outline-gutter-w, 0px);
+  height: 100%;
+}
+
+/* Sits in the top band of the (heightened) column header, over the grid canvas. */
+.outline-gutter-cols {
+  top: 0;
+  left: 0;
+  /* Above Univer's grid canvas (z 8), below floating chrome (z 20+). */
+  z-index: 9;
+}
+
+.link-button {
+  display: inline;
+  border: none;
+  padding: 0;
+  color: var(--accent-dark);
+  background: none;
+  font-size: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ─── Slicer ─────────────────────────────────────────────────────────── */
+
+/* Field picker: grid of button tiles */
+.slicer-picker-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 18px 10px;
+}
+
+.slicer-picker-field {
+  padding: 6px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.slicer-picker-field:hover {
+  border-color: var(--accent);
+  color: var(--accent-dark);
+}
+
+/* Slicer overlay stack on the right side of the worksheet */
+.slicer-stack {
+  position: fixed;
+  top: 190px;
+  right: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 1000;
+  max-height: calc(100vh - 260px);
+  overflow-y: auto;
+}
+
+.slicer-panel {
+  width: 190px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--sheets-shadow-slicer);
+  overflow: hidden;
+}
+
+.slicer-panel header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px 6px 10px;
+  background: var(--accent);
+  color: var(--sheets-on-accent);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.slicer-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slicer-clear,
+.slicer-close {
+  border: none;
+  background: transparent;
+  color: var(--sheets-on-accent);
+  font-size: 13px;
+  line-height: 1;
+  padding: 2px 4px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.slicer-clear:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.slicer-clear:hover:not(:disabled),
+.slicer-close:hover {
+  background: var(--sheets-on-accent-hover);
+}
+
+.slicer-members {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.slicer-member {
+  text-align: left;
+  padding: 4px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  background: var(--sheets-member-bg);
+  color: var(--sheets-member-ink);
+  font-size: 12.5px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slicer-member.selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--sheets-on-accent);
+}
+
+.slicer-member:hover:not(.selected) {
+  border-color: var(--accent);
+}
+
+.timeline-range {
+  padding: 6px 10px 0;
+  color: var(--sheets-member-ink);
+  font-size: 12px;
+}
+
+.timeline-months {
+  display: flex;
+  gap: 2px;
+  padding: 8px;
+  max-width: 260px;
+  overflow-x: auto;
+}
+
+.timeline-month {
+  flex: 0 0 auto;
+  min-width: 22px;
+  padding: 4px 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--sheets-member-bg);
+  color: var(--sheets-member-ink);
+  font-size: 11.5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.timeline-month.selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--sheets-on-accent);
+}
+
+.timeline-month:hover:not(.selected) {
+  border-color: var(--accent);
+}
+
+/* Univer's bottom sheet-switcher: the selected tab label ships in Univer's
+   primary blue (univer-text-primary-700); recolor it to the Excel green. */
+[data-u-comp='slide-tab-item'][aria-selected='true'] {
+  color: var(--accent) !important;
+}
+
+/* The gridlines toggle at the right of the sheet bar is a two-tone icon whose
+   accent path hardcodes fill=var(--univer-primary-600); neutralize the blue. */
+.univerjs-icon-hide-gridlines-double-icon {
+  --univer-primary-600: currentColor;
+}
+
+/* ================= transient toast (save feedback) ================= */
+
+.app-toast {
+  position: fixed;
+  top: 64px;
+  left: 50%;
+  transform: translate(-50%, -8px);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: var(--sheets-toast-bg);
+  color: var(--sheets-toast-ink);
+  font-size: 13px;
+  box-shadow: var(--sheets-shadow-toast);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+  max-width: 60vw;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.app-toast.error {
+  background: var(--sheets-toast-error-bg);
+}
+
+.app-toast-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.app-toast.success .app-toast-icon {
+  color: var(--sheets-toast-ok);
+}
+
+/* Shape gallery dropdown (slides/docs parity: grouped, outline-icon grid) */
+.menu-select-drop.rb-shape-gallery {
+  width: 264px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 6px 8px;
+}
+
+.rb-drop-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+  padding: 4px 2px 3px;
+}
+
+.rb-shape-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 28px);
+  gap: 3px;
+  margin-bottom: 4px;
+}
+
+.menu-select-drop.rb-shape-gallery .rb-shape-cell {
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.menu-select-drop.rb-shape-gallery .rb-shape-cell:hover {
+  border-color: var(--accent);
+  background: var(--ribbon-hover);
+}
+
+/* Shape draw mode: crosshair over the whole grid while armed */
+#univer-container.sheet-shape-drawing,
+#univer-container.sheet-shape-drawing * {
+  cursor: crosshair !important;
+}
+
+/* Watch Window: floating non-modal panel (Formulas > Watch Window) */
+.watch-window {
+  position: fixed;
+  right: 18px;
+  bottom: 64px;
+  width: 420px;
+  max-height: 320px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--sheets-shadow-slicer);
+  overflow: hidden;
+  z-index: 1000;
+}
+
+.watch-window header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px 6px 10px;
+  background: var(--accent);
+  color: var(--sheets-on-accent);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.watch-title {
+  flex: 1;
+}
+
+.watch-add,
+.watch-close {
+  border: none;
+  background: transparent;
+  color: var(--sheets-on-accent);
+  font-size: 12px;
+  line-height: 1;
+  padding: 3px 6px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.watch-add:hover,
+.watch-close:hover {
+  background: var(--sheets-on-accent-hover);
+}
+
+.watch-empty {
+  margin: 0;
+  padding: 14px 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.watch-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  overflow-y: auto;
+}
+
+.watch-table th,
+.watch-table td {
+  padding: 4px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.watch-table th {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.watch-formula {
+  font-family: ui-monospace, monospace;
+}
+
+.watch-gone td {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.watch-remove {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+
+.watch-remove:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+/* View > Formula Bar toggle: an app-level setting (not in the file), hiding
+   Univer's formula-bar row; the flex workbench reflows the grid below. */
+#univer-container.formula-bar-hidden [data-u-comp='formula-bar'] {
+  display: none;
+}
+
+/* ── Shared dropdown (@yiioffice/ui gs-dd) app sizing ──────────────────────
+   Ports the old native-select metrics per container so replacing <select>
+   with the themed Dropdown doesn't shift layout (reference: the matching
+   block in apps/slides styles.css). */
+
+/* dialog fields: fill the grid cell like the old `.dialog-grid select`
+   (100% × 26px) / `.numfmt-field select` rules */
+.dialog-grid .gs-dd,
+.numfmt-field .gs-dd {
+  width: 100%;
+  min-width: 0;
+}
+
+.dialog-grid .gs-dd-btn,
+.numfmt-field .gs-dd-btn {
+  border-radius: var(--radius-small);
+}
+
+/* pivot rows: the field pickers keep their old inline flex: 1 stretch */
+.pivot-dialog .gs-dd.pivot-dd-grow {
+  flex: 1;
+  min-width: 0;
+}
+
+/* floating chart editor: old `.chart-editor select` was 120px+ × 24px, 11px type */
+.chart-editor .gs-dd {
+  min-width: 120px;
+}
+
+.chart-editor .gs-dd-btn {
+  height: 24px;
+  font-size: 11px;
+}
+
+/* chart format pane: old `.chart-format-pane select` was a fixed 120px */
+.chart-format-pane .gs-dd {
+  width: 120px;
+}
+
+/* custom-sort dialog: the old .select-like triggers were 28px tall; widths
+   come from the .sort-level grid columns */
+.sort-level .gs-dd {
+  min-width: 0;
+}
+
+.sort-level .gs-dd-btn {
+  height: 28px;
+}
+
+/* Insert Function filter row: a floor so the trigger doesn't resize with
+   each picked category (the old select sized to its longest option) */
+.fn-filter-row .gs-dd {
+  flex-shrink: 0;
+  min-width: 120px;
+}
+
+/* Excel split color tools: the glyph applies the current color, the slim
+   caret opens the palette. The pair reads as one control — shared hover
+   tint, individually highlighted halves (docs-ribbon parity). */
+.inline-tools .menu-select.color-split {
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.inline-tools .color-split .color-tool {
+  min-width: 24px;
+  border-radius: var(--radius-small) 0 0 var(--radius-small);
+}
+
+.inline-tools .color-tool-caret {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  width: 13px;
+  height: 30px;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 0 var(--radius-small) var(--radius-small) 0;
+}
+
+.inline-tools .color-tool-caret .chev {
+  margin-left: 0;
+}
+
+.inline-tools .color-split:hover .color-tool:not(:disabled),
+.inline-tools .color-split:hover .color-tool-caret:not(:disabled) {
+  background: var(--ribbon-hover);
+}
+
+.inline-tools .color-tool-caret:hover:not(:disabled),
+.inline-tools .color-tool-caret.is-active {
+  background: var(--ribbon-active, var(--ribbon-hover));
+}
+
+/* Border dropdown entries: glyph + label, Excel-style; the drop sits inside
+   .inline-tools, so the span sheds the 28×30 toggle box and its hover */
+.menu-select-drop .menu-option-icon {
+  display: inline-grid;
+  place-items: center;
+  min-width: 0;
+  height: auto;
+  margin-right: 8px;
+  vertical-align: -3px;
+}
+
+.menu-select-drop .menu-option-icon:hover {
+  background: transparent;
+}
+
+/* Find & Replace panel (Ctrl+F / Ctrl+H): Excel-style modeless dialog.
+   Sits above the grid but below modal dialog backdrops (z 900+), so Format
+   Cells and friends still cover it. */
+.find-replace-panel {
+  position: fixed;
+  top: 96px;
+  right: 24px;
+  z-index: 120;
+  display: grid;
+  gap: 10px;
+  width: min(560px, calc(100vw - 32px));
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  padding: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-modal);
+}
+
+.find-replace-panel header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: move;
+  user-select: none;
+  touch-action: none;
+}
+
+.find-replace-panel .fr-close {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: var(--radius-small);
+  cursor: pointer;
+}
+
+.find-replace-panel .fr-close:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.find-replace-panel .fr-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.find-replace-panel .fr-grid > label {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.find-replace-panel .fr-grid input:not([type='checkbox']),
+.find-replace-panel .fr-options select {
+  width: 100%;
+  min-width: 0;
+  height: 26px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-small);
+  padding: 0 6px;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--surface);
+}
+
+.find-replace-panel .fr-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.find-replace-panel .fr-options label {
+  display: grid;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.find-replace-panel .fr-checks {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.find-replace-panel .fr-status {
+  min-height: 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.find-replace-panel .fr-actions {
+  flex-wrap: wrap;
+}
+
+.find-replace-panel .fr-results {
+  display: grid;
+  gap: 6px;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+
+.find-replace-panel .fr-results table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  display: block;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.find-replace-panel .fr-results th,
+.find-replace-panel .fr-results td {
+  text-align: start;
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+}
+
+.find-replace-panel .fr-results th {
+  color: var(--text-muted);
+  font-weight: 500;
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+}
+
+.find-replace-panel .fr-results tbody tr {
+  cursor: pointer;
+}
+
+.find-replace-panel .fr-results tbody tr:hover {
+  background: var(--hover);
+}
+
+.find-replace-panel .fr-results-count {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* The stock Univer find dialog is replaced by .find-replace-panel; it still
+   mounts (its controller carries the find-session lifecycle) but must never
+   show. Keyed on the component marker because the portal wrapper carries no
+   stable class. */
+body > div:has([data-u-comp='find-replace-dialog']) {
+  display: none !important;
+}
+
+.protect-sheet-allow {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 6px 10px;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  columns: 2;
+}
+
+.protect-sheet-allow label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  break-inside: avoid;
+}
+
+/* Table Design tab: name box, option checks and the styles gallery. Swatch
+   colors are document data (the table style itself), set inline. */
+.table-name-field {
+  min-width: 120px;
+  gap: 2px;
+}
+.table-name-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.table-name-input,
+.table-range-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+}
+.table-range-input {
+  margin: 6px 0 10px;
+  font-family: ui-monospace, monospace;
+}
+.table-options .check-item[disabled] {
+  opacity: 0.5;
+}
+.table-style-gallery {
+  position: relative;
+}
+.table-style-panel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 30;
+  width: 520px;
+  max-height: 60vh;
+  overflow: auto;
+  padding: 8px 10px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow-menu);
+}
+.table-style-panel header {
+  margin: 6px 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.table-style-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+.table-style-swatch {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 3px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: var(--surface);
+  cursor: pointer;
+}
+.table-style-swatch:hover {
+  background: var(--hover);
+  border-color: var(--border);
+}
+.table-style-swatch.active {
+  border-color: var(--accent);
+}
+.table-style-swatch .swatch-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  height: 7px;
+  padding: 0 2px;
+  border-bottom: 1px solid transparent;
+  background: var(--surface);
+}
+.table-style-swatch .swatch-row i {
+  display: block;
+  height: 2px;
+  margin-top: 2px;
+  border-radius: 1px;
+  background: var(--text-muted);
+  opacity: 0.6;
+}
+
+.fill-series-groups {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.fill-series-groups fieldset {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 6px;
+  padding: 6px 10px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.fill-series-groups fieldset:disabled {
+  opacity: 0.5;
+}
+
+.fill-series-groups .dialog-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.paste-special-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.paste-special-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 12px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.paste-special-group legend {
+  padding: 0 4px;
+  color: var(--text-dim);
+}
+
+.paste-special-types {
+  grid-row: span 2;
+}
+
+.paste-special-flags {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 12px;
+}
+
+.paste-special-body .dialog-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.paste-special-body .dialog-check.is-disabled {
+  color: var(--text-dim);
+}
+
+.paste-special-body + .dialog-actions .secondary:first-child {
+  margin-right: auto;
+}
+
+/* Excel-style sheet-tab context menu (replaces Univer's footer tab menu). */
+.sheet-tab-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 220px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: var(--shadow-menu);
+}
+
+.sheet-tab-menu hr {
+  margin: 4px 6px;
+  border: none;
+  border-top: 1px solid var(--border);
+}
+
+.sheet-tab-menu [role='menuitem'] {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sheet-tab-menu [role='menuitem']:hover:not(:disabled),
+.sheet-tab-menu [role='menuitem'][aria-expanded='true'] {
+  background: var(--hover);
+}
+
+.sheet-tab-menu [role='menuitem']:disabled {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.sheet-tab-menu-sub {
+  position: relative;
+}
+
+.sheet-tab-menu-pop {
+  position: absolute;
+  left: 100%;
+  bottom: 0;
+  margin-left: 2px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: var(--shadow-menu);
+}
+
+.sheet-tab-menu-sub.flip .sheet-tab-menu-pop {
+  left: auto;
+  right: 100%;
+  margin-left: 0;
+  margin-right: 2px;
+}
+
+[data-u-comp='slide-tab-item'][data-grouped='true'] {
+  box-shadow: inset 0 -2px 0 0 var(--accent) !important;
+}
+
+.sheet-tab-dialog {
+  min-width: 320px;
+}
+
+.sheet-tab-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.sheet-tab-select {
+  width: 100%;
+  padding: 2px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.sheet-tab-select option {
+  padding: 3px 6px;
+}
+
+.sheet-tab-list {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px;
+}
+
+.sheet-tab-list [role='option'] {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.sheet-tab-list [role='option'].selected {
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+
+.sheet-tab-dialog .dialog-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+/* Blink refuses to place a caret (and drops typed keys) in an empty editable
+   block whose box is 0px tall; Univer's hidden key proxy has no content. */
+#univer-container [data-u-comp='editor'] {
+  min-height: 1px;
+}
+
+/* Review ▸ Comments task pane (threaded comments) */
+.threaded-comments-pane {
+  position: fixed;
+  top: 96px;
+  right: 24px;
+  bottom: 48px;
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  width: min(340px, calc(100vw - 32px));
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-modal);
+  overflow: hidden;
+}
+
+.threaded-comments-pane > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+
+.threaded-comments-pane .tc-close {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: var(--radius-small);
+  cursor: pointer;
+}
+
+.threaded-comments-pane .tc-close:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.threaded-comments-pane .tc-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.tc-empty {
+  margin: 12px 4px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.tc-thread {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+  background: var(--surface);
+}
+
+.tc-thread.focused {
+  border-color: var(--accent);
+}
+
+.tc-thread.resolved {
+  opacity: 0.75;
+}
+
+.tc-thread > header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.tc-spacer {
+  flex: 1;
+}
+
+.tc-cell {
+  border: 0;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.tc-badge {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--hover);
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.tc-entry {
+  display: grid;
+  gap: 4px;
+}
+
+.tc-entry.reply,
+.tc-thread .tc-entry + .tc-entry {
+  padding-left: 12px;
+  border-left: 2px solid var(--border);
+}
+
+.tc-entry-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.tc-author {
+  font-weight: 600;
+}
+
+.tc-time {
+  color: var(--text-muted);
+}
+
+.tc-text {
+  font-size: 13px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.tc-entry-tools {
+  display: flex;
+  gap: 10px;
+}
+
+.tc-link {
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 12px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.tc-link:hover {
+  text-decoration: underline;
+}
+
+.tc-link.danger {
+  color: var(--danger);
+}
+
+.tc-composer {
+  display: grid;
+  gap: 6px;
+}
+
+.tc-composer textarea {
+  width: 100%;
+  resize: vertical;
+  box-sizing: border-box;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 13px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.tc-composer textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.tc-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.tc-button {
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.tc-button:hover {
+  background: var(--hover);
+}
+
+.tc-button.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--surface);
+}
+
+.tc-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.thread-hover-card {
+  position: fixed;
+  z-index: 130;
+  width: 280px;
+  max-height: 60vh;
+  overflow: hidden;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow-modal);
+  pointer-events: none;
+}
+
+.thread-hover-card .tc-hint {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+/* Print with Preview */
+.format-cells-dialog.print-dialog {
+  width: min(96vw, 1100px);
+  max-width: 96vw;
+  height: min(92vh, 760px);
+  grid-template-rows: auto 1fr auto auto;
+  min-width: 0;
+}
+
+.print-dialog-body {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 14px;
+  min-height: 0;
+}
+
+.print-settings {
+  align-content: start;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.print-pages-row {
+  display: grid;
+  grid-template-columns: 1fr 56px 56px;
+  gap: 6px;
+}
+
+.print-preview {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  background: var(--surface-subtle);
+}
+
+.print-preview-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.print-preview-bar button {
+  min-width: 28px;
+  height: 24px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-small);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.print-preview-bar button:disabled {
+  opacity: 0.4;
+}
+
+.print-preview-spacer {
+  flex: 1;
+}
+
+.print-preview-pane {
+  position: relative;
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+}
+
+.print-preview-page {
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-modal);
+}
+
+.print-preview-page iframe {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border: 0;
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+
+/* PivotTable Fields pane */
+.pivot-fields-pane {
+  position: fixed;
+  z-index: 900;
+  top: 140px;
+  right: 12px;
+  bottom: 40px;
+  display: flex;
+  width: 280px;
+  flex-direction: column;
+  padding: 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--sheets-shadow-pane);
+  font-size: 12px;
+  gap: 10px;
+  user-select: none;
+}
+.pivot-fields-pane .dialog-backdrop {
+  user-select: auto;
+}
+.pivot-fields-pane header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+}
+.pivot-fields-pane header button {
+  border: none;
+  background: none;
+  font-size: 14px;
+  cursor: pointer;
+}
+.pivot-fields-pane > strong,
+.pivot-field-list > strong,
+.pivot-areas > strong,
+.pivot-area > strong {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.pivot-field-list {
+  display: flex;
+  flex: 1 1 40%;
+  min-height: 80px;
+  flex-direction: column;
+  gap: 4px;
+}
+.pivot-field-list ul {
+  flex: 1;
+  margin: 0;
+  padding: 4px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  list-style: none;
+  overflow-y: auto;
+}
+.pivot-field-list li label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  cursor: grab;
+}
+.pivot-field-list li label:hover {
+  background: var(--hover);
+}
+.pivot-field-list li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pivot-areas {
+  display: flex;
+  flex: 1 1 60%;
+  min-height: 160px;
+  flex-direction: column;
+  gap: 4px;
+}
+.pivot-area-grid {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 6px;
+  min-height: 0;
+}
+.pivot-area {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--surface-subtle);
+}
+.pivot-area.is-drop-target {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.pivot-area-chips {
+  display: flex;
+  flex: 1;
+  min-height: 24px;
+  flex-direction: column;
+  gap: 3px;
+  overflow-y: auto;
+}
+.pivot-chip {
+  display: flex;
+  align-items: center;
+  min-height: 22px;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  background: var(--surface);
+  cursor: grab;
+}
+.pivot-chip.is-dragging {
+  opacity: 0.4;
+}
+.pivot-chip-label {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  padding: 2px 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pivot-chip-label small {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+.pivot-chip > button {
+  flex: none;
+  width: 20px;
+  border: none;
+  border-left: 1px solid var(--border-subtle);
+  background: none;
+  cursor: pointer;
+}
+.pivot-chip > button:hover {
+  background: var(--hover);
+}
+.pivot-drop-marker {
+  height: 2px;
+  margin: 0 2px;
+  border-radius: 1px;
+  background: var(--accent);
+}
+.pivot-drag-ghost {
+  position: fixed;
+  z-index: 1000;
+  padding: 2px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  background: var(--surface);
+  box-shadow: var(--shadow-menu);
+  pointer-events: none;
+}
+.pivot-chip-menu {
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  min-width: 200px;
+  flex-direction: column;
+  padding: 4px 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: var(--shadow-menu);
+  transform: translateX(-100%);
+}
+.pivot-chip-menu button {
+  padding: 4px 12px;
+  border: none;
+  background: none;
+  color: var(--text);
+  font-size: 12px;
+  text-align: start;
+  cursor: pointer;
+}
+.pivot-chip-menu button:hover:not(:disabled) {
+  background: var(--hover);
+}
+.pivot-chip-menu button:disabled {
+  color: var(--text-muted);
+  cursor: default;
+}
+.pivot-fields-pane footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+}
+.pivot-fields-pane footer label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Picture/shape right-click menu: separators and nested submenus */
+.chart-menu-separator {
+  margin: 4px 6px;
+  border: none;
+  border-top: 1px solid var(--border);
+}
+
+.chart-menu-sub {
+  position: relative;
+}
+
+.chart-menu-sub > button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chart-menu-sub.open > button {
+  background: var(--surface-hover);
+}
+
+.chart-menu-caret {
+  margin-left: 12px;
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.chart-menu-child {
+  position: absolute;
+  top: -4px;
+  left: calc(100% + 2px);
+}
+
+/* Rotated pictures: the float container is the rotated AABB, the picture
+   box the true frame centered inside it */
+.xlsx-image-rotated {
+  position: absolute;
+  inset: 0;
+  container-type: size;
+}
+
+.xlsx-image-rotated-inner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+}
+
+.xlsx-image-rotated .xlsx-image,
+.xlsx-image-rotated .xlsx-image-crop {
+  width: 100%;
+  height: 100%;
+}
+
+.visual-dialog .dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.visual-dialog-textarea {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+}
+
+.visual-dialog-field {
+  display: grid;
+  grid-template-columns: 90px 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.visual-dialog-field input {
+  min-width: 0;
+}
+
+.visual-dialog-size,
+.visual-dialog-placement {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.visual-dialog-remove {
+  align-self: flex-start;
+}

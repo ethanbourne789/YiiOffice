@@ -48,6 +48,20 @@ func NewWindow(opts application.WebviewWindowOptions) {
 	current.Window.NewWithOptions(opts)
 }
 
+// NewDetachedWindow opens the window that hosts a torn-off tab.
+func NewDetachedWindow(name, title, url string, width, height int) {
+	if current == nil {
+		return
+	}
+	current.Window.NewWithOptions(application.WebviewWindowOptions{
+		Name:   name,
+		Title:  title,
+		URL:    url,
+		Width:  width,
+		Height: height,
+	})
+}
+
 // CloseWindow closes the window by name.
 func CloseWindow(name string) {
 	if current == nil {

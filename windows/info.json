@@ -1,0 +1,15 @@
+{
+	"fixed": {
+		"file_version": "0.13.0"
+	},
+	"info": {
+		"0409": {
+			"ProductVersion": "0.13.0",
+			"CompanyName": "YiiOffice",
+			"FileDescription": "YiiOffice Desktop Office Suite",
+			"LegalCopyright": "Apache-2.0",
+			"ProductName": "YiiOffice",
+			"Comments": "YiiOffice Desktop Office Suite"
+		}
+	}
+}

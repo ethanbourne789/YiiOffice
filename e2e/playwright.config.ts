@@ -11,7 +11,7 @@ export default defineConfig({
   snapshotPathTemplate: '{testDir}/visual-baselines/{arg}{ext}',
   retries: 1,
   use: {
-    baseURL: 'http://localhost:5173', // Wails dev mode port
+    baseURL: process.env.E2E_BASE_URL || 'http://localhost:5178', // shell dev server port
     trace: 'on-first-retry',
     video: 'on-first-retry',
     screenshot: 'only-on-failure',

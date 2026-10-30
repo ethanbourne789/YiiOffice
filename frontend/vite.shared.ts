@@ -1,5 +1,9 @@
+import { resolve } from 'node:path'
 import react from '@vitejs/plugin-react'
 import { defineConfig, type UserConfig } from 'vite'
+
+/** Absolute path to the generated Wails bindings (frontend/bindings). */
+const bindingsRoot = resolve(__dirname, 'bindings')
 
 export interface RendererConfigOptions {
   app: string
@@ -12,6 +16,11 @@ export function rendererConfig({ app, port }: RendererConfigOptions): UserConfig
     root: 'src/renderer',
     base: './',
     plugins: [react()],
+    resolve: {
+      alias: {
+        '@bindings': bindingsRoot,
+      },
+    },
     server: { port, strictPort: true },
     build: {
       outDir: `../../../../dist/${app}`,

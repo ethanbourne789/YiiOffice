@@ -36,8 +36,8 @@ func TestAddRecent(t *testing.T) {
 	if len(recents) != 1 {
 		t.Fatalf("expected 1 recent, got %d", len(recents))
 	}
-	if recents[0]["path"] != "c:\\file1.docx" {
-		t.Fatalf("expected path c:\\file1.docx, got %v", recents[0]["path"])
+	if recents[0].Path != "c:\\file1.docx" {
+		t.Fatalf("expected path c:\\file1.docx, got %v", recents[0].Path)
 	}
 
 	// Add a second file
@@ -47,8 +47,8 @@ func TestAddRecent(t *testing.T) {
 		t.Fatalf("expected 2 recents, got %d", len(recents))
 	}
 	// file2 should be first (most recent)
-	if recents[0]["path"] != "c:\\file2.docx" {
-		t.Fatalf("expected file2 first, got %v", recents[0]["path"])
+	if recents[0].Path != "c:\\file2.docx" {
+		t.Fatalf("expected file2 first, got %v", recents[0].Path)
 	}
 
 	// Re-add file1 — should move to front
@@ -58,8 +58,8 @@ func TestAddRecent(t *testing.T) {
 	if len(recents) != 2 {
 		t.Fatalf("expected 2 recents after re-add, got %d", len(recents))
 	}
-	if recents[0]["path"] != "c:\\file1.docx" {
-		t.Fatalf("expected file1 first after re-add, got %v", recents[0]["path"])
+	if recents[0].Path != "c:\\file1.docx" {
+		t.Fatalf("expected file1 first after re-add, got %v", recents[0].Path)
 	}
 }
 
@@ -88,8 +88,8 @@ func TestGetRecentsPagination(t *testing.T) {
 
 	// Page beyond end
 	page = rm.GetRecents(100, 10)
-	if page != nil {
-		t.Fatalf("expected nil for out-of-range offset, got %v", page)
+	if len(page) != 0 {
+		t.Fatalf("expected no rows for out-of-range offset, got %v", page)
 	}
 
 	// Partial page at end

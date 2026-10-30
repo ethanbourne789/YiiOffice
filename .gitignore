@@ -13,6 +13,12 @@
 frontend/node_modules/
 frontend/dist/
 frontend/**/node_modules/
+node_modules/
+
+# E2E
+e2e/test-results/
+e2e/artifacts/
+e2e/playwright-report/
 
 # Editor
 .vscode/
@@ -21,3 +27,13 @@ frontend/**/node_modules/
 
 # Worktrees
 .worktrees/
+
+# Tool caches / temp
+.task/
+.trae-html-share-packages/
+.screenshots/
+.workbuddy/
+
+# OS
+.DS_Store
+Thumbs.db

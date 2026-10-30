@@ -40,6 +40,44 @@ type MarginsInches struct {
 	Right  float64
 }
 
+// EdgeAvailable reports whether a headless-capable Edge executable exists.
+// PDF export depends on it, so callers can degrade gracefully when absent.
+func EdgeAvailable() bool { return findEdgeBrowser() != "" }
+
+// PrintHTMLToPdf converts an HTML string directly to a PDF file, without
+// requiring a live webview window. It writes the HTML to a temporary file and
+// renders it with Edge headless, so output matches WebView2's Blink rendering.
+func PrintHTMLToPdf(html string, outputPath string, opts PrintOptions) error {
+	tmpDir, err := os.MkdirTemp("", "yiioffice-html-print-*")
+	if err != nil {
+		return fmt.Errorf("create temp dir: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	htmlPath := filepath.Join(tmpDir, "print.html")
+	if err := os.WriteFile(htmlPath, []byte(withPageCSS(html, opts)), 0o644); err != nil {
+		return fmt.Errorf("write temp HTML: %w", err)
+	}
+
+	edgePath := findEdgeBrowser()
+	if edgePath == "" {
+		return fmt.Errorf("Edge browser executable not found on this system")
+	}
+
+	args := buildEdgePrintArgs(htmlPath, outputPath, opts)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, edgePath, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("edge headless print failed: %w\noutput: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
 // PrintToPdf exports the given webview window's content to a PDF file.
 //
 // Strategy:
@@ -69,7 +107,7 @@ func PrintToPdf(w application.Window, outputPath string, opts PrintOptions) erro
 	defer os.RemoveAll(tmpDir)
 
 	htmlPath := filepath.Join(tmpDir, "print.html")
-	if err := os.WriteFile(htmlPath, []byte(html), 0o644); err != nil {
+	if err := os.WriteFile(htmlPath, []byte(withPageCSS(html, opts)), 0o644); err != nil {
 		return fmt.Errorf("write temp HTML: %w", err)
 	}
 
@@ -231,12 +269,51 @@ func captureHTMLInline(w application.Window) (string, error) {
 	}
 }
 
+// withPageCSS injects the requested sheet geometry as an @page rule. Headless
+// Edge picks the sheet size up from CSS; there is no reliable command-line
+// flag for it, so the page size has to travel inside the document.
+func withPageCSS(html string, opts PrintOptions) string {
+	if opts.PageSize == nil || opts.PageSize.Width <= 0 || opts.PageSize.Height <= 0 {
+		return html
+	}
+	rule := fmt.Sprintf("<style>@page{size:%.4fin %.4fin;margin:0}</style>",
+		opts.PageSize.Width, opts.PageSize.Height)
+	if strings.Contains(html, "<head>") {
+		return strings.Replace(html, "<head>", "<head>"+rule, 1)
+	}
+	return rule + html
+}
+
+// ListPrinterNames returns the names of the installed printers. An empty slice
+// means none were found or the query failed.
+func ListPrinterNames() []string {
+	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command",
+		"Get-Printer | Select-Object -ExpandProperty Name")
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	out, err := cmd.Output()
+	if err != nil {
+		return []string{}
+	}
+	var names []string
+	for _, line := range strings.Split(string(out), "\n") {
+		name := strings.TrimSpace(line)
+		if name != "" {
+			names = append(names, name)
+		}
+	}
+	if names == nil {
+		return []string{}
+	}
+	return names
+}
+
 // buildEdgePrintArgs constructs the command-line arguments for Edge headless PDF export.
 func buildEdgePrintArgs(htmlPath, outputPath string, opts PrintOptions) []string {
 	args := []string{
 		"--headless",
 		"--disable-gpu",
 		"--no-sandbox",
+		"--no-pdf-header-footer",
 		"--print-to-pdf=" + outputPath,
 	}
 
