@@ -44,13 +44,16 @@ async function buildRubikFixture(): Promise<string> {
  */
 test('font download UI follows CDN configuration', async ({ page, context }) => {
   test.setTimeout(180_000)
+  const filePath = await buildRubikFixture()
   const launched = await launchShell({
     onboardingSeen: true,
     videoDir: 'slides-font-manager',
-    openFile: await buildRubikFixture(),
+    openFile: filePath,
   })
   await setupPageAfterLaunch(launched, page, context)
   try {
+    // Open the file in the real Wails backend (no auto-open in wails3 dev mode)
+    await page.evaluate((p) => (window as any).aiOffice?.openPath(p), filePath)
     await waitForRoute(page, '/slides')
     await page.waitForSelector('.stage-wrap canvas', { timeout: 30_000 })
 

@@ -33,7 +33,7 @@ export interface PickImageResult {
   name: string
 }
 
-import type { HeadlessExportTarget } from '@yiioffice/electron-utils/headless-export'
+import type { HeadlessExportTarget } from '@yiioffice/desktop-utils/headless-export'
 import type { FaceVerticalMetrics } from '@yiioffice/font-metrics'
 import type { Lang } from '@yiioffice/i18n'
 export type { FaceVerticalMetrics }
@@ -455,5 +455,5 @@ export interface DesktopApi {
   reportViewMenuState(state: { darkCanvas: boolean }): void
 }
 
-/** mirrors VIEW_IMAGE_CHANNEL in @yiioffice/electron-utils (kept literal so the preload stays free of main-only deps) */
+/** mirrors VIEW_IMAGE_CHANNEL in @yiioffice/desktop-utils (kept literal so the preload stays free of main-only deps) */
 export const VIEW_IMAGE_CHANNEL = 'yiioffice:view-image'

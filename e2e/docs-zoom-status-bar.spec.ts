@@ -7,7 +7,7 @@
  * toggles from the status bar.
  */
 import { test, expect } from './fixture'
-import { launchShell, setupPageAfterLaunch, closeAndSaveVideo, waitForRoute } from './helpers'
+import { launchShell, setupPageAfterLaunch, closeAndSaveVideo, waitForRoute, waitForDocumentReady } from './helpers'
 
 const POLL = { timeout: 15_000, intervals: [250, 500, 1000] }
 
@@ -16,8 +16,9 @@ test('zoom 10–500, zoom dialog, page counter, view buttons and track changes',
   const launched = await launchShell({ onboardingSeen: true, videoDir: 'docs-zoom-status-bar' })
   await setupPageAfterLaunch(launched, page, context)
   try {
-    await page.locator('.quick-card').first().click()
+    await page.goto('/docs')
     const editor = await waitForRoute(page, '/docs')
+    await waitForDocumentReady(editor)
     const docPage = editor.locator('.doc-page').first()
     await editor.locator('.doc-page[contenteditable="true"]').waitFor()
     await docPage.click()

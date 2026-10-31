@@ -52,12 +52,8 @@ test.describe('sheets: Insert → Recommended Charts and Icons', () => {
     })
     await setupPageAfterLaunch(launched, page, context, { openFile: workbook })
     try {
-      // openFile is not natively supported in browser mode; simulate via desktopApi if available
-      await page.evaluate(async (filePath) => {
-        const desk = (window as any).desktopApi
-        if (desk && typeof desk.openFile === 'function') {
-          await desk.openFile(filePath)
-        }
+      await page.evaluate((p) => {
+        (window as any).aiOffice?.openPath(p)
       }, workbook)
 
       const sheets = await waitForRoute(page, '/sheets')

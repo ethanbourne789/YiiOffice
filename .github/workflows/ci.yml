@@ -1,0 +1,122 @@
+name: CI
+
+# Runs the verification chain that a release must pass: Go vet+tests+build for
+# the backend, and typecheck+tests+full renderer build for the frontend.
+# E2E (Playwright) drives the shell against its Vite dev server via a
+# Playwright-browser harness (no WebView2 host required), so it runs in CI too.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  go:
+    name: Go (vet + test + build)
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      # Bindings generation is part of the frontend build; verify the tagged
+      # production build compiles cleanly so -X version injection is exercised.
+      - name: go vet
+        run: go vet ./...
+      - name: go test
+        run: go test ./internal/...
+      - name: go build (production tags + version injection)
+        # Mirrors Taskfile build: injects buildinfo.Version and compiles all Windows targets.
+        run: |
+          go build -tags production -trimpath -buildvcs=false `
+            -ldflags="-w -s -H windowsgui -X gitee.com/ethanbourne789/yiioffice/internal/buildinfo.Version=ci" `
+            -o build/bin/YiiOffice-ci.exe .
+
+  frontend:
+    name: Frontend (install + typecheck + test + build)
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm install
+      - name: Typecheck all workspaces
+        run: npm run typecheck
+      - name: Unit tests (all workspaces)
+        run: npm test
+      - name: Build all renderers
+        run: npm run build
+      # The frontend/dist produced here is consumed by the Go embed; sanity-check.
+      - name: Verify embedded assets present
+        run: powershell -Command "Get-ChildItem dist -Directory | ForEach-Object { \$_.Name }"
+        shell: pwsh
+
+  e2e:
+    name: E2E (Playwright vs Vite dev server)
+    runs-on: windows-latest
+    # Runs Playwright against the shell Vite dev server (port 5178) with
+    # minimal bridge stubs injected by the fixture. The multi-app workspace
+    # layout is not directly supported by `wails3 dev` (single Vite root).
+    needs: [go, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            e2e/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install
+      - name: Install E2E dependencies
+        working-directory: e2e
+        run: npm install
+      - name: Install Playwright Chromium
+        working-directory: e2e
+        run: npx playwright install chromium
+      - name: Start shell dev server (background)
+        working-directory: frontend
+        shell: pwsh
+        run: |
+          Start-Process -FilePath "npm.cmd" -ArgumentList "run","dev","-w","@yiioffice/shell","--","--port","5178","--strictPort" -WorkingDirectory "$env:GITHUB_WORKSPACE\frontend" -WindowStyle Hidden
+      # Give Vite a moment to boot, then confirm the shell serves.
+      - name: Wait for dev server
+        shell: pwsh
+        run: |
+          $deadline = (Get-Date).AddSeconds(120)
+          do {
+            try {
+              $r = Invoke-WebRequest -Uri http://localhost:5178/ -UseBasicParsing -TimeoutSec 3
+              if ($r.StatusCode -eq 200) { Write-Output "dev server up"; exit 0 }
+            } catch { Start-Sleep -Seconds 3 }
+          } while ((Get-Date) -lt $deadline)
+          Write-Error "dev server did not come up in time"
+      - name: Run Playwright E2E tests
+        working-directory: e2e
+        run: |
+          npx playwright test `
+            home.spec.ts home-nav.spec.ts window-behaviour.spec.ts `
+            docs-smoke.spec.ts tab-operations.spec.ts home-row-menu-layout.spec.ts `
+            headless-export.spec.ts `
+            markdown-smoke.spec.ts pdf-smoke.spec.ts sheets-smoke.spec.ts slides-smoke.spec.ts
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/test-results
+          if-no-files-found: ignore

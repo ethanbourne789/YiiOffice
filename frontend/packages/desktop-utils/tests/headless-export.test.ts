@@ -90,8 +90,8 @@ describe('headlessModuleFor', () => {
     ['/x/a.pptx', 'slides'],
     ['/x/a.md', 'markdown'],
     ['/x/a.markdown', 'markdown'],
-    ['/x/a.html', 'html'],
-    ['/x/a.htm', 'html'],
+    ['/x/a.html', 'docs'],
+    ['/x/a.htm', 'docs'],
   ])('routes %s to %s', (path, module) => {
     expect(headlessModuleFor(path)).toBe(module)
   })

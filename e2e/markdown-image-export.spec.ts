@@ -63,6 +63,8 @@ test('Markdown File menu exports paginated PNG files with formula and local imag
   })
   await setupPageAfterLaunch(launched, page, context)
   try {
+    // Open the file in the real Wails backend (no auto-open in wails3 dev mode)
+    await page.evaluate((p) => (window as any).aiOffice?.openPath(p), source)
     await waitForRoute(page, '/markdown')
     await expect(page.locator('.doc-editor h1')).toHaveText('Export test')
     await expect(page.locator('.doc-editor .katex')).toHaveCount(1)

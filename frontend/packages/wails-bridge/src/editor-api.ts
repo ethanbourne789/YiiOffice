@@ -168,7 +168,8 @@ export function createDesktopApi(): DesktopApi {
     listDocsTabs: async () => {
       const tabs = await _ListTabs()
       if (!Array.isArray(tabs)) return []
-      return (tabs as { id: string; kind: string; title: string; active: boolean }[])
+      const typed = tabs as unknown as { id: string; kind: string; title: string; active?: boolean }[]
+      return typed
         .filter((tab) => tab.kind === 'docs')
         .map((tab) => ({ id: tab.id, title: tab.title, focused: !!tab.active }))
     },

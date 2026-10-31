@@ -1,10 +1,11 @@
 package index
 
 import (
-	"log"
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"gitee.com/ethanbourne789/yiioffice/internal/platform"
 )
 
 // FileIndexer keeps the store in sync with the filesystem.
@@ -103,7 +104,7 @@ func (ix *FileIndexer) run() {
 	// 2. Diff against existing index
 	existing, err := ix.store.GetIndexedFiles()
 	if err != nil {
-		log.Printf("index: failed to load existing files: %v", err)
+		platform.Logger().Warn("index: failed to load existing files", "error", err)
 		existing = []IndexedFile{}
 	}
 
@@ -126,7 +127,7 @@ func (ix *FileIndexer) run() {
 	}
 	if len(removed) > 0 {
 		if err := ix.store.Remove(removed); err != nil {
-			log.Printf("index: failed to remove files: %v", err)
+			platform.Logger().Warn("index: failed to remove files", "error", err)
 		}
 	}
 
@@ -142,7 +143,7 @@ func (ix *FileIndexer) run() {
 	// 5. Index changed files
 	for _, f := range changed {
 		if err := ix.indexFile(f); err != nil {
-			log.Printf("index: failed to index %s: %v", f.Path, err)
+			platform.Logger().Warn("index: failed to index file", "path", f.Path, "error", err)
 		}
 	}
 }

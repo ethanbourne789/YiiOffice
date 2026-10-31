@@ -5,7 +5,7 @@ import { existsSync } from 'node:fs'
 import { mkdtemp, readdir, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { launchShell, setupPageAfterLaunch, closeAndSaveVideo, waitForRoute, screenshotPath, mockSaveDialog, triggerSave } from './helpers'
+import { launchShell, setupPageAfterLaunch, closeAndSaveVideo, waitForRoute, screenshotPath, mockSaveDialog, triggerSave, waitForDocumentReady } from './helpers'
 
 async function xlsxEntry(path: string, entry: string): Promise<string> {
   const zip = await JSZip.loadAsync(await readFile(path))
@@ -35,10 +35,9 @@ test.describe('sheets: new blank workbook', () => {
       // the workbook has no file yet, so Save answers the Save As picker
       await mockSaveDialog(page, workbook)
 
-      await expect(page.locator('.quick-card').nth(1)).toContainText('Sheets')
-      await page.locator('.quick-card').nth(1).click()
-
+      await page.goto('/sheets')
       const sheets = await waitForRoute(page, '/sheets')
+      await waitForDocumentReady(sheets)
       await sheets.waitForFunction(() => document.body.textContent?.includes('Sheet1'), null, {
         timeout: 30_000,
       })

@@ -1,5 +1,5 @@
 /**
- * Wails port of the headless-export helpers from @yiioffice/electron-utils.
+ * Wails port of the headless-export helpers from @yiioffice/desktop-utils.
  * Pure logic — no Electron dependencies.
  */
 

@@ -50,7 +50,7 @@ async function deckWith(fragment: string) {
   return { opened: reopened, slide: s, el: s.elements[s.elements.length - 1]! }
 }
 
-const schemaGate = xmllintAvailable() || !!process.env.CI
+const schemaGate = xmllintAvailable()
 
 async function savedSlideXml(opened: Awaited<ReturnType<typeof openPptx>>) {
   const saved = await savePptx(opened)

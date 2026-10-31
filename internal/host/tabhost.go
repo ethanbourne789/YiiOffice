@@ -31,13 +31,29 @@ type Tab struct {
 
 // TabSummary is the serializable view sent to the frontend. Path is included
 // so a renderer can resolve the file it was opened with (tabId -> path).
+// Closable is explicit because the shell hides the tab's close button on it
+// (Home is pinned and has none) — it must not be inferred from the id there.
 type TabSummary struct {
-	ID     string  `json:"id"`
-	Kind   TabKind `json:"kind"`
-	Title  string  `json:"title"`
-	Path   string  `json:"path,omitempty"`
-	Active bool    `json:"active"`
-	Dirty  bool    `json:"dirty"`
+	ID       string  `json:"id"`
+	Kind     TabKind `json:"kind"`
+	Title    string  `json:"title"`
+	Path     string  `json:"path,omitempty"`
+	Active   bool    `json:"active"`
+	Dirty    bool    `json:"dirty"`
+	Closable bool    `json:"closable"`
+}
+
+// summary renders a tab for the frontend.
+func summary(t *Tab) TabSummary {
+	return TabSummary{
+		ID:       t.ID,
+		Kind:     t.Kind,
+		Title:    t.Title,
+		Path:     t.Path,
+		Active:   t.Active,
+		Dirty:    t.Dirty,
+		Closable: t.ID != "home",
+	}
 }
 
 // TabHost manages the ordered list of open tabs.
@@ -60,7 +76,7 @@ func (h *TabHost) List() []TabSummary {
 	defer h.mu.RUnlock()
 	out := make([]TabSummary, len(h.tabs))
 	for i, t := range h.tabs {
-		out[i] = TabSummary{ID: t.ID, Kind: t.Kind, Title: t.Title, Path: t.Path, Active: t.Active, Dirty: t.Dirty}
+		out[i] = summary(t)
 	}
 	return out
 }
@@ -85,7 +101,9 @@ func (h *TabHost) DirtyTabs() []TabSummary {
 	var out []TabSummary
 	for _, t := range h.tabs {
 		if t.Dirty {
-			out = append(out, TabSummary{ID: t.ID, Kind: t.Kind, Title: t.Title, Path: t.Path, Active: t.Active, Dirty: true})
+			s := summary(t)
+			s.Dirty = true
+			out = append(out, s)
 		}
 	}
 	return out

@@ -14,6 +14,14 @@
 import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
 /**
+ * GetText returns the current clipboard text.
+ * @returns {$CancellablePromise<string>}
+ */
+export function GetText() {
+    return $Call.ByID(3751036542);
+}
+
+/**
  * OpenExternal validates url and opens it in the system browser.
  * @param {string} url
  * @returns {$CancellablePromise<void>}
@@ -29,4 +37,13 @@ export function OpenExternal(url) {
  */
 export function ReadLocalImage(path) {
     return $Call.ByID(820248243, path);
+}
+
+/**
+ * SetText writes text to the system clipboard. Returns true on success.
+ * @param {string} text
+ * @returns {$CancellablePromise<boolean>}
+ */
+export function SetText(text) {
+    return $Call.ByID(1690202106, text);
 }

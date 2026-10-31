@@ -19,9 +19,59 @@ export interface TabSummary {
   id: string
   kind: 'docs' | 'sheets' | 'slides' | 'pdf' | 'markdown' | 'home'
   title: string
-  path?: string
+  /** Home is pinned: the shell draws no close button for it. */
+  closable: boolean
   active: boolean
+  /** Absolute path behind the tab; empty/absent while the document is untitled. */
+  filePath?: string
   dirty?: boolean
+}
+
+/**
+ * The JSON shape Go's host.TabSummary marshals to (`path`, not `filePath`).
+ * Kept separate from the renderer-facing TabSummary so the shell contract
+ * stays the one the Electron renderers were written against.
+ */
+interface WireTab {
+  id?: unknown
+  kind?: unknown
+  title?: unknown
+  path?: unknown
+  active?: unknown
+  dirty?: unknown
+  closable?: unknown
+}
+
+const TAB_KINDS = ['docs', 'sheets', 'slides', 'pdf', 'markdown', 'home'] as const
+
+function toTabSummary(raw: WireTab): TabSummary | null {
+  const id = typeof raw.id === 'string' ? raw.id : ''
+  const kind = raw.kind
+  if (!id || typeof kind !== 'string') return null
+  if (!(TAB_KINDS as readonly string[]).includes(kind)) return null
+  const path = typeof raw.path === 'string' && raw.path.length > 0 ? raw.path : undefined
+  return {
+    id,
+    kind: kind as TabSummary['kind'],
+    title: typeof raw.title === 'string' ? raw.title : id,
+    // Go reports closable explicitly; fall back to the pinned-Home rule when an
+    // older build omits it so the strip never loses its close buttons.
+    closable: typeof raw.closable === 'boolean' ? raw.closable : id !== 'home',
+    active: raw.active === true,
+    ...(path ? { filePath: path } : {}),
+    ...(raw.dirty === true ? { dirty: true } : {}),
+  }
+}
+
+function toTabList(value: unknown): TabSummary[] {
+  if (!Array.isArray(value)) return []
+  const out: TabSummary[] = []
+  for (const item of value) {
+    if (!item || typeof item !== 'object') continue
+    const summary = toTabSummary(item as WireTab)
+    if (summary) out.push(summary)
+  }
+  return out
 }
 
 /** Tab id the shell appended to this renderer's URL (`?tabId=...`). */
@@ -38,9 +88,8 @@ export async function currentTabPath(): Promise<string | null> {
   const id = currentTabId()
   if (!id) return null
   const tabs = await List()
-  if (!Array.isArray(tabs)) return null
-  const match = (tabs as TabSummary[]).find((tab) => tab.id === id)
-  return match?.path && match.path.length > 0 ? match.path : null
+  const match = toTabList(tabs).find((tab) => tab.id === id)
+  return match?.filePath ?? null
 }
 
 /**
@@ -57,7 +106,8 @@ export interface TabsBridge {
   list(): Promise<TabSummary[]>
   activate(id: string): Promise<void>
   close(id: string): Promise<void>
-  reorder(from: number, to: number): Promise<void>
+  /** Move the tab with this id to `to` (Home stays at index 0). */
+  reorder(id: string, to: number): Promise<void>
   onChanged(handler: (tabs: TabSummary[]) => void): () => void
   /** Reports unsaved changes so the window close guard can ask before quitting. */
   setDirty(id: string, dirty: boolean): Promise<void>
@@ -80,8 +130,7 @@ export interface TabsBridge {
 export function createTabsApi(): TabsBridge {
   return {
     async list() {
-      const value = await List()
-      return Array.isArray(value) ? (value as TabSummary[]) : []
+      return toTabList(await List())
     },
     async activate(id) {
       if (typeof id !== 'string' || !id) throw new Error('Invalid tab id.')
@@ -91,22 +140,25 @@ export function createTabsApi(): TabsBridge {
       if (typeof id !== 'string' || !id) throw new Error('Invalid tab id.')
       await Close(id)
     },
-    async reorder(from, to) {
-      if (typeof from !== 'number' || typeof to !== 'number') throw new Error('Invalid indices.')
+    async reorder(id, to) {
+      if (typeof id !== 'string' || !id) return
+      if (typeof to !== 'number') throw new Error('Invalid indices.')
+      // Go reorders by position; the shell identifies the dragged tab by id
+      // because the list can change mid-drag (a Cmd+W, a new tab).
+      const tabs = toTabList(await List())
+      const from = tabs.findIndex((tab) => tab.id === id)
+      if (from < 0) return
       await Reorder(from, to)
     },
     onChanged(handler) {
-      return on('tabs:changed', (data) => {
-        if (Array.isArray(data)) handler(data as TabSummary[])
-      })
+      return on('tabs:changed', (data) => handler(toTabList(data)))
     },
     async setDirty(id, dirty) {
       if (typeof id !== 'string' || !id) return
       await SetDirty(id, dirty)
     },
     async dirtyTabs() {
-      const value = await GetDirtyTabs()
-      return Array.isArray(value) ? (value as TabSummary[]) : []
+      return toTabList(await GetDirtyTabs())
     },
 
     // Menu

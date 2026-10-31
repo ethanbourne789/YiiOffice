@@ -26,6 +26,8 @@ test.describe('markdown editor', () => {
     })
     await setupPageAfterLaunch(launched, page, context)
     try {
+      // Open the file in the real Wails backend (no auto-open in wails3 dev mode)
+      await page.evaluate((p) => (window as any).aiOffice?.openPath(p), mdPath)
       await waitForRoute(page, '/markdown')
       await expect(page.locator('.doc-editor h1')).toHaveText('Weekly note')
       await page.locator('.doc-editor').focus()
@@ -52,6 +54,8 @@ test.describe('markdown editor', () => {
     })
     await setupPageAfterLaunch(launched, page, context)
     try {
+      // Open the file in the real Wails backend (no auto-open in wails3 dev mode)
+      await page.evaluate((p) => (window as any).aiOffice?.openPath(p), mdPath)
       await waitForRoute(page, '/markdown')
       const editor = page.locator('.doc-editor')
       await expect(editor.locator('h1')).toHaveText('Doc')
@@ -92,6 +96,8 @@ test.describe('markdown editor', () => {
     })
     await setupPageAfterLaunch(launched, page, context)
     try {
+      // Open the file in the real Wails backend (no auto-open in wails3 dev mode)
+      await page.evaluate((p) => (window as any).aiOffice?.openPath(p), mdPath)
       // with an argv document the first window is the editor view, not the shell
       // home — locate the shell renderer explicitly for tab-strip assertions
       const shellPage = await waitForRoute(page, 'shell/out')
@@ -160,6 +166,8 @@ test.describe('markdown editor', () => {
     })
     await setupPageAfterLaunch(launched, page, context)
     try {
+      // Open the file in the real Wails backend (no auto-open in wails3 dev mode)
+      await page.evaluate((p) => (window as any).aiOffice?.openPath(p), mdPath)
       await waitForRoute(page, '/markdown')
       const editor = page.locator('.doc-editor')
       await expect(editor).toContainText('Hello style')
@@ -205,6 +213,8 @@ test.describe('markdown editor', () => {
     })
     await setupPageAfterLaunch(launched, page, context)
     try {
+      // Open the file in the real Wails backend (no auto-open in wails3 dev mode)
+      await page.evaluate((p) => (window as any).aiOffice?.openPath(p), mdPath)
       await waitForRoute(page, '/markdown')
       const img = page.locator('.doc-editor img[alt="a pic"]')
       await expect(img).toBeVisible()
@@ -231,6 +241,8 @@ test.describe('markdown editor', () => {
     })
     await setupPageAfterLaunch(launched, page, context)
     try {
+      // Open the file in the real Wails backend (no auto-open in wails3 dev mode)
+      await page.evaluate((p) => (window as any).aiOffice?.openPath(p), mdPath)
       await waitForRoute(page, '/markdown')
       const editor = page.locator('.doc-editor')
       await expect(editor.locator('h1')).toHaveText('Alpha')

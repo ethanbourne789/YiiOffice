@@ -52,12 +52,8 @@ test.describe('sheets: opening a .tsv', () => {
     })
     await setupPageAfterLaunch(launched, page, context, { openFile: source, env: { YIIOFFICE_DEBUG_HOOKS: '1' } })
     try {
-      // openFile is not natively supported in browser mode; simulate via desktopApi if available
-      await page.evaluate(async (filePath) => {
-        const desk = (window as any).desktopApi
-        if (desk && typeof desk.openFile === 'function') {
-          await desk.openFile(filePath)
-        }
+      await page.evaluate((p) => {
+        (window as any).aiOffice?.openPath(p)
       }, source)
 
       const sheets = await waitForRoute(page, '/sheets')

@@ -1,21 +1,6 @@
 import { installBridge } from '@yiioffice/wails-bridge'
 installBridge()
 
-// TEMPORARY diagnostic: report renderer boot failures through the shell's
-// DiagService binding (WebView console is not visible to the dev session).
-const DIAG_LOG_ID = 437220436
-function diagReport(msg: string): void {
-  try {
-    const w = window as unknown as { wails?: { Call?: { ByID(id: number, ...args: unknown[]): unknown } } }
-    void w.wails?.Call?.ByID(DIAG_LOG_ID, `[docs] ${msg}`)
-  } catch {
-    /* diag only */
-  }
-}
-window.addEventListener('error', (e) => diagReport(`error: ${e.message} @ ${e.filename}:${e.lineno}:${e.colno}`))
-window.addEventListener('unhandledrejection', (e) => diagReport(`rejection: ${String((e as PromiseRejectionEvent).reason)}`))
-diagReport('boot')
-
 import { createRoot } from 'react-dom/client'
 import { htmlDir, htmlLang, type Lang } from '@yiioffice/i18n'
 import { App } from './App'

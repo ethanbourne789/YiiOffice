@@ -4,7 +4,11 @@ import { installBridge } from './index'
 const shellBridge = vi.hoisted(() => ({ OpenExternal: vi.fn(async () => undefined) }))
 vi.mock('@bindings/gitee.com/ethanbourne789/yiioffice/internal/bridge/shellservice', () => shellBridge)
 
-const homeBridge = vi.hoisted(() => ({ GetAppVersion: vi.fn(async () => '0.13.0') }))
+const homeBridge = vi.hoisted(() => ({
+  GetAppVersion: vi.fn(async () => '0.13.0'),
+  Browse: vi.fn(async (): Promise<string[]> => []),
+  OpenPath: vi.fn(async (_path: string) => undefined),
+}))
 vi.mock('@bindings/gitee.com/ethanbourne789/yiioffice/internal/bridge/homeservice', () => homeBridge)
 
 interface FakeRuntime {
@@ -26,6 +30,8 @@ describe('wails bridge', () => {
     delete (window as unknown as { aiOfficeTabs?: unknown }).aiOfficeTabs
     shellBridge.OpenExternal.mockClear()
     homeBridge.GetAppVersion.mockClear()
+    homeBridge.Browse.mockClear()
+    homeBridge.OpenPath.mockClear()
   })
 
   it('installs aiOffice using the runtime module fallback', () => {
@@ -56,6 +62,19 @@ describe('wails bridge', () => {
     installBridge()
     const api = (window as unknown as { aiOffice: { setTheme(t: string): Promise<void> } }).aiOffice
     await expect(api.setTheme('sepia')).rejects.toThrow(/Invalid theme/)
+  })
+
+  it('opens the files the native dialog returns', async () => {
+    // The home "open local file" card only calls browse(); unless the shim
+    // routes the picks itself the dialog closes and no tab ever appears.
+    installFakeRuntime()
+    installBridge()
+    homeBridge.Browse.mockResolvedValueOnce(['C:\\docs\\report.docx', 'C:\\docs\\notes.txt'])
+    const api = (window as unknown as { aiOffice: { browse(): Promise<string[]> } }).aiOffice
+    const picked = await api.browse()
+    expect(picked).toEqual(['C:\\docs\\report.docx', 'C:\\docs\\notes.txt'])
+    expect(homeBridge.OpenPath).toHaveBeenCalledTimes(1)
+    expect(homeBridge.OpenPath).toHaveBeenCalledWith('C:\\docs\\report.docx')
   })
 
   it('routes https links through shell:open-external and blocks navigation', async () => {

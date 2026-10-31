@@ -4,6 +4,7 @@ import type { TabsApi, TabSummary } from '../../shared/tabs-api'
 import { TEAR_OFF_SLACK, insertionIndexForX, isBeyondBand } from '../../shared/tab-drag-geometry'
 import { notifyFilesChanged } from './file-events'
 import { useI18n } from './locale'
+import { WindowControls } from './WindowControls'
 
 declare global {
   interface Window {
@@ -112,6 +113,96 @@ const KIND_ICON: Record<TabSummary['kind'], ReactElement> = {
   markdown: <MarkdownIcon />,
 }
 
+/** One row of the strip's popup menus (a separator is a row without a label). */
+interface MenuRow {
+  key: string
+  label?: string
+  leading?: ReactElement
+  checked?: boolean
+  disabled?: boolean
+  onSelect?: () => void
+}
+
+type MenuRequest =
+  | { kind: 'new'; x: number; y: number }
+  | { kind: 'app'; x: number; y: number }
+  | { kind: 'tabs'; x: number; y: number }
+  | { kind: 'tab'; tabId: string; x: number; y: number }
+
+const MENU_WIDTH = 240
+
+/** height of the strip (it doubles as the title bar); menus drop below it */
+const STRIP_HEIGHT = 40
+
+/**
+ * The strip's popup menu. The predecessor shell drew these as native menus
+ * because the document area was a sibling WebContentsView that covered any DOM
+ * popover; the editors now live in same-origin iframes, so a fixed-position
+ * menu with a high z-index stacks above them and can be themed and localized.
+ */
+function MenuPopover({
+  x,
+  y,
+  rows,
+  onClose,
+}: {
+  x: number
+  y: number
+  rows: MenuRow[]
+  onClose: () => void
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
+  useEffect(() => {
+    const onPointerDown = (event: PointerEvent) => {
+      if (!ref.current?.contains(event.target as Node)) closeRef.current()
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeRef.current()
+    }
+    // capture: the strip's own pointer handlers must not swallow the dismissal
+    document.addEventListener('pointerdown', onPointerDown, true)
+    document.addEventListener('keydown', onKeyDown, true)
+    window.addEventListener('blur', () => closeRef.current())
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true)
+      document.removeEventListener('keydown', onKeyDown, true)
+    }
+  }, [])
+  const left = Math.max(4, Math.min(x, window.innerWidth - MENU_WIDTH - 4))
+  const top = Math.max(4, Math.min(y, window.innerHeight - 12 - rows.length * 30))
+  return (
+    <div className="tab-menu" style={{ left, top, width: MENU_WIDTH }} role="menu" ref={ref}>
+      {rows.map((row) =>
+        row.label === undefined ? (
+          <div key={row.key} className="tab-menu-separator" aria-hidden="true" />
+        ) : (
+          <button
+            key={row.key}
+            type="button"
+            role="menuitem"
+            className={`tab-menu-item${row.checked ? ' checked' : ''}`}
+            disabled={row.disabled}
+            onClick={() => {
+              onClose()
+              row.onSelect?.()
+            }}
+          >
+            <span className="tab-menu-leading">{row.leading}</span>
+            <span className="tab-menu-label">{row.label}</span>
+            {row.checked && (
+              <span className="tab-menu-check" aria-hidden="true">
+                ✓
+              </span>
+            )}
+          </button>
+        ),
+      )}
+    </div>
+  )
+}
+
 /**
  * Extension of a path's last segment, without the dot ('' when it has none).
  * Read off the basename: a dot in a directory name is not an extension, and
@@ -140,6 +231,63 @@ export function TabBar() {
   const { t } = useI18n()
   const [tabs, setTabs] = useState<TabSummary[]>([])
   const stripRef = useRef<HTMLDivElement>(null)
+  // which strip popup is open, and where it was summoned (window CSS px)
+  const [menu, setMenu] = useState<MenuRequest | null>(null)
+  const closeMenu = () => setMenu(null)
+
+  // "+" and the app menu both start a document: Go's HomeService owns the tab
+  // and the editors pick their content up from the tab id in their URL.
+  const newRows = (): MenuRow[] => [
+    { key: 'new-doc', label: t('menuNewDoc'), leading: <DocIcon />, onSelect: () => void window.aiOffice.newDoc() },
+    { key: 'new-sheet', label: t('menuNewSheet'), leading: <SheetIcon />, onSelect: () => void window.aiOffice.newSheet() },
+    { key: 'new-slide', label: t('menuNewSlide'), leading: <SlideIcon />, onSelect: () => void window.aiOffice.newSlide() },
+    { key: 'new-markdown', label: t('menuNewMarkdown'), leading: <MarkdownIcon />, onSelect: () => void window.aiOffice.newMarkdown() },
+    { key: 'new-pdf', label: t('menuNewPdf'), leading: <PdfIcon />, onSelect: () => void window.aiOffice.newPdf() },
+    { key: 'sep-open' },
+    { key: 'open-local', label: t('openLocal'), onSelect: () => void window.aiOffice.browse() },
+  ]
+
+  const tabRows = (tabId: string): MenuRow[] => {
+    const closeOthers = () => {
+      for (const tb of tabsRef.current) {
+        if (tb.id !== tabId && tb.kind !== 'home') void window.aiOfficeTabs.close(tb.id)
+      }
+    }
+    const closeAll = () => {
+      for (const tb of tabsRef.current) {
+        if (tb.kind !== 'home') void window.aiOfficeTabs.close(tb.id)
+      }
+    }
+    return [
+      { key: 'close', label: t('closeTab'), onSelect: () => void window.aiOfficeTabs.close(tabId) },
+      { key: 'close-others', label: t('menuCloseOthers'), onSelect: closeOthers },
+      { key: 'close-all', label: t('menuCloseAll'), onSelect: closeAll },
+      { key: 'sep-detach' },
+      { key: 'detach', label: t('menuDetach'), onSelect: () => void window.aiOfficeTabs.detach(tabId) },
+    ]
+  }
+
+  const listedRows = (): MenuRow[] =>
+    tabs.map((tab) => ({
+      key: tab.id,
+      label: tab.title,
+      leading: KIND_ICON[tab.kind],
+      checked: tab.active,
+      onSelect: () => void window.aiOfficeTabs.activate(tab.id),
+    }))
+
+  const menuRows = (request: MenuRequest): MenuRow[] => {
+    switch (request.kind) {
+      case 'new':
+        return newRows()
+      case 'app':
+        return newRows()
+      case 'tabs':
+        return listedRows()
+      case 'tab':
+        return tabRows(request.tabId)
+    }
+  }
 
   // Double-click a file tab to rename the underlying file inline (Home's row
   // rename, one tab over): the input prefills the base name, Enter/blur commits
@@ -406,7 +554,11 @@ export function TabBar() {
           aria-label={t('appMenu')}
           onClick={(event) => {
             const rect = event.currentTarget.getBoundingClientRect()
-            void window.aiOfficeTabs.showAppMenu(Math.round(rect.left), Math.round(rect.bottom))
+            setMenu({
+              kind: 'app',
+              x: Math.round(rect.left),
+              y: Math.max(Math.round(rect.bottom), STRIP_HEIGHT),
+            })
           }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -456,11 +608,12 @@ export function TabBar() {
               onContextMenu={(event) => {
                 event.preventDefault()
                 if (tab.id === 'home') return
-                void window.aiOfficeTabs.showTabMenu(
-                  tab.id,
-                  Math.round(event.clientX),
-                  Math.round(event.clientY),
-                )
+                setMenu({
+                  kind: 'tab',
+                  tabId: tab.id,
+                  x: Math.round(event.clientX),
+                  y: Math.round(event.clientY),
+                })
               }}
               onAuxClick={(event) => {
                 if (event.button !== 1 || !tab.closable) return
@@ -564,9 +717,14 @@ export function TabBar() {
           className="tab-new-btn"
           title={t('newTab')}
           aria-label={t('newTab')}
+          data-testid="new-file"
           onClick={(event) => {
             const rect = event.currentTarget.getBoundingClientRect()
-            void window.aiOfficeTabs.showNewMenu(Math.round(rect.left), Math.round(rect.bottom))
+            setMenu({
+              kind: 'new',
+              x: Math.round(rect.left),
+              y: Math.max(Math.round(rect.bottom), STRIP_HEIGHT),
+            })
           }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
@@ -587,7 +745,11 @@ export function TabBar() {
         aria-label={t('tabList')}
         onClick={(event) => {
           const rect = event.currentTarget.getBoundingClientRect()
-          void window.aiOfficeTabs.showMenu(Math.round(rect.left), Math.round(rect.bottom))
+          setMenu({
+            kind: 'tabs',
+            x: Math.round(rect.left),
+            y: Math.max(Math.round(rect.bottom), STRIP_HEIGHT),
+          })
         }}
       >
         {/* window-with-tab-bar glyph: slanted tab cells above a full-width
@@ -608,7 +770,12 @@ export function TabBar() {
           />
         </svg>
       </button>
-      <div className="tab-bar-caption-spacer" />
+      {/* frameless window: the strip is the title bar, so Windows draws no
+          caption buttons and the shell supplies them at the trailing edge */}
+      {!IS_MAC && <WindowControls />}
+      {menu && (
+        <MenuPopover x={menu.x} y={menu.y} rows={menuRows(menu)} onClose={closeMenu} />
+      )}
     </div>
   )
 }

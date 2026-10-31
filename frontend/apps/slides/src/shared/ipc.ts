@@ -11,7 +11,7 @@ import type { RenderSlide } from '@yiioffice/pptx-render'
 import type { CustGeomPathCmd, SlideComment, SectionInfo } from '@yiioffice/pptx-engine'
 import type { FontSizeStep } from '@yiioffice/pptx-ops/font-size'
 // the font catalog's shape is the store's to declare, not a copy kept in step by hand
-import type { CatalogEntry as FontCatalogEntry } from '@yiioffice/electron-utils/font-store'
+import type { CatalogEntry as FontCatalogEntry } from '@yiioffice/desktop-utils/font-store'
 import type {
   EditRun,
   EditParagraph,

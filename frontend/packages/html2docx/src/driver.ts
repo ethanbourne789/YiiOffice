@@ -1,8 +1,8 @@
 /**
  * The browser the converter renders in. The extraction layer runs inside the
  * page (DOM + computed style + element screenshots), so the host supplies a
- * page-like driver: Playwright for tests and the CLI, Electron's webContents
- * in the app. Implementations share the contract test in tests/.
+ * page-like driver: Playwright for tests and the CLI. Implementations share
+ * the contract test in tests/.
  */
 export interface Viewport {
   width: number

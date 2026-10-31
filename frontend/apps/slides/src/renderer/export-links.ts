@@ -11,7 +11,7 @@
  */
 import type { RenderNode, RenderSlide, ShapeRenderNode } from '@yiioffice/pptx-render'
 import type { ExportPdfLink, LinkTargetOp } from '../shared/ipc'
-import { safeExternalUrl } from '@yiioffice/electron-utils/safe-external-url'
+import { safeExternalUrl } from '@yiioffice/desktop-utils/safe-external-url'
 import { DECK_LINK_PROTOCOLS } from '../shared/run-link'
 
 interface TargetRect {

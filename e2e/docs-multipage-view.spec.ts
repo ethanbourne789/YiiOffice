@@ -6,7 +6,7 @@
  * zooming back in collapses the grid to the single column.
  */
 import { test, expect } from './fixture'
-import { launchShell, setupPageAfterLaunch, closeAndSaveVideo, waitForRoute } from './helpers'
+import { launchShell, setupPageAfterLaunch, closeAndSaveVideo, waitForRoute, waitForDocumentReady } from './helpers'
 
 const POLL = { timeout: 15_000, intervals: [250, 500, 1000] }
 
@@ -15,8 +15,9 @@ test('multiple pages grid follows clicks and the caret, collapses at 100%', asyn
   const launched = await launchShell({ onboardingSeen: true, videoDir: 'docs-multipage-view' })
   await setupPageAfterLaunch(launched, page, context)
   try {
-    await page.locator('.quick-card').first().click()
+    await page.goto('/docs')
     const editor = await waitForRoute(page, '/docs')
+    await waitForDocumentReady(editor)
     const docPage = editor.locator('.doc-page[contenteditable="true"]')
     await docPage.waitFor()
     await docPage.click()

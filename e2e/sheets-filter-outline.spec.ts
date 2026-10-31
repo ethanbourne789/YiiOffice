@@ -1,7 +1,7 @@
 ﻿// ADAPTED FROM Electron e2e — sheets-filter-outline.spec.ts
 import { test, expect } from './fixture'
 import type { Page } from '@playwright/test'
-import { launchShell, setupPageAfterLaunch, closeAndSaveVideo, waitForRoute, screenshotPath } from './helpers'
+import { launchShell, setupPageAfterLaunch, closeAndSaveVideo, waitForRoute, screenshotPath, waitForDocumentReady } from './helpers'
 
 // the preload exposes window.__yiiofficeDebug only under this env var
 process.env.YIIOFFICE_DEBUG_HOOKS = '1'
@@ -105,11 +105,9 @@ test.describe('sheets: no outline around a filtered range', () => {
     })
     await setupPageAfterLaunch(launched, page, context)
     try {
-      const card = page.locator('.quick-card', { hasText: 'Sheets' })
-      await expect(card).toBeVisible()
-      await card.click()
-
+      await page.goto('/sheets')
       const sheets = await waitForRoute(page, '/sheets')
+      await waitForDocumentReady(sheets)
       await sheets.waitForFunction(() => document.body.textContent?.includes('Sheet1'), null, {
         timeout: 30_000,
       })

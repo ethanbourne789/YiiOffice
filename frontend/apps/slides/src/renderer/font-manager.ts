@@ -1,6 +1,6 @@
 ﻿import { useCallback, useEffect, useState } from 'react'
 /** One catalog row, exactly as the store reports it — see the store's own type. */
-import type { CatalogEntry as FontCatalogEntry } from '@yiioffice/electron-utils/font-store'
+import type { CatalogEntry as FontCatalogEntry } from '@yiioffice/desktop-utils/font-store'
 
 let cached: FontCatalogEntry[] | null = null
 

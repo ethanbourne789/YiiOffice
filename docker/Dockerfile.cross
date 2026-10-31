@@ -145,6 +145,9 @@ set -e
 
 OS=${1:-darwin}
 ARCH=${2:-arm64}
+# Compiled-in app version. Override on the host: docker run -e VERSION=x ... .
+VERSION=${VERSION:-0.13.0}
+BUILDINFO_X="-X gitee.com/ethanbourne789/yiioffice/internal/buildinfo.Version=${VERSION}"
 
 case "${OS}-${ARCH}" in
     darwin-arm64|darwin-aarch64)
@@ -198,10 +201,10 @@ APP=${APP_NAME:-$(basename $(pwd))}
 mkdir -p bin
 
 EXT=""
-LDFLAGS="-s -w"
+LDFLAGS="-s -w ${BUILDINFO_X}"
 if [ "$GOOS" = "windows" ]; then
     EXT=".exe"
-    LDFLAGS="-s -w -H windowsgui"
+    LDFLAGS="-s -w -H windowsgui ${BUILDINFO_X}"
 fi
 
 TAGS="production"

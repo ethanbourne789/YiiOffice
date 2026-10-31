@@ -59,12 +59,8 @@ test.describe('sheets: Insert → Equation and Checkbox', () => {
     })
     await setupPageAfterLaunch(launched, page, context, { openFile: workbook })
     try {
-      // openFile is not natively supported in browser mode; simulate via desktopApi if available
-      await page.evaluate(async (filePath) => {
-        const desk = (window as any).desktopApi
-        if (desk && typeof desk.openFile === 'function') {
-          await desk.openFile(filePath)
-        }
+      await page.evaluate((p) => {
+        (window as any).aiOffice?.openPath(p)
       }, workbook)
 
       const sheets = await waitForRoute(page, '/sheets')
@@ -111,12 +107,8 @@ test.describe('sheets: Insert → Equation and Checkbox', () => {
     })
     await setupPageAfterLaunch(launched, page, context, { openFile: workbook })
     try {
-      // openFile is not natively supported in browser mode; simulate via desktopApi if available
-      await page.evaluate(async (filePath) => {
-        const desk = (window as any).desktopApi
-        if (desk && typeof desk.openFile === 'function') {
-          await desk.openFile(filePath)
-        }
+      await page.evaluate((p) => {
+        (window as any).aiOffice?.openPath(p)
       }, workbook)
 
       const sheets = await waitForRoute(page, '/sheets')
@@ -153,12 +145,8 @@ test.describe('sheets: Insert → Timeline', () => {
     })
     await setupPageAfterLaunch(launched, page, context, { openFile: workbook })
     try {
-      // openFile is not natively supported in browser mode; simulate via desktopApi if available
-      await page.evaluate(async (filePath) => {
-        const desk = (window as any).desktopApi
-        if (desk && typeof desk.openFile === 'function') {
-          await desk.openFile(filePath)
-        }
+      await page.evaluate((p) => {
+        (window as any).aiOffice?.openPath(p)
       }, workbook)
 
       const sheets = await waitForRoute(page, '/sheets')

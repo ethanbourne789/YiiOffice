@@ -13,6 +13,20 @@ func TestTabHostStartsWithHome(t *testing.T) {
 	if summaries[0].ID != "home" || summaries[0].Kind != TabKindHome || !summaries[0].Active {
 		t.Fatalf("home tab incorrect: %#v", summaries[0])
 	}
+	if summaries[0].Closable {
+		t.Error("home must not be closable: the strip hides its close button on this flag")
+	}
+}
+
+func TestTabHostReportsClosable(t *testing.T) {
+	h := NewTabHost()
+	h.AddTab(TabKindDocs, "Doc1", "")
+	for _, s := range h.List() {
+		want := s.ID != "home"
+		if s.Closable != want {
+			t.Fatalf("tab %s closable = %v, want %v", s.ID, s.Closable, want)
+		}
+	}
 }
 
 func TestTabHostAddAndActivate(t *testing.T) {

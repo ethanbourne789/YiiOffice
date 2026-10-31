@@ -3,14 +3,26 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterAll, beforeAll, expect, test } from 'vitest'
+import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 import type { Browser } from 'playwright-core'
 
 import { convertHtmlToDocx } from '../src'
-import { launchChrome, PlaywrightDriver } from '../src/drivers/playwright'
+import { findChrome, launchChrome, PlaywrightDriver } from '../src/drivers/playwright'
 
 const A4 = { width: 794, height: 1123, deviceScaleFactor: 2 }
 let browser: Browser
+
+// This case needs a real Chrome/Chromium to judge whether the page background
+// screenshot path restores node visibility. In a Chrome-less environment (CI
+// without CHROME_PATH) the setup below can't launch, so skip instead of fail.
+const chromeAvailable = (() => {
+  try {
+    findChrome()
+    return true
+  } catch {
+    return false
+  }
+})()
 
 beforeAll(async () => {
   browser = await launchChrome()
@@ -54,41 +66,43 @@ const PAGE = `<!doctype html><html><head><style>
   </script>
 </body></html>`
 
-test('pagebg restore leaves a body child added mid-window untouched', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'html2docx-pagebg-'))
-  const input = path.join(dir, 'page.html')
-  await fs.writeFile(input, PAGE)
-  const driver = await PlaywrightDriver.create(browser, A4)
-  try {
-    const result = await convertHtmlToDocx({ url: pathToFileURL(input).href }, driver)
-    // Guard against a vacuous pass: the pagebg shot path must have run, and
-    // the probe must actually have landed inside the set/restore window.
-    const pagebg = (result.ir as any[]).find((node) => node.type === 'pagebg')
-    assert.ok(pagebg?.shotId, 'page produced a page background screenshot')
+describe.skipIf(!chromeAvailable)('pagebg restore', () => {
+  test('leaves a body child added mid-window untouched', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'html2docx-pagebg-'))
+    const input = path.join(dir, 'page.html')
+    await fs.writeFile(input, PAGE)
+    const driver = await PlaywrightDriver.create(browser, A4)
+    try {
+      const result = await convertHtmlToDocx({ url: pathToFileURL(input).href }, driver)
+      // Guard against a vacuous pass: the pagebg shot path must have run, and
+      // the probe must actually have landed inside the set/restore window.
+      const pagebg = (result.ir as any[]).find((node) => node.type === 'pagebg')
+      assert.ok(pagebg?.shotId, 'page produced a page background screenshot')
 
-    const observed = await driver.evaluate<{
-      injected: string | null
-      probeVisibility: string | null
-      probeAttribute: string | null
-      leftoverStamps: number
-    }>(() => {
-      const probe = document.getElementById('late-probe') as HTMLElement | null
-      return {
-        injected: (window as any).__probe ?? null,
-        probeVisibility: probe ? probe.style.visibility : null,
-        probeAttribute: probe ? probe.getAttribute('data-h2d-old-visibility') : null,
-        leftoverStamps: document.querySelectorAll('[data-h2d-old-visibility]').length,
-      }
-    })
+      const observed = await driver.evaluate<{
+        injected: string | null
+        probeVisibility: string | null
+        probeAttribute: string | null
+        leftoverStamps: number
+      }>(() => {
+        const probe = document.getElementById('late-probe') as HTMLElement | null
+        return {
+          injected: (window as any).__probe ?? null,
+          probeVisibility: probe ? probe.style.visibility : null,
+          probeAttribute: probe ? probe.getAttribute('data-h2d-old-visibility') : null,
+          leftoverStamps: document.querySelectorAll('[data-h2d-old-visibility]').length,
+        }
+      })
 
-    expect(observed.injected).toBe('injected')
-    // The node was never stamped, so the restore must not have written to it.
-    // Before the fix this read as '' — the page's own 'hidden' was clobbered.
-    expect(observed.probeAttribute).toBeNull()
-    expect(observed.probeVisibility).toBe('hidden')
-    // Stamped nodes are still cleaned up.
-    expect(observed.leftoverStamps).toBe(0)
-  } finally {
-    await driver.close()
-  }
+      expect(observed.injected).toBe('injected')
+      // The node was never stamped, so the restore must not have written to it.
+      // Before the fix this read as '' — the page's own 'hidden' was clobbered.
+      expect(observed.probeAttribute).toBeNull()
+      expect(observed.probeVisibility).toBe('hidden')
+      // Stamped nodes are still cleaned up.
+      expect(observed.leftoverStamps).toBe(0)
+    } finally {
+      await driver.close()
+    }
+  })
 })

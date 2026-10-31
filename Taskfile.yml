@@ -2,6 +2,11 @@ version: '3'
 
 vars:
   PACKAGE_MANAGER: '{{.PACKAGE_MANAGER | default "npm"}}'
+  # Single source of truth for the compiled-in version. Kept in sync with
+  # config.yml `info.version`, the NSIS script, and frontend/package.json.
+  # Injected into the production binary via -ldflags "-X .../buildinfo.Version".
+  VERSION: '{{.VERSION | default "0.13.0"}}'
+  BUILDINFO_X: '-X gitee.com/ethanbourne789/yiioffice/internal/buildinfo.Version={{.VERSION}} -X gitee.com/ethanbourne789/yiioffice/internal/buildinfo.isDevStr=0'
 
 tasks:
   go:mod:tidy:
@@ -32,7 +37,7 @@ tasks:
     vars:
       APP_NAME: '{{.APP_NAME | default "YiiOffice"}}'
       BIN_DIR: '{{.BIN_DIR | default "build/bin"}}'
-      BUILD_FLAGS: '-tags{{if eq .DEV "true"}}{{else}} production{{end}}{{if eq .OBFUSCATED "true"}},wails_obfuscated{{end}}{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}}{{if eq .DEV "true"}} -buildvcs=false -gcflags=all="-l"{{else}} -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui"{{end}}'
+      BUILD_FLAGS: '-tags{{if eq .DEV "true"}}{{else}} production{{end}}{{if eq .OBFUSCATED "true"}},wails_obfuscated{{end}}{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}}{{if eq .DEV "true"}} -buildvcs=false -gcflags=all="-l"{{else}} -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui {{.BUILDINFO_X}}"{{end}}'
 
   package:windows:
     summary: Builds the Windows NSIS installer
@@ -307,7 +312,7 @@ tasks:
     cmds:
       - '{{if eq .OBFUSCATED "true"}}garble {{.GARBLE_ARGS}} build{{else}}go build{{end}} {{.BUILD_FLAGS}} -o "{{.BIN_DIR}}/{{.APP_NAME}}-server{{exeExt}}"'
     vars:
-      BUILD_FLAGS: '-tags server{{if eq .DEV "true"}}{{if eq .OBFUSCATED "true"}},wails_obfuscated{{end}}{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -buildvcs=false -gcflags=all="-l"{{else}},production{{if eq .OBFUSCATED "true"}},wails_obfuscated{{end}}{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false -ldflags="-w -s"{{end}}'
+      BUILD_FLAGS: '-tags server{{if eq .DEV "true"}}{{if eq .OBFUSCATED "true"}},wails_obfuscated{{end}}{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -buildvcs=false -gcflags=all="-l"{{else}},production{{if eq .OBFUSCATED "true"}},wails_obfuscated{{end}}{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false -ldflags="-w -s {{.BUILDINFO_X}}"{{end}}'
 
   run:server:
     summary: Builds and runs a development server (DEV=true)
@@ -342,15 +347,16 @@ tasks:
         --build-arg CGO_ENABLED={{.CGO_ENABLED | default "0"}}
         --build-arg GO_IMAGE={{.GO_IMAGE | default "golang:alpine"}}
         --build-arg RUNTIME_IMAGE={{.RUNTIME_IMAGE | default "gcr.io/distroless/static-debian12"}}
+        --build-arg VERSION={{.VERSION}}
         -t {{.TAG | default (printf "%s:latest" .APP_NAME)}}
-        -f build/docker/Dockerfile.server .
+        -f docker/Dockerfile.server .
     vars:
       TAG: "{{.TAG}}"
     preconditions:
       - sh: docker info > /dev/null 2>&1
         msg: "Docker is required. Please install Docker first."
-      - sh: test -f build/docker/Dockerfile.server
-        msg: "Dockerfile.server not found. Run 'wails3 update build-assets' to generate it."
+      - sh: test -f docker/Dockerfile.server
+        msg: "docker/Dockerfile.server not found. Run 'wails3 update build-assets' to generate it."
 
   run:docker:
     summary: Builds and runs the Docker image

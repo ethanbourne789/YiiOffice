@@ -37,6 +37,8 @@ test('image-sized PDF opens at true fit-to-width, not the old 50% zoom floor', a
   })
   await setupPageAfterLaunch(launched, page, context)
   try {
+    // Open the file in the real Wails backend (no auto-open in wails3 dev mode)
+    await page.evaluate((p) => (window as any).aiOffice?.openPath(p), pdfPath)
     await waitForRoute(page, '/pdf')
     await expect(page.locator('.pdf-page').first()).toBeVisible()
 

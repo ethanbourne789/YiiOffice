@@ -14,7 +14,7 @@
 import { test, expect } from './fixture'
 import { PNG } from 'pngjs'
 import type { Page } from '@playwright/test'
-import { launchShell, setupPageAfterLaunch, closeAndSaveVideo, waitForRoute } from './helpers'
+import { launchShell, setupPageAfterLaunch, closeAndSaveVideo, waitForRoute, waitForDocumentReady } from './helpers'
 
 async function redCount(page: Page): Promise<number> {
   const buf = await page.locator('.doc-page').screenshot()
@@ -59,8 +59,9 @@ test('re-enabling spellcheck respells existing text without user input', async (
   const launched = await launchShell({ onboardingSeen: true, videoDir: 'spellcheck-reenable' })
   await setupPageAfterLaunch(launched, page, context)
   try {
-    await page.locator('.quick-card').first().click()
+    await page.goto('/docs')
     const editor = await waitForRoute(page, '/docs')
+    await waitForDocumentReady(editor)
     const docPage = editor.locator('.doc-page[contenteditable="true"][spellcheck="true"]')
     await docPage.waitFor()
 
@@ -113,8 +114,9 @@ test('toggling spellcheck never scrolls the view to the caret', async ({ page, c
   const launched = await launchShell({ onboardingSeen: true, videoDir: 'spellcheck-noscroll' })
   await setupPageAfterLaunch(launched, page, context)
   try {
-    await page.locator('.quick-card').first().click()
+    await page.goto('/docs')
     const editor = await waitForRoute(page, '/docs')
+    await waitForDocumentReady(editor)
     await editor.locator('.doc-page').waitFor()
     await wait(1500)
 

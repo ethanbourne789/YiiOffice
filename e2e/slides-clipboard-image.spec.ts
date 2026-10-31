@@ -62,6 +62,8 @@ test('Slides internal paste stays editable and stale captures are rejected', asy
   })
   await setupPageAfterLaunch(launched, page, context)
   try {
+    // Open the file in the real Wails backend (no auto-open in wails3 dev mode)
+    await page.evaluate((p) => (window as any).aiOffice?.openPath(p), pptx)
     await waitForRoute(page, '/slides')
     await expect(page.locator('.stage-wrap canvas').first()).toBeVisible()
     const canvas = page.locator('.stage-wrap').first()

@@ -4,7 +4,7 @@ import JSZip from 'jszip'
 import { mkdtemp, readdir, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { launchShell, setupPageAfterLaunch, closeAndSaveVideo, waitForRoute, mockSaveDialog, mockDialogAccept, triggerSave } from './helpers'
+import { launchShell, setupPageAfterLaunch, closeAndSaveVideo, waitForRoute, mockSaveDialog, mockDialogAccept, triggerSave, waitForDocumentReady } from './helpers'
 
 async function xlsxEntry(path: string, entry: string): Promise<string> {
   const zip = await JSZip.loadAsync(await readFile(path))
@@ -37,11 +37,9 @@ test.describe('sheets: tiled paste of formulas survives save', () => {
       await mockSaveDialog(page, join(saveDir, 'pasted.xlsx'))
       mockDialogAccept(page)
 
-      const card = page.locator('.quick-card', { hasText: 'Sheets' })
-      await expect(card).toBeVisible()
-      await card.click()
-
+      await page.goto('/sheets')
       const sheets = await waitForRoute(page, '/sheets')
+      await waitForDocumentReady(sheets)
       await sheets.waitForFunction(() => document.body.textContent?.includes('Sheet1'), null, {
         timeout: 30_000,
       })

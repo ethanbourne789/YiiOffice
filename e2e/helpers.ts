@@ -1,21 +1,16 @@
 /**
  * Shared helpers for YiiOffice Wails V3 E2E tests.
  *
- * Adapted from the Electron E2E helpers. Key differences:
+ * Runs against the real `wails3 dev` server (port 9245 by default), matching
+ * the official Wails V3 E2E guide at https://v3.wails.io/guides/e2e-testing/.
  *
- * - No `electron.launch()` -- we launch a Playwright Chromium browser and
- *   navigate to the Vite dev server (http://localhost:5173).
- * - No `app.evaluate()` -- we use `page.evaluate()` instead.
- * - No real Electron userData dir -- we create a temp dir for file
- *   operations and use `storageState` / `addInitScript` to seed settings.
- * - No native dialog stubbing needed -- Playwright's dialog handler takes
- *   care of it, or we mock via `page.evaluate()`.
- * - Each "page" (editor tab) is a route in the same SPA, so
- *   `waitForPageWithUrl()` waits for route changes instead of new windows.
+ * No bridge mocking is required — the Go backend handles all $Call.ByID
+ * invocations.  Helpers focus on page navigation, temp directory management,
+ * dialog handling, and keyboard shortcuts.
  */
 import type { BrowserContext, Page } from '@playwright/test'
-import { test, expect } from './fixture'
-import { mkdirSync, existsSync } from 'node:fs'
+import { test } from './fixture'
+import { mkdirSync } from 'node:fs'
 import { rm, mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -27,18 +22,15 @@ import { join, resolve } from 'node:path'
 /** Path to the E2E artifacts directory (screenshots, videos, etc.). */
 export const ARTIFACTS_DIR = resolve(__dirname, 'artifacts')
 
-/** Base URL of the Vite dev server in Wails dev mode. */
-const DEV_SERVER_URL = process.env.E2E_BASE_URL ?? 'http://localhost:5178'
+/** Base URL of the Wails dev server. */
+const DEV_SERVER_URL = process.env.E2E_BASE_URL ?? 'http://localhost:9245'
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 /**
- * Options for launching a test browser context.
- *
- * Mirrors the Electron `LaunchOptions` interface but adapted for browser
- * testing against a dev server.
+ * Options for setting up a test context.
  */
 export interface LaunchOptions {
   /** Pre-seed onboardingSeen=true to skip the onboarding flow. */
@@ -47,7 +39,7 @@ export interface LaunchOptions {
   settings?: Record<string, unknown>
   /** UI language override (injected as YIIOFFICE_LANG env var mock). */
   lang?: string
-  /** Absolute file path to open on launch (not supported in pure browser mode; logged as a warning). */
+  /** Absolute file path to open on launch (passed to the app via file-chooser dialog). */
   openFile?: string
   /** Subdir under ARTIFACTS_DIR for this run's video recordings. */
   videoDir?: string
@@ -57,16 +49,13 @@ export interface LaunchOptions {
 
 /**
  * Handle returned by `launchShell()`.
- *
- * Adapted from the Electron version: `app` is now a `BrowserContext` instead
- * of an `ElectronApplication`, and we no longer have a real Electron process.
  */
 export interface LaunchedApp {
   /** The Playwright page (main browser tab). */
   page: Page
   /** The browser context the page belongs to. */
   context: BrowserContext
-  /** Temp directory for file operations (matches userDataDir in Electron version). */
+  /** Temp directory for file operations. */
   userDataDir: string
 }
 
@@ -75,18 +64,14 @@ export interface LaunchedApp {
 // ---------------------------------------------------------------------------
 
 /**
- * Launch a Playwright browser context and navigate to the shell home page.
+ * Create a Playwright page backed by the real Wails dev server.
  *
- * Adapted from the Electron version of `launchShell()`. Instead of spawning
- * an Electron process, we:
- * 1. Create a temporary user-data directory.
- * 2. Seed app-settings.json if onboardingSeen / settings are provided.
- * 3. Create a browser context with optional video recording.
- * 4. Inject env vars and Wails bridge mocks via addInitScript.
- * 5. Navigate to the dev server home page.
+ * In the old frontend-mock mode this spawned an Electron process.  Now it
+ * simply creates a temp directory, injects env vars via addInitScript, and
+ * navigates to the Wails dev server.
  */
 export async function launchShell(options: LaunchOptions = {}): Promise<LaunchedApp> {
-  // 1. Create temp directory (same pattern as Electron: mkdtemp)
+  // 1. Create temp directory
   const userDataDir = await mkdtemp(join(tmpdir(), 'yiioffice-e2e-'))
 
   // 2. Seed app-settings.json if needed
@@ -96,37 +81,9 @@ export async function launchShell(options: LaunchOptions = {}): Promise<Launched
       ...(options.onboardingSeen ? { onboardingSeen: true } : {}),
       ...options.settings,
     }
-    // Write via fs/promises
     const { writeFile } = await import('node:fs/promises')
     await writeFile(settingsPath, JSON.stringify(settings))
   }
-
-  // 3. Log warning if openFile was passed (not actionable in pure browser mode)
-  if (options.openFile) {
-    console.warn(
-      `[launchShell] openFile="${options.openFile}" is not supported in browser-mode E2E. ` +
-        'The file will not be auto-opened on launch.',
-    )
-  }
-
-  // 4. Build env var injection script
-  const envVars = {
-    YIIOFFICE_USER_DATA: userDataDir,
-    YIIOFFICE_LANG: options.lang ?? 'en',
-    ...(options.env ?? {}),
-  }
-
-  // 5. Create a fresh browser context via the Playwright fixture
-  //    (we get the context from the test's `context` fixture, but for
-  //     standalone use we create one with `browser.newContext()`).
-  //    NOTE: When called from a test that already provides `page` / `context`,
-  //    callers should use the fixture versions. This standalone path is for
-  //    tests that need full control over context creation.
-
-  // We cannot call `browser.newContext()` directly here because Playwright
-  // manages the browser instance in its fixture system. Instead, we return
-  // a LaunchedApp that the test can work with via the provided page/context.
-  // The actual page setup is done via the helper below.
 
   return {
     page: null as any, // set by setupPageAfterLaunch
@@ -136,11 +93,8 @@ export async function launchShell(options: LaunchOptions = {}): Promise<Launched
 }
 
 /**
- * Set up the page and context after a launchShell() call when working within
- * a Playwright test fixture. This applies env var injection, navigates to the
- * home page, and waits for document ready.
- *
- * Call this after `launchShell()` to wire up the test's page/context.
+ * Wire up the test's page/context: inject env vars and navigate to the
+ * Wails dev server home page.
  */
 export async function setupPageAfterLaunch(
   launched: LaunchedApp,
@@ -151,7 +105,8 @@ export async function setupPageAfterLaunch(
   launched.page = page
   launched.context = context
 
-  // Inject environment variables via addInitScript
+  // Inject environment variables so the frontend can read them via
+  // window.__E2E_ENV or window.process.env.
   const envVars: Record<string, string> = {
     YIIOFFICE_USER_DATA: launched.userDataDir,
     YIIOFFICE_LANG: options?.lang ?? 'en',
@@ -159,50 +114,14 @@ export async function setupPageAfterLaunch(
   }
 
   await context.addInitScript((vars) => {
-    // Expose as process.env-like global for code that reads process.env
     ;(window as any).__E2E_ENV = vars
-    // Also set on a fake process object if the app reads it
     if (!(window as any).process) {
       ;(window as any).process = { env: {} }
     }
     Object.assign((window as any).process.env, vars)
   }, envVars)
 
-  // Mock Wails bridge globals if not already present (dev server may not have them)
-  await context.addInitScript(() => {
-    // Only mock if the real Wails bridge is not available
-    if (!(window as any).aiOffice) {
-      ;(window as any).aiOffice = {
-        openPath: async () => {},
-        setTheme: async () => {},
-        getVersion: async () => 'e2e-mock',
-      }
-    }
-    if (!(window as any).aiOfficeTabs) {
-      ;(window as any).aiOfficeTabs = {
-        createTab: async () => ({}),
-        closeTab: async () => {},
-        getTabs: async () => [],
-      }
-    }
-    if (!(window as any).slidesApi) {
-      ;(window as any).slidesApi = {}
-    }
-    if (!(window as any).pdfApi) {
-      ;(window as any).pdfApi = {}
-    }
-    if (!(window as any).markdownApi) {
-      ;(window as any).markdownApi = {}
-    }
-    if (!(window as any).desktop) {
-      ;(window as any).desktop = {}
-    }
-    if (!(window as any).desktopApi) {
-      ;(window as any).desktopApi = {}
-    }
-  })
-
-  // Navigate to the home page
+  // Navigate to the home page served by the Wails dev server
   await page.goto(DEV_SERVER_URL)
   await waitForDocumentReady(page)
 
@@ -214,13 +133,8 @@ export async function setupPageAfterLaunch(
 // ---------------------------------------------------------------------------
 
 /**
- * Close the browser context cleanly.
- *
- * Adapted from the Electron version. In the Electron version, this stubbed
- * the native dialog and force-killed the process if close() hung. In browser
- * mode, we just close the context -- Playwright handles cleanup gracefully.
- *
- * If a video was recorded, saves it to the artifacts directory.
+ * Close the browser context cleanly.  If a video was recorded, saves it
+ * to the artifacts directory.
  */
 export async function closeAndSaveVideo(
   launched: LaunchedApp,
@@ -228,7 +142,6 @@ export async function closeAndSaveVideo(
 ): Promise<string | undefined> {
   const video = launched.page.video()
 
-  // Close the context cleanly (no Electron dialog stubbing needed)
   await launched.context.close().catch(() => {})
 
   if (!video) return undefined
@@ -246,10 +159,7 @@ export async function closeAndSaveVideo(
 // screenshotPath
 // ---------------------------------------------------------------------------
 
-/**
- * Return the file path where a screenshot with the given name should be saved.
- * Matches the Electron version: artifacts/screenshots/{name}.png
- */
+/** Return the file path where a screenshot should be saved. */
 export function screenshotPath(name: string): string {
   return join(ARTIFACTS_DIR, 'screenshots', `${name}.png`)
 }
@@ -260,14 +170,6 @@ export function screenshotPath(name: string): string {
 
 /**
  * Wait for the current page URL to contain `urlPart`.
- *
- * Adapted from the Electron version. In Electron, each editor was a separate
- * BrowserWindow / WebContentsView, so we iterated over `app.windows()`.
- * In Wails (SPA mode), each "page" is a route, so we just wait for the
- * current page's URL to match the expected part.
- *
- * Returns the current page (same semantics as the Electron version returning
- * the matching Page).
  */
 export async function waitForPageWithUrl(
   page: Page,
@@ -284,9 +186,6 @@ export async function waitForPageWithUrl(
 
 /**
  * Wait for the page to navigate to a route matching `routePart` and return the page.
- *
- * This is the SPA-friendly version of `waitForPageWithUrl`. Instead of waiting
- * for the full URL, it checks `window.location.pathname`.
  */
 export async function waitForRoute(
   page: Page,
@@ -305,14 +204,7 @@ export async function waitForRoute(
 // waitForDocumentReady
 // ---------------------------------------------------------------------------
 
-/**
- * Wait for the application to be ready by checking for document ready state.
- *
- * Adapted from the Electron version which polled `page.evaluate()` because
- * Playwright could miss Electron's load lifecycle events. In browser mode,
- * `page.waitForFunction()` is reliable, but we still guard against
- * `about:blank` (the initial blank page before navigation).
- */
+/** Wait for the application to be ready. */
 export async function waitForDocumentReady(
   page: Page,
   timeoutMs = 30_000,
@@ -331,11 +223,7 @@ export async function waitForDocumentReady(
 // createTempDir
 // ---------------------------------------------------------------------------
 
-/**
- * Create a temporary directory for E2E isolation.
- *
- * Added async cleanup via the returned `cleanup` function.
- */
+/** Create a temporary directory with automatic cleanup. */
 export async function createTempDir(): Promise<{
   path: string
   cleanup: () => Promise<void>
@@ -349,10 +237,7 @@ export async function createTempDir(): Promise<{
   }
 }
 
-/**
- * Create a temp dir and return just the path (sync-compatible signature).
- * Use the full `createTempDir()` above when you need automatic cleanup.
- */
+/** Create a temp dir and return just the path (sync-compatible). */
 export function createTempDirSync(): string {
   const dir = join(tmpdir(), 'yiioffice-e2e-', Date.now().toString(36))
   mkdirSync(dir, { recursive: true })
@@ -363,9 +248,7 @@ export function createTempDirSync(): string {
 // navigateToApp
 // ---------------------------------------------------------------------------
 
-/**
- * Navigate to a specific app route (e.g. 'docs', 'slides', 'sheets', 'pdf', 'markdown').
- */
+/** Navigate to a specific app route (e.g. 'docs', 'slides', 'sheets', 'pdf', 'markdown'). */
 export async function navigateToApp(page: Page, app: string): Promise<void> {
   await page.goto(`/${app}`)
   await waitForDocumentReady(page)
@@ -375,9 +258,7 @@ export async function navigateToApp(page: Page, app: string): Promise<void> {
 // getTabBar
 // ---------------------------------------------------------------------------
 
-/**
- * Return a locator for the tab bar element.
- */
+/** Return a locator for the tab bar element. */
 export async function getTabBar(page: Page): Promise<ReturnType<typeof page.locator>> {
   return page.locator('[data-testid="tab-bar"], [class*="tab-bar"], [class*="tabs"]')
 }
@@ -404,23 +285,14 @@ export const homeTest = test.extend<{
 // Dialog mocking helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Set up the Playwright dialog handler to automatically accept all dialogs
- * (alert, confirm, prompt).
- *
- * In the Electron version, dialogs were stubbed via `app.evaluate(({ dialog }) => {
- *   dialog.showMessageBox = ...
- * })`. In browser mode, Playwright's `page.on('dialog')` handler is sufficient.
- */
+/** Automatically accept all browser dialogs (alert, confirm, prompt). */
 export function mockDialogAccept(page: Page): void {
   page.on('dialog', (dialog) => {
     void dialog.accept()
   })
 }
 
-/**
- * Set up the Playwright dialog handler to dismiss all dialogs.
- */
+/** Dismiss all browser dialogs. */
 export function mockDialogDismiss(page: Page): void {
   page.on('dialog', (dialog) => {
     void dialog.dismiss()
@@ -428,8 +300,7 @@ export function mockDialogDismiss(page: Page): void {
 }
 
 /**
- * Mock the save dialog by intercepting the `showSaveFilePicker` API via
- * page.evaluate, so that when the app triggers a save, it resolves with
+ * Mock the save dialog by intercepting `showSaveFilePicker`, resolving with
  * a mock file handle pointing to `filePath`.
  */
 export async function mockSaveDialog(
@@ -437,7 +308,6 @@ export async function mockSaveDialog(
   filePath: string,
 ): Promise<void> {
   await page.evaluate((path) => {
-    // Mock the File System Access API's showSaveFilePicker
     // @ts-expect-error -- showSaveFilePicker may not be in the TS lib types
     window.showSaveFilePicker = async () => {
       const handle = {
@@ -456,34 +326,14 @@ export async function mockSaveDialog(
 // Save / menu action triggers
 // ---------------------------------------------------------------------------
 
-/**
- * Trigger a save action via keyboard shortcut (Ctrl+S / Cmd+S).
- *
- * In the Electron version, save was often triggered by invoking an IPC channel.
- * In Wails, the frontend handles keyboard shortcuts, so we simulate the keypress.
- */
+/** Trigger a save action via keyboard shortcut (Ctrl+S). */
 export async function triggerSave(page: Page): Promise<void> {
   const modKey = process.platform === 'darwin' ? 'Meta' : 'Control'
   await page.keyboard.press(`${modKey}+S`)
 }
 
 /**
- * Trigger a menu action by invoking the frontend API or keyboard shortcut.
- *
- * Adapted for Wails: menu actions are typically handled via keyboard shortcuts
- * or by calling the Wails bridge APIs. If `action` is a known shortcut,
- * we press it; otherwise we try calling `window.aiOffice[action]()`.
- *
- * Known actions:
- * - 'save' -> Ctrl+S
- * - 'newTab' -> Ctrl+T
- * - 'closeTab' -> Ctrl+W
- * - 'undo' -> Ctrl+Z
- * - 'redo' -> Ctrl+Shift+Z
- * - 'copy' -> Ctrl+C
- * - 'paste' -> Ctrl+V
- * - 'cut' -> Ctrl+X
- * - 'selectAll' -> Ctrl+A
+ * Trigger a menu action by keyboard shortcut or bridge API call.
  */
 export async function triggerMenuAction(
   page: Page,
@@ -508,7 +358,7 @@ export async function triggerMenuAction(
     return
   }
 
-  // Fall back to calling the Wails bridge API
+  // Fall back to calling the bridge API
   await page.evaluate((actionName) => {
     const bridge = (window as any).aiOffice
     if (bridge && typeof bridge[actionName] === 'function') {
@@ -522,25 +372,14 @@ export async function triggerMenuAction(
 // Environment variable injection
 // ---------------------------------------------------------------------------
 
-/**
- * Inject an environment variable into the page via `page.evaluate()`.
- *
- * In the Electron version, env vars were set on the spawned process.
- * In browser mode, we inject them into `window.process.env` and
- * `window.__E2E_ENV` so the frontend code can read them.
- *
- * For vars that need to be available from page load, use `addInitScript`
- * on the context instead (see `setupPageAfterLaunch`).
- */
+/** Inject an environment variable into the page at runtime. */
 export async function setEnvVar(
   page: Page,
   key: string,
   value: string,
 ): Promise<void> {
   await page.evaluate((k, v) => {
-    // Inject into our E2E env global
     ;(window as any).__E2E_ENV = { ...((window as any).__E2E_ENV ?? {}), [k]: v }
-    // Also set on the fake process.env
     if (!(window as any).process) {
       ;(window as any).process = { env: {} }
     }
@@ -550,10 +389,7 @@ export async function setEnvVar(
 
 /**
  * Batch-inject environment variables via `context.addInitScript()`.
- * These are available from the very first page load.
- *
- * Use this instead of `setEnvVar` when the vars need to be present
- * before the app initializes (e.g. YIIOFFICE_LANG, YIIOFFICE_USER_DATA).
+ * Available from the first page load.
  */
 export async function setEnvVarsOnInit(
   context: BrowserContext,

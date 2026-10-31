@@ -8,7 +8,7 @@
  * NOTE: getSystemLocale() Electron API replaced with browser navigator.language.
  */
 import { test, expect } from './fixture'
-import { launchShell, setupPageAfterLaunch, closeAndSaveVideo, waitForRoute } from './helpers'
+import { launchShell, setupPageAfterLaunch, closeAndSaveVideo, waitForRoute, waitForDocumentReady } from './helpers'
 
 const POLL = { timeout: 15_000, intervals: [250, 500, 1000] }
 const LETTER_REGIONS = new Set('US CA MX PH LR MM PR CL CO VE GT CR PA DO'.split(' '))
@@ -18,8 +18,9 @@ test('draw text box inserts a box of the dragged size ready to type', async ({ p
   const launched = await launchShell({ onboardingSeen: true, videoDir: 'docs-textbox-draw' })
   await setupPageAfterLaunch(launched, page, context)
   try {
-    await page.locator('.quick-card').first().click()
+    await page.goto('/docs')
     const editor = await waitForRoute(page, '/docs')
+    await waitForDocumentReady(editor)
     const docPage = editor.locator('.doc-page[contenteditable="true"]')
     await docPage.waitFor()
     await docPage.click()

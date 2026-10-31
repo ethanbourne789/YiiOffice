@@ -411,6 +411,8 @@ export const TabKind = {
 /**
  * TabSummary is the serializable view sent to the frontend. Path is included
  * so a renderer can resolve the file it was opened with (tabId -> path).
+ * Closable is explicit because the shell hides the tab's close button on it
+ * (Home is pinned and has none) — it must not be inferred from the id there.
  */
 export class TabSummary {
     /**
@@ -459,6 +461,13 @@ export class TabSummary {
              * @type {boolean}
              */
             this["dirty"] = false;
+        }
+        if (!("closable" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["closable"] = false;
         }
 
         Object.assign(this, $$source);

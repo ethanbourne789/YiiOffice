@@ -8,14 +8,15 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"log/slog"
 	"os"
 	"os/exec"
 	"runtime/debug"
+	"runtime/trace"
 	"strings"
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/wailsapp/wails/v3/pkg/events"
 
 	"gitee.com/ethanbourne789/yiioffice/internal/assets"
 	"gitee.com/ethanbourne789/yiioffice/internal/bridge"
@@ -33,8 +34,36 @@ import (
 //go:embed all:frontend/dist
 var embeddedAssets embed.FS
 
+// consoleLogger is the shared structured logger handed to the Wails runtime.
+// In development mode the level is Debug so Wails bridge messages are visible;
+// production builds raise it to Warn to keep the log concise.
+var consoleLogLevel = slog.LevelWarn
+var consoleLogger = func() *slog.Logger {
+	if buildinfo.IsDev() {
+		consoleLogLevel = slog.LevelDebug
+	}
+	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: consoleLogLevel,
+	}))
+}()
+
 func main() {
-	// Panic recovery with crash diagnostics
+	// --- Performance trace (dev-only, gated by WAILS_TRACE env var) ---
+	if buildinfo.IsDev() {
+		if os.Getenv("WAILS_TRACE") != "" {
+			traceFile, err := os.Create("trace.out")
+			if err == nil {
+				trace.Start(traceFile)
+				defer func() {
+					trace.Stop()
+					traceFile.Close()
+					log.Println("trace written to trace.out — open with: go tool trace trace.out")
+				}()
+			}
+		}
+	}
+
+	// Panic recovery with crash diagnostics (startup phase, before app exists)
 	defer func() {
 		if r := recover(); r != nil {
 			stack := debug.Stack()
@@ -88,8 +117,12 @@ func main() {
 		if app == nil {
 			return nil, nil
 		}
+		// Filter to the formats an editor can actually open; without it the
+		// picker offered every file on disk and picking an unsupported one
+		// failed silently (host.RouteByExt has nowhere to route it).
 		files, err := app.Dialog.OpenFile().
 			SetTitle("Open File").
+			AddFilter("Office Documents", "*.docx;*.xlsx;*.xlsm;*.csv;*.tsv;*.pptx;*.pdf;*.md;*.markdown").
 			PromptForMultipleSelection()
 		return files, err
 	}
@@ -125,35 +158,33 @@ func main() {
 		},
 	})
 
-	// Start renderer watchdog
+	// Start renderer watchdog with a cancellable context so InternalService
+	// can stop it during ServiceShutdown.
+	wdCtx, cancelWd := context.WithCancel(context.Background())
 	wd := watchdog.New(&watchdog.Config{
 		DataDir: dataDir,
 		OnHot: func(metric watchdog.ProcessMetric) {
-			log.Printf("[watchdog] hot renderer: PID %d, CPU %.1f%%, Memory %.0fMB",
-				metric.PID, metric.CPUPercent, metric.WorkingSetSizeMB)
+			platform.Logger().Warn("hot renderer detected",
+				"pid", metric.PID,
+				"cpuPercent", metric.CPUPercent,
+				"memoryMB", metric.WorkingSetSizeMB)
 		},
 	})
-	go wd.Start(context.Background())
+	go wd.Start(wdCtx)
 
 	// Initialize file index (non-fatal if it fails). Done before application.New
 	// so the HomeService bindings can receive the lifecycle pointer.
 	rootPaths := fm.RootPaths()
 	var idxLifecycle *index.Lifecycle
 	if lc, err := index.Init(dataDir, rootPaths); err != nil {
-		log.Printf("warning: file index init failed: %v", err)
+		platform.Logger().Warn("file index init failed", "error", err)
 	} else {
 		idxLifecycle = lc
-		defer func() {
-			if err := idxLifecycle.Shutdown(); err != nil {
-				log.Printf("warning: file index shutdown error: %v", err)
-			}
-		}()
 	}
 
 	// The Sheets editor runs on the in-process pure-Go workbook engine
 	// (excelize); there is no external sidecar process.
 	wbEngine := workbook.NewEngine()
-	defer wbEngine.CloseAll()
 
 	homeSvc := bridge.NewHomeService(
 		buildinfo.Version, store, rm, fm, tabHost, fo, dam, idxLifecycle, openFileFn,
@@ -163,10 +194,35 @@ func main() {
 	app := application.New(application.Options{
 		Name:        "YiiOffice",
 		Description: "YiiOffice desktop office suite",
+		Logger:      consoleLogger,
+		LogLevel:    consoleLogLevel,
 		Assets: application.AssetOptions{
 			Handler: assets.New(dist),
 		},
+		// ErrorHandler catches bridge call errors (e.g. invalid args,
+		// service panics caught by the runtime) before they reach the user.
+		ErrorHandler: func(err error) {
+			if err == nil {
+				return
+			}
+			platform.Logger().Error("bridge call error", "error", err)
+		},
+		// PanicHandler catches service-layer panics. Complements the startup
+		// defer-recover above (which only runs in main).
+		PanicHandler: func(details *application.PanicDetails) {
+			dataDir, _ := host.AppDataDir()
+			errValue := fmt.Sprintf("%v", details.Error)
+			if path, err := diagnose.WriteCrashReport(dataDir, errValue, []byte(details.FullStackTrace)); err == nil {
+				platform.Logger().Warn("crash report written", "path", path)
+			}
+			platform.Logger().Error("service panic",
+				"error", details.Error,
+				"stack", details.FullStackTrace)
+		},
 		Services: []application.Service{
+			// Registered first so it shuts down last (reverse order), after all
+			// frontend-facing services are done.
+			application.NewService(bridge.NewInternalService(idxLifecycle, wbEngine, cancelWd)),
 			application.NewService(bridge.NewShellService(func(u string) error {
 				return platform.OpenExternal(u)
 			})),
@@ -178,7 +234,9 @@ func main() {
 			application.NewService(bridge.NewMarkdownService(rm)),
 			application.NewService(bridge.NewWorkbookService(wbEngine, rm)),
 			application.NewService(bridge.NewExportService()),
-			application.NewService(&bridge.DiagService{}),
+			// Frameless main window: the tab strip is the title bar, so the
+			// shell draws the caption buttons and drives them through here.
+			application.NewService(bridge.NewWindowService(closeGuard.ShouldAllowClose)),
 		},
 		SingleInstance: &application.SingleInstanceOptions{
 			UniqueID: "gitee.com.ethanbourne789.yiioffice",
@@ -191,6 +249,12 @@ func main() {
 		ShouldQuit: func() bool {
 			return closeGuard.ShouldAllowClose()
 		},
+		OnShutdown: func() {
+			platform.Logger().Info("application shutting down")
+		},
+		PostShutdown: func() {
+			consoleLogger.Info("application terminated cleanly")
+		},
 	})
 	platform.Set(app)
 
@@ -198,7 +262,7 @@ func main() {
 	// after application.New and registered as a service for the shell.
 	updateSvc, err := update.New(app, buildinfo.Version)
 	if err != nil {
-		log.Printf("[shell] updater disabled: %v", err)
+		platform.Logger().Warn("updater disabled", "error", err)
 	} else {
 		app.RegisterService(application.NewService(updateSvc))
 	}
@@ -211,13 +275,15 @@ func main() {
 		Frameless:      true,
 		StartState:     application.WindowStateMaximised,
 		EnableFileDrop: true,
+		Windows: application.WindowsWindow{
+			// Lets WebView2 turn the strip's `-webkit-app-region: drag` into a
+			// native caption (move the window, double-click to maximise).
+			// Ignored on runtimes that predate the setting.
+			NonClientRegionSupport: true,
+		},
 	})
 
 	installSystemTray(app, win, closeGuard)
-
-	if os.Getenv("YII_DIAG") != "" {
-		installDiagProbe(win)
-	}
 
 	// Files passed on the command line (file association or a second launch
 	// before the running instance existed).
@@ -226,51 +292,6 @@ func main() {
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
-}
-
-// installDiagProbe runs a one-shot script inside the shell renderer and reports
-// its findings through the temporary DiagService. TEMPORARY: remove together
-// with internal/bridge/diag_tmp.go.
-func installDiagProbe(win *application.WebviewWindow) {
-	const probe = `
-(async () => {
-  const LOGID = 437220436
-  const send = (m) => { try { window.wails.Call.ByID(LOGID, String(m)) } catch (e) {} }
-  const wait = (ms) => new Promise((r) => setTimeout(r, ms))
-  window.addEventListener('error', (e) => send('top error: ' + e.message))
-  window.addEventListener('unhandledrejection', (e) => send('top rejection: ' + String(e.reason)))
-  try {
-    let cards = []
-    for (let i = 0; i < 60; i++) {
-      cards = Array.from(document.querySelectorAll('.quick-card'))
-      if (cards.length) break
-      await wait(250)
-    }
-    send('cards=' + cards.map((c) => c.textContent).join('|'))
-    for (let i = 0; i < cards.length; i++) {
-      const all = Array.from(document.querySelectorAll('.quick-card'))
-      if (!all[i]) { send('card ' + i + ' gone'); continue }
-      send('>>> click card ' + i + ' ' + all[i].textContent)
-      all[i].click()
-      await wait(5000)
-      const frames = Array.from(document.querySelectorAll('iframe'))
-      const last = frames[frames.length - 1]
-      if (!last) { send('  no iframe'); continue }
-      try {
-        const d = last.contentDocument
-        const root = d && d.querySelector('#root')
-        send('  src=' + last.getAttribute('src') + ' title=' + (d && d.title) + ' rootChildren=' + (root ? root.children.length : 'no-root') + ' text=' + JSON.stringify((d && d.body ? d.body.innerText : '').slice(0, 160)))
-      } catch (e) { send('  inspect error ' + String(e)) }
-    }
-    send('tabs=' + JSON.stringify(Array.from(document.querySelectorAll('.tab-item')).map((t) => t.textContent)))
-  } catch (e) {
-    send('PROBE ERROR ' + String(e))
-  }
-})()
-`
-	win.OnWindowEvent(events.Common.WindowRuntimeReady, func(*application.WindowEvent) {
-		win.ExecJS(probe)
-	})
 }
 
 //go:embed build/windows/icon.ico
@@ -320,7 +341,7 @@ func openFilesFromArgs(home *bridge.HomeService, args []string) {
 			continue
 		}
 		if err := home.OpenPath(arg); err != nil {
-			log.Printf("[shell] open %s: %v", arg, err)
+			platform.Logger().Warn("open file from args failed", "path", arg, "error", err)
 		}
 	}
 }

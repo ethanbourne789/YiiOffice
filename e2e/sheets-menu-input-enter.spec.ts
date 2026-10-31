@@ -4,7 +4,7 @@ import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Page } from '@playwright/test'
-import { launchShell, setupPageAfterLaunch, closeAndSaveVideo, waitForRoute, type LaunchedApp } from './helpers'
+import { launchShell, setupPageAfterLaunch, closeAndSaveVideo, waitForRoute, waitForDocumentReady, type LaunchedApp } from './helpers'
 
 // the preload exposes window.__yiiofficeDebug only under this env var
 process.env.YIIOFFICE_DEBUG_HOOKS = '1'
@@ -40,11 +40,9 @@ async function openBlankSheet(
   scratch: string,
 ): Promise<{ sheets: Page; grid: { x: number; y: number } }> {
   // app.evaluate with electronApp.setPath is not available in browser mode.
-  const card = page.locator('.quick-card', { hasText: 'Sheets' })
-  await expect(card).toBeVisible()
-  await card.click()
-
+  await page.goto('/sheets')
   const sheets = await waitForRoute(page, '/sheets')
+  await waitForDocumentReady(sheets)
   await sheets.waitForFunction(() => document.body.textContent?.includes('Sheet1'), null, {
     timeout: 30_000,
   })

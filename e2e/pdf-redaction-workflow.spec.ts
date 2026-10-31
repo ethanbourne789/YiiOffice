@@ -28,6 +28,8 @@ test('redaction stays in the current tab and accumulates on its working copy', a
   })
   await setupPageAfterLaunch(launched, page, context)
   try {
+    // Open the file in the real Wails backend (no auto-open in wails3 dev mode)
+    await page.evaluate((p) => (window as any).aiOffice?.openPath(p), source)
     await waitForRoute(page, '/pdf')
     await expect(page.locator('.pdf-page').first()).toBeVisible()
 

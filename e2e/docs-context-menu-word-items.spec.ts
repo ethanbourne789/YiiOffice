@@ -9,7 +9,7 @@
  */
 import { test, expect } from './fixture'
 import type { Page } from '@playwright/test'
-import { launchShell, setupPageAfterLaunch, closeAndSaveVideo, waitForRoute } from './helpers'
+import { launchShell, setupPageAfterLaunch, closeAndSaveVideo, waitForRoute, waitForDocumentReady } from './helpers'
 
 const POLL = { timeout: 15_000, intervals: [250, 500, 1000] }
 
@@ -55,8 +55,9 @@ test('hyperlink context menu items and Review comment navigation', async ({ page
   const launched = await launchShell({ onboardingSeen: true, videoDir: 'ctx-word-items' })
   await setupPageAfterLaunch(launched, page, context)
   try {
-    await page.locator('.quick-card').first().click()
+    await page.goto('/docs')
     const editor = await waitForRoute(page, '/docs')
+    await waitForDocumentReady(editor)
     const docPage = editor.locator('.doc-page[contenteditable="true"]')
     await docPage.waitFor()
     await docPage.click()

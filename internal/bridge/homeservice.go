@@ -2,7 +2,6 @@ package bridge
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 
@@ -164,9 +163,7 @@ func (s *HomeService) StatPaths(paths []string) []host.FileInfo { return s.rm.St
 // --- File operations ---
 
 func (s *HomeService) newTab(kind host.TabKind, title string) {
-	log.Printf("[diag] newTab kind=%s title=%s", kind, title)
 	s.th.AddTab(kind, title, "")
-	log.Printf("[diag] tabs now: %+v", s.th.List())
 	platform.Emit(EventTabsChanged, s.th.List())
 }
 

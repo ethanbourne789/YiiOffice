@@ -4,15 +4,28 @@ import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import JSZip from 'jszip'
-import { afterAll, beforeAll, test } from 'vitest'
+import { afterAll, beforeAll, describe, test } from 'vitest'
 import type { Browser } from 'playwright-core'
 
 import { convertHtmlToDocx, EXTRACTOR_SOURCE, mapFont } from '../src'
-import { launchChrome, PlaywrightDriver } from '../src/drivers/playwright'
+import { findChrome, launchChrome, PlaywrightDriver } from '../src/drivers/playwright'
 
 const A4 = { width: 794, height: 1123, deviceScaleFactor: 2 }
 let browser: Browser
 
+// This integration suite drives a real Chrome/Chromium. In a Chrome-less
+// environment (CI without CHROME_PATH) the setup below can't launch, so skip
+// the whole suite instead of failing every case.
+const chromeAvailable = (() => {
+  try {
+    findChrome()
+    return true
+  } catch {
+    return false
+  }
+})()
+
+describe.skipIf(!chromeAvailable)('features', () => {
 beforeAll(async () => {
   browser = await launchChrome()
 })
@@ -1663,4 +1676,5 @@ test('maps document meta, html lang, and footer page numbers to native Word part
   assert.match(footer, />PAGE</)
   assert.match(footer, />NUMPAGES</)
   assert.match(footer, /社外秘/) // public-hygiene: fixture
+})
 })

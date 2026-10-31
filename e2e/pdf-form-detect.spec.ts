@@ -36,6 +36,8 @@ test('Form Design auto-detects blanks, boxes and label gaps as fields', async ({
   })
   await setupPageAfterLaunch(launched, page, context)
   try {
+    // Open the file in the real Wails backend (no auto-open in wails3 dev mode)
+    await page.evaluate((p) => (window as any).aiOffice?.openPath(p), pdfPath)
     await waitForRoute(page, '/pdf')
     const editorPage = page.locator('.pdf-page').first()
     await expect(editorPage).toBeVisible()

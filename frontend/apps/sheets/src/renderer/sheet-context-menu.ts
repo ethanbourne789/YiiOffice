@@ -8,7 +8,7 @@
  * 'context-menu' handler and the native edit menu stacks on top of it
  * (yiioffice#1816). Cancelling the event suppresses the native menu entirely, which
  * is exactly how renderer-drawn menus elsewhere stay exclusive (see
- * electron-utils' context-menu.ts). Editable surfaces (formula bar, the
+ * desktop-utils' context-menu). Editable surfaces (formula bar, the
  * in-cell editor) keep the native cut/copy/paste menu — Univer shows nothing
  * of its own there.
  */

@@ -12,7 +12,7 @@ import {
   runHeadlessRendererExport,
   type HeadlessExportReport,
   type HeadlessWaitOptions,
-} from '@yiioffice/electron-utils/headless-export'
+} from '@yiioffice/desktop-utils/headless-export'
 
 export interface DeckReadiness {
   /** pages built from a deck that came from disk */

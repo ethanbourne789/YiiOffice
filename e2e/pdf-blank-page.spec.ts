@@ -21,6 +21,8 @@ test('Insert blank page is a pending, undoable edit that lands in the file on sa
   })
   await setupPageAfterLaunch(launched, page, context)
   try {
+    // Open the file in the real Wails backend (no auto-open in wails3 dev mode)
+    await page.evaluate((p) => (window as any).aiOffice?.openPath(p), pdfPath)
     await waitForRoute(page, '/pdf')
     const thumbs = page.locator('.pdf-thumb')
     await expect(thumbs).toHaveCount(2)

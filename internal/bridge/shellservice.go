@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+
+	"gitee.com/ethanbourne789/yiioffice/internal/platform"
 )
 
 // ShellService exposes OS-level shell helpers to every renderer as an official
@@ -37,4 +39,18 @@ func (s *ShellService) ReadLocalImage(path string) (string, error) {
 		return "", fmt.Errorf("read file: %w", err)
 	}
 	return base64.StdEncoding.EncodeToString(data), nil
+}
+
+// SetText writes text to the system clipboard. Returns true on success.
+func (s *ShellService) SetText(text string) bool {
+	return platform.ClipboardSetText(text)
+}
+
+// GetText returns the current clipboard text.
+func (s *ShellService) GetText() (string, error) {
+	text, ok := platform.ClipboardText()
+	if !ok {
+		return "", errors.New("clipboard read failed")
+	}
+	return text, nil
 }

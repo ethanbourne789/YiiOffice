@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -8,7 +8,7 @@ import {
   configuredDefaultSaveDir,
   readDefaultSaveDirSetting,
   resolveDefaultSaveDir,
-} from '../src/index'
+} from '../src/default-save-dir'
 
 let root: string
 
@@ -58,16 +58,14 @@ describe('resolveDefaultSaveDir', () => {
     expect(existsSync(fallback)).toBe(true)
   })
 
-  it('degrades to the fallback when the configured folder is not writable', () => {
-    const readOnly = join(root, 'read-only')
-    mkdirSync(readOnly)
-    chmodSync(readOnly, 0o500)
+  it('degrades to the fallback when the configured folder is not usable', () => {
+    // `chmodSync(…, 0o500)` cannot revoke write access on Windows ACLs, so a
+    // blocked path is simulated the same way the fallback test below does: an
+    // existing file can never serve as a save directory on any platform.
+    const blocked = join(root, 'blocked')
+    writeFileSync(blocked, 'x')
     const fallback = join(root, 'fallback')
-    try {
-      expect(resolveDefaultSaveDir(readOnly, fallback)).toBe(fallback)
-    } finally {
-      chmodSync(readOnly, 0o700)
-    }
+    expect(resolveDefaultSaveDir(blocked, fallback)).toBe(fallback)
   })
 
   it('throws a descriptive error when the fallback itself is unusable', () => {

@@ -4,7 +4,7 @@ import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Page } from '@playwright/test'
-import { launchShell, setupPageAfterLaunch, closeAndSaveVideo, waitForRoute } from './helpers'
+import { launchShell, setupPageAfterLaunch, closeAndSaveVideo, waitForRoute, waitForDocumentReady } from './helpers'
 
 // the preload exposes window.__yiiofficeDebug only under this env var; the
 // spec needs it to read the selection through Univer's Facade
@@ -55,11 +55,9 @@ test.describe('sheets: arrow collapses a multi-cell selection to the active cell
     try {
       // app.evaluate with electronApp.setPath is not available in browser mode;
       // temp dir is recorded in launched.userDataDir instead.
-      const card = page.locator('.quick-card', { hasText: 'Sheets' })
-      await expect(card).toBeVisible()
-      await card.click()
-
+      await page.goto('/sheets')
       const sheets = await waitForRoute(page, '/sheets')
+      await waitForDocumentReady(sheets)
       // the replayed move must not surface as an uncaught command error
       const commandErrors: string[] = []
       sheets.on('pageerror', (err) => {

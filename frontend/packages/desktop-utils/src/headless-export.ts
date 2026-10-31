@@ -9,7 +9,7 @@
  * gives the external `yiioffice` CLI one place to read the contract from.
  *
  * The renderer-side waiting helpers at the bottom live here too (imported as
- * `@yiioffice/electron-utils/headless-export`, never through the package root,
+ * `@yiioffice/desktop-utils/headless-export`, never through the package root,
  * which pulls in node: builtins) so every editor module reports the same way.
  */
 
@@ -78,6 +78,7 @@ const MODULE_BY_EXTENSION: ReadonlyArray<
   readonly [RegExp, HeadlessExportModule]
 > = [
   [/\.docx$/i, "docs"],
+  [/\.(html|htm)$/i, "docs"],
   [/\.(xlsx|xlsm|xls|csv|tsv)$/i, "sheets"],
   [/\.pptx$/i, "slides"],
   [/\.(md|markdown)$/i, "markdown"],
@@ -94,7 +95,7 @@ export function headlessModuleFor(
 
 /** Extensions the headless entry accepts, for error messages. */
 export const HEADLESS_SUPPORTED_EXTENSIONS =
-  ".docx, .xlsx, .xlsm, .xls, .csv, .pptx, .md, .markdown";
+  ".docx, .html, .htm, .xlsx, .xlsm, .xls, .csv, .pptx, .md, .markdown";
 
 /** `--flag value` and `--flag=value` both read the same. */
 function readOption(

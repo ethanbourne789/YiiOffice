@@ -2756,6 +2756,7 @@ export function Home() {
           <button
             className={`nav-item${view === 'recent' && !selectedFolder ? ' active' : ''}`}
             onClick={() => changeView('recent')}
+            data-testid="nav-recent"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <circle cx="8" cy="8" r="6.2" stroke="currentColor" strokeWidth="1.3" />
@@ -2772,6 +2773,7 @@ export function Home() {
           <button
             className={`nav-item${view === 'starred' && !selectedFolder ? ' active' : ''}`}
             onClick={() => changeView('starred')}
+            data-testid="nav-starred"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path

@@ -119,9 +119,10 @@ test.describe('theme visual adoption', () => {
     await setupPageAfterLaunch(launched, page, context)
 
     try {
-      // Navigate to docs via quick card click
-      await page.locator('.quick-card', { hasText: 'Docs' }).click()
+      // Navigate to docs
+      await page.goto('/docs')
       await waitForRoute(page, '/docs')
+      await waitForDocumentReady(page)
       const docPage = page.locator('.doc-page').first()
       await expect(docPage).toBeVisible()
       const pageBg = () => docPage.evaluate((el) => getComputedStyle(el).backgroundColor)
@@ -172,9 +173,10 @@ test.describe('theme visual adoption', () => {
     await setupPageAfterLaunch(launched, page, context)
 
     try {
-      // Navigate to sheets via quick card click
-      await page.locator('.quick-card', { hasText: 'Sheets' }).click()
+      // Navigate to sheets
+      await page.goto('/sheets')
       await waitForRoute(page, '/sheets')
+      await waitForDocumentReady(page)
       await page.waitForSelector('canvas', { timeout: 20_000 })
 
       // Univer flags its dark repaint with a class on <html> (ThemeService.darkMode$)

@@ -4,10 +4,16 @@
 *.test
 *.out
 
+# Stray build artifact accidentally committed (PE binary)
+-C
+
 # Wails
 /build/bin/
 /build/windows/*.syso
 /build/windows/nsis/
+
+# Installer / packaged output
+/dist/
 
 # Frontend
 frontend/node_modules/

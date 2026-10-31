@@ -8,11 +8,11 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "node tools/build-renderers.mjs shell docs sheets",
-    "build:dev": "node tools/build-renderers.mjs shell docs sheets",
+    "build": "node tools/build-renderers.mjs",
+    "build:dev": "node tools/build-renderers.mjs",
     "dev": "npm run dev -w @yiioffice/shell",
-    "test": "npm run test -w @yiioffice/wails-bridge",
-    "typecheck": "npm run typecheck -w @yiioffice/wails-bridge"
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",

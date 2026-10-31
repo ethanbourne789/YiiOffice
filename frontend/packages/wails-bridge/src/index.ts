@@ -1,6 +1,7 @@
 import type { WailsRuntime } from './transport'
 import { createHomeApi } from './home-bridge'
 import { createTabsApi } from './tabs-bridge'
+import { createWindowControlsApi } from './window-bridge'
 import { on } from './transport'
 import { shellOpenExternal } from './shell-bridge'
 
@@ -30,6 +31,8 @@ export type { DesktopApi, MarkdownApi } from './editor-api'
 export { createSlidesDesktopApi } from './slides-bridge'
 export type { SlidesDesktopApi } from './slides-bridge'
 export { currentTabId, setCurrentTabDirty } from './tabs-bridge'
+export { createWindowControlsApi, readMaximised } from './window-bridge'
+export type { WindowControlsApi } from './window-bridge'
 export {
   exportPdfFile,
   exportHtmlFile,
@@ -47,6 +50,7 @@ declare global {
   interface Window {
     aiOffice?: unknown
     aiOfficeTabs?: unknown
+    windowControls?: unknown
     desktop?: unknown
     desktopApi?: unknown
     pdfApi?: unknown
@@ -116,6 +120,7 @@ export function installBridge(): void {
     ...createDesktopApi(),
   }
   window.aiOfficeTabs = createTabsApi()
+  window.windowControls = createWindowControlsApi()
   window.markdownApi = createMarkdownApi()
   window.slidesDesktop = createSlidesDesktopApi()
   installExternalLinkGuard()

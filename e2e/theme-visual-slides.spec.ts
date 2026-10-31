@@ -24,9 +24,10 @@ test('slides chrome darkens while the slide canvas stays paper-white', async ({ 
   await setupPageAfterLaunch(launched, page, context)
 
   try {
-    // Navigate to slides via quick card click
-    await page.locator('.quick-card', { hasText: 'PPT' }).first().click()
+    // Navigate to slides
+    await page.goto('/slides')
     await waitForRoute(page, '/slides')
+    await waitForDocumentReady(page)
     await page.waitForSelector('.stage-wrap canvas', { timeout: 20_000 })
 
     await page.evaluate(() =>

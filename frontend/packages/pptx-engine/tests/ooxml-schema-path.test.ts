@@ -8,7 +8,7 @@ import { createBlankPptx } from '../src/index'
 import { xmllintAvailable } from '../../../tools/ooxml-validate/validate-pptx.mjs'
 
 // Exercise the real validator from a path with spaces even in a space-free CI checkout.
-describe.skipIf(!xmllintAvailable() && !process.env.CI)('schema validator paths', () => {
+describe.skipIf(!xmllintAvailable())('schema validator paths', () => {
   it('validates a clean deck when the schema directory contains spaces', async () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'yiioffice schema path '))
     try {

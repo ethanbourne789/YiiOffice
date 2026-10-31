@@ -11,7 +11,7 @@
  * and demand a single stable state.
  */
 import { test, expect } from './fixture'
-import { launchShell, setupPageAfterLaunch, closeAndSaveVideo, waitForRoute } from './helpers'
+import { launchShell, setupPageAfterLaunch, closeAndSaveVideo, waitForRoute, waitForDocumentReady } from './helpers'
 
 /**
  * Regression net for the table page-gap flicker (#1088): a fixed-layout table
@@ -34,10 +34,9 @@ test.describe('docs table page-gap stability', () => {
     const launched = await launchShell({ onboardingSeen: true, videoDir: 'docs-table-gap-flicker' })
     await setupPageAfterLaunch(launched, page, context)
     try {
-      const card = page.locator('.quick-card', { hasText: 'Docs' })
-      await expect(card).toBeVisible()
-      await card.click()
+      await page.goto('/docs')
       const editorPage = await waitForRoute(page, '/docs')
+      await waitForDocumentReady(editorPage)
       await editorPage.waitForFunction(
         () => Boolean((window as unknown as AidocsWindow).__aidocs?.editor),
         undefined,

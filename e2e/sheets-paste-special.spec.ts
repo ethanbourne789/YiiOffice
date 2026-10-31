@@ -3,7 +3,7 @@ import { test, expect } from './fixture'
 import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { launchShell, setupPageAfterLaunch, closeAndSaveVideo, waitForRoute } from './helpers'
+import { launchShell, setupPageAfterLaunch, closeAndSaveVideo, waitForRoute, waitForDocumentReady } from './helpers'
 
 process.env.YIIOFFICE_DEBUG_HOOKS = '1'
 const MOD = 'Control'
@@ -37,10 +37,9 @@ test('paste special: transpose, add operation, paste link, undo', async ({ page,
   await setupPageAfterLaunch(launched, page, context)
   try {
     // app.evaluate with electronApp.setPath is not available in browser mode.
-    const card = page.locator('.quick-card', { hasText: 'Sheets' })
-    await expect(card).toBeVisible()
-    await card.click()
+    await page.goto('/sheets')
     const sheets = await waitForRoute(page, '/sheets')
+    await waitForDocumentReady(sheets)
     await sheets.waitForFunction(() => document.body.textContent?.includes('Sheet1'), null, {
       timeout: 30_000,
     })

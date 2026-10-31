@@ -7,7 +7,7 @@
  * resizable width.
  */
 import { test, expect } from './fixture'
-import { launchShell, setupPageAfterLaunch, closeAndSaveVideo, waitForRoute } from './helpers'
+import { launchShell, setupPageAfterLaunch, closeAndSaveVideo, waitForRoute, waitForDocumentReady } from './helpers'
 
 const POLL = { timeout: 15_000, intervals: [250, 500, 1000] }
 
@@ -16,8 +16,9 @@ test('headings tree, search results, pages and heading edits', async ({ page, co
   const launched = await launchShell({ onboardingSeen: true, videoDir: 'docs-nav-pane' })
   await setupPageAfterLaunch(launched, page, context)
   try {
-    await page.locator('.quick-card').first().click()
+    await page.goto('/docs')
     const editor = await waitForRoute(page, '/docs')
+    await waitForDocumentReady(editor)
     const docPage = editor.locator('.doc-page[contenteditable="true"]')
     await docPage.waitFor()
     await docPage.click()

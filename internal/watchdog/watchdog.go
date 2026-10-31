@@ -5,10 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
+
+	"gitee.com/ethanbourne789/yiioffice/internal/platform"
 )
 
 // Config configures the watchdog behavior.
@@ -109,7 +110,7 @@ func (w *Watchdog) Start(ctx context.Context) {
 func (w *Watchdog) sample() {
 	metrics, err := GetAllWebView2RelatedProcesses()
 	if err != nil {
-		log.Printf("[watchdog] failed to get processes: %v", err)
+		platform.Logger().Warn("watchdog: failed to get processes", "error", err)
 		return
 	}
 
@@ -198,11 +199,11 @@ func (w *Watchdog) writeWatchdogDiagnostic(m ProcessMetric) {
 
 	data, err := json.MarshalIndent(diag, "", "  ")
 	if err != nil {
-		log.Printf("[watchdog] failed to marshal diagnostic: %v", err)
+		platform.Logger().Warn("watchdog: failed to marshal diagnostic", "error", err)
 		return
 	}
 
 	if err := os.WriteFile(path, data, 0o644); err != nil {
-		log.Printf("[watchdog] failed to write diagnostic: %v", err)
+		platform.Logger().Warn("watchdog: failed to write diagnostic", "error", err)
 	}
 }

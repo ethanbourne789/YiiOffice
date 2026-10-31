@@ -10,6 +10,7 @@ import * as PdfService from "./pdfservice.js";
 import * as ShellService from "./shellservice.js";
 import * as SlidesService from "./slidesservice.js";
 import * as TabService from "./tabservice.js";
+import * as WindowService from "./windowservice.js";
 import * as WorkbookService from "./workbookservice.js";
 export {
     DocsService,
@@ -20,6 +21,7 @@ export {
     ShellService,
     SlidesService,
     TabService,
+    WindowService,
     WorkbookService
 };
 

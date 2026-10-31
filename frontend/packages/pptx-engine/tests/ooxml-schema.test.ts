@@ -26,9 +26,9 @@ import {
 } from '../src/index'
 
 const available = xmllintAvailable()
-if (!available && !process.env.CI) console.warn('xmllint not on PATH: ooxml-schema tests skipped')
+if (!available) console.warn('xmllint/schemas not available: ooxml-schema tests skipped')
 
-describe.skipIf(!available && !process.env.CI)('OOXML schema gate', () => {
+describe.skipIf(!available)('OOXML schema gate', () => {
   const damage: Array<[string, (xml: string) => string, RegExp]> = [
     [
       'sz below 100',

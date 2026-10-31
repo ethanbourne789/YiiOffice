@@ -17,7 +17,9 @@ export function TabFrame({ tabs, activeTabId }: { tabs: TabSummary[]; activeTabI
   }, [activeTabId])
 
   return (
-    <div style={{ position: 'absolute', inset: 0 }}>
+    // top: 40px — the strip doubles as the title bar; a full-bleed frame would
+    // hide each editor's own ribbon behind it.
+    <div style={{ position: 'absolute', left: 0, right: 0, top: 40, bottom: 0 }}>
       {tabs.map((tab) => (
         <EditorIframe
           key={tab.id}

@@ -57,6 +57,8 @@ test('click-sequence video plays on the first click of the show', async ({ page,
   })
   await setupPageAfterLaunch(launched, page, context)
   try {
+    // Open the file in the real Wails backend (no auto-open in wails3 dev mode)
+    await page.evaluate((p) => (window as any).aiOffice?.openPath(p), deck)
     await waitForRoute(page, '/slides')
     await page.waitForSelector('.stage-wrap canvas', { timeout: 30_000 })
     const anims = await page.evaluate(() =>

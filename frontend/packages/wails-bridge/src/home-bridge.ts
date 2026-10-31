@@ -93,6 +93,31 @@ const FILTER_FAMILY: Record<string, readonly string[]> = {
 
 const HOME_LIST_CAP = 200
 
+/**
+ * Extensions host.RouteByExt can route to an editor. The open dialog filters to
+ * the same set, so a pick outside it can only come from a hand-typed filename.
+ */
+const ROUTABLE_EXTS = new Set([
+  'docx',
+  'doc',
+  'xlsx',
+  'xlsm',
+  'xls',
+  'csv',
+  'tsv',
+  'pptx',
+  'ppt',
+  'pdf',
+  'md',
+  'markdown',
+])
+
+function isRoutable(path: string): boolean {
+  const dot = path.lastIndexOf('.')
+  if (dot < 0) return false
+  return ROUTABLE_EXTS.has(path.slice(dot + 1).toLowerCase())
+}
+
 function familyOf(ext: string | undefined): readonly string[] | null {
   if (!ext || ext === 'all') return null
   return FILTER_FAMILY[ext] ?? [ext.toLowerCase()]
@@ -310,7 +335,22 @@ export function createHomeApi(): HomeBridge {
     },
     async browse() {
       const value = await Browse()
-      return Array.isArray(value) ? value : []
+      const paths = Array.isArray(value)
+        ? (value as unknown[]).filter((p): p is string => typeof p === 'string' && p !== '')
+        : []
+      // Browse() only runs the native picker; routing the picks is this
+      // bridge's job (HomeApi: "file picker ... then routes"). Returning the
+      // paths without opening them made the home "open local file" card look
+      // dead: the dialog closed and no tab ever appeared.
+      for (const path of paths) {
+        if (!isRoutable(path)) continue
+        try {
+          await OpenPath(path)
+        } catch {
+          // A vanished/unreadable file must not abort the rest of the picks.
+        }
+      }
+      return paths
     },
     async revealPath(path) {
       await RevealPath(path)

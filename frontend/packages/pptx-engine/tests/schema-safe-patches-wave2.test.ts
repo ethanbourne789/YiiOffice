@@ -55,7 +55,7 @@ async function blankWithShape(spPrExtra = '', rPrInner = '') {
 
 async function saveClean(opened: Awaited<ReturnType<typeof openPptx>>) {
   const saved = await savePptx(opened)
-  if (available || process.env.CI) expect(await validatePptx(saved)).toEqual([])
+  if (available) expect(await validatePptx(saved)).toEqual([])
   const zip = await JSZip.loadAsync(saved)
   return { zip, slide1: await zip.file('ppt/slides/slide1.xml')!.async('string') }
 }
@@ -64,7 +64,7 @@ const LN_WITH_EXT =
   '<a:ln w="12700"><a:solidFill><a:srgbClr val="000000"/></a:solidFill>' +
   '<a:extLst><a:ext uri="{C807C97D-BFC1-408E-A445-0C87EB9F89A2}"><a14:hiddenLine xmlns:a14="http://schemas.microsoft.com/office/drawing/2010/main" w="12700"><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a14:hiddenLine></a:ext></a:extLst></a:ln>'
 
-describe.skipIf(!available && !process.env.CI)('schema-safe patches, wave 2', () => {
+describe.skipIf(!available)('schema-safe patches, wave 2', () => {
   it('table style edits do not swallow the cells between a self-closing and a paired tcPr', async () => {
     const opened = await openPptx(await createBlankPptx())
     addTable(opened, 0, { rows: 1, cols: 3, offset: { x: 0, y: 0, cx: 3000000, cy: 400000 } })

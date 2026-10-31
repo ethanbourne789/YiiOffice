@@ -23,6 +23,7 @@ import {
   ConsumePendingOpenDocx,
   ConsumeNewBlankDoc,
 } from '@bindings/gitee.com/ethanbourne789/yiioffice/internal/bridge/docsservice'
+import { currentTabPath } from './tabs-bridge'
 
 /** Opens a docs file and returns its base64-encoded content. */
 export function docsOpenPath(path: string): Promise<string> {
@@ -71,12 +72,70 @@ export function docsExportPdf(
 
 // ─── Docs editor docx-specific file I/O ─────────────────────────────
 
-export function docsOpenDocx(): Promise<any> {
-  return OpenDocx()
+/**
+ * Go hands a docx back as `{path, base64}`; the docs renderer still expects the
+ * shape its Electron preload produced — `{path, name, dataUrl, hash}` — and
+ * calls `fetch(result.dataUrl)` on it. Passing the raw Go struct through made
+ * every opened file fetch `undefined` (blank document, or "zip: end of central
+ * directory not found").
+ */
+interface GoDocxOpenResult {
+  path?: string
+  base64?: string
+  error?: string
 }
 
-export function docsOpenDocxPath(path: string): Promise<any> {
-  return OpenDocxPath(path)
+const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+
+function base64ToBytes(base64: string): Uint8Array<ArrayBuffer> {
+  const binary = atob(base64)
+  const bytes = new Uint8Array(new ArrayBuffer(binary.length))
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
+  return bytes
+}
+
+/** sha256 of the original file, the key the doc cache archives originals under. */
+async function sha256Hex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
+  if (!globalThis.crypto?.subtle) return ''
+  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+async function toOpenFileResult(raw: unknown): Promise<unknown> {
+  const result = (raw ?? {}) as GoDocxOpenResult
+  const path = typeof result.path === 'string' ? result.path : ''
+  const base64 = typeof result.base64 === 'string' ? result.base64 : ''
+  if (!path || !base64) return null
+  const bytes = base64ToBytes(base64)
+  // A blob URL keeps the handoff out of the URL length limit a data: URL would
+  // hit on image-heavy documents; the renderer fetches it once, right after the
+  // open, so it can be released shortly after.
+  const dataUrl = URL.createObjectURL(new Blob([bytes], { type: DOCX_MIME }))
+  setTimeout(() => URL.revokeObjectURL(dataUrl), 60_000)
+  return {
+    path,
+    name: path.split(/[\\/]/).pop() || path,
+    dataUrl,
+    hash: await sha256Hex(bytes),
+  }
+}
+
+export async function docsOpenDocx(): Promise<any> {
+  return toOpenFileResult(await OpenDocx())
+}
+
+export async function docsOpenDocxPath(path: string): Promise<any> {
+  return toOpenFileResult(await OpenDocxPath(path))
+}
+
+export async function docsConsumePendingOpenDocx(): Promise<any> {
+  // The shell opens a file by creating a tab: HomeService.OpenPath stores the
+  // path on the tab, so this renderer resolves it through the tab host the same
+  // way slides and markdown do. Go has no pending queue (it returns an empty
+  // DocxOpenResult), which is why every Word file used to land on a blank page.
+  const path = await currentTabPath()
+  if (path) return toOpenFileResult(await OpenDocxPath(path))
+  return toOpenFileResult(await ConsumePendingOpenDocx())
 }
 
 export function docsOpenDocxDecrypt(path: string, password: string): Promise<any> {
@@ -121,17 +180,6 @@ export function docsConfirmDocumentReplace(): Promise<boolean> {
 
 export function docsGetSystemLocale(): Promise<string> {
   return GetSystemLocale()
-}
-
-export function docsConsumePendingOpenDocx(): Promise<any> {
-  // HomeService.OpenPath puts the file in the tab (the renderer resolves it via
-  // currentTabPath), so nothing is ever queued here. Go returns an empty
-  // DocxOpenResult struct rather than null, and an empty object is truthy in
-  // JS: the renderer would try to open a file with no path and show a
-  // "zip: end of central directory not found" failure on every new document.
-  return ConsumePendingOpenDocx().then((result) =>
-    result && typeof result.path === 'string' && result.path ? result : null,
-  )
 }
 
 export function docsConsumeNewBlankDoc(): Promise<boolean> {

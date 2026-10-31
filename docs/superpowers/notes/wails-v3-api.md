@@ -24,8 +24,8 @@ app := application.New(application.Options{...})
 | `OnShutdown` | `func()` | Pre-shutdown hook |
 | `PostShutdown` | `func()` | Post-shutdown hook |
 | `ShouldQuit` | `func() bool` | Quit gate |
-| `ErrorHandler` | `func(error)` | Error handler |
-| `PanicHandler` | `func(*PanicDetails)` | Panic handler |
+| `ErrorHandler` | `func(error)` | Error handler — bridge call errors |
+| `PanicHandler` | `func(*PanicDetails)` | Panic handler — service-layer panics |
 | `WarningHandler` | `func(string)` | Warning handler |
 | `KeyBindings` | `map[string]func(window Window)` | Global keybindings |
 | `SingleInstance` | `*SingleInstanceOptions` | Single-instance mode |
@@ -193,6 +193,17 @@ app.SetIcon(icon []byte)
 app.Hide()
 app.Show()
 app.RegisterService(service Service)
+```
+
+## PanicDetails
+
+```go
+type PanicDetails struct {
+	StackTrace     string
+	Error          error
+	Time           time.Time
+	FullStackTrace string
+}
 ```
 
 ## Build Tags

@@ -4,7 +4,7 @@ import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Page } from '@playwright/test'
-import { launchShell, setupPageAfterLaunch, closeAndSaveVideo, waitForRoute } from './helpers'
+import { launchShell, setupPageAfterLaunch, closeAndSaveVideo, waitForRoute, waitForDocumentReady } from './helpers'
 
 // the preload exposes window.__yiiofficeDebug only under this env var; the
 // spec seeds cells and reads them back through Univer's Facade
@@ -95,11 +95,9 @@ test.describe('sheets: modifier-drag on the fill handle flips copy and series', 
     await setupPageAfterLaunch(launched, page, context)
     try {
       // app.evaluate with electronApp.setPath is not available in browser mode.
-      const card = page.locator('.quick-card', { hasText: 'Sheets' })
-      await expect(card).toBeVisible()
-      await card.click()
-
+      await page.goto('/sheets')
       const sheets = await waitForRoute(page, '/sheets')
+      await waitForDocumentReady(sheets)
       await sheets.waitForFunction(() => document.body.textContent?.includes('Sheet1'), null, {
         timeout: 30_000,
       })

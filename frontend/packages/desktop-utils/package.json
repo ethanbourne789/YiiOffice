@@ -1,10 +1,10 @@
 {
-  "name": "@yiioffice/electron-utils",
+  "name": "@yiioffice/desktop-utils",
   "version": "0.1.0",
   "license": "Apache-2.0",
   "private": true,
   "type": "module",
-  "description": "Shared helpers for the Electron main processes (no Electron dependency, pure TS)",
+  "description": "Shared helpers for the Wails desktop app (no Electron dependency, pure TS)",
   "exports": {
     ".": "./src/index.ts",
     "./atomic-write": "./src/atomic-write.ts",
@@ -15,11 +15,8 @@
     "./headless-export": "./src/headless-export.ts",
     "./print-window": "./src/print-window.ts",
     "./remote-image": "./src/remote-image.ts",
-    "./renderer-protocol": "./src/renderer-protocol.ts",
-    "./renderer-scheme": "./src/renderer-scheme.ts",
     "./safe-external-url": "./src/safe-external-url.ts",
-    "./safe-remote-url": "./src/safe-remote-url.ts",
-    "./drop-open-bridge": "./src/drop-open-bridge.ts"
+    "./safe-remote-url": "./src/safe-remote-url.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

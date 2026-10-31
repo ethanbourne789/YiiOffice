@@ -2,3 +2,9 @@ name: YiiOffice
 binaryname: YiiOffice
 frontend:
   dir: frontend/dist
+# Code signing configuration. Uncomment and set the certificate path when ready
+# for production distribution.
+# build:
+#   sign:
+#     certificateFile: "certificate.p12"
+#     certificatePassword: "change-me"

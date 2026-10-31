@@ -5,6 +5,7 @@ import {
   setupPageAfterLaunch,
   closeAndSaveVideo,
   waitForRoute,
+  waitForDocumentReady,
 } from './helpers'
 
 test.describe('tab bar', () => {
@@ -13,14 +14,15 @@ test.describe('tab bar', () => {
     await setupPageAfterLaunch(launched, page, context)
 
     try {
-      // Click a quick card to open an editor tab
-      await page.locator('.quick-card').first().click()
+      // Navigate to docs to open an editor tab
+      await page.goto('/docs')
       const editorTab = page.locator('.tab-bar .tab-item:not(.tab-home)')
       await expect(editorTab).toHaveCount(1)
 
       // NOTE: In Electron, `waitForPageWithUrl(app, '://docs/')` waited for a
       // separate webContents. In Wails SPA mode, we just check the route.
       await waitForRoute(page, '/docs')
+      await waitForDocumentReady(page)
 
       // Middle-click on home tab should not close the editor tab
       await page.locator('.tab-bar .tab-item.tab-home').click({ button: 'middle' })

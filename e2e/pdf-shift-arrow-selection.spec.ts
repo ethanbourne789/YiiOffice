@@ -48,6 +48,8 @@ test('Shift+ArrowRight extends the text selection instead of flipping the page',
   })
   await setupPageAfterLaunch(launched, page, context)
   try {
+    // Open the file in the real Wails backend (no auto-open in wails3 dev mode)
+    await page.evaluate((p) => (window as any).aiOffice?.openPath(p), pdfPath)
     await waitForRoute(page, '/pdf')
     await expect(page.locator('.textLayer span').first()).toBeVisible({ timeout: 30_000 })
 

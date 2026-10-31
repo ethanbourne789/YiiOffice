@@ -23,7 +23,11 @@ export function AppFrame() {
   }, [])
 
   const hasEditorTabs = tabs.some((t) => t.kind !== 'home')
-  const homeActive = !hasEditorTabs
+  // Home is a real tab in the strip: it is only hidden while an *editor* tab is
+  // the active one. Driving this off "any editor tab exists" blanked the window
+  // whenever the user switched back to Home with a document still open — Home
+  // was hidden, and every editor iframe was display:none.
+  const homeActive = activeTabId === ''
 
   return (
     <div className="app-frame">

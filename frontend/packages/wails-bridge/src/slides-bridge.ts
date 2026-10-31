@@ -1,14 +1,11 @@
 import { on } from './transport'
 import {
   OpenPath,
-  Save,
-  SaveAs,
   FilesRead,
   FilesReadImage,
   FilesAdd,
   PickFiles,
   Opened,
-  Renamed,
 } from '@bindings/gitee.com/ethanbourne789/yiioffice/internal/bridge/slidesservice'
 import { ExportPdf as SlidesExportPdf } from '@bindings/gitee.com/ethanbourne789/yiioffice/internal/bridge/exportservice'
 import { currentTabPath } from './tabs-bridge'
@@ -351,7 +348,7 @@ export function createSlidesDesktopApi(): SlidesDesktopApi {
       try {
         const { GetTheme } = await import('@bindings/gitee.com/ethanbourne789/yiioffice/internal/bridge/homeservice')
         const v = await GetTheme()
-        return ['light', 'dark', 'system'].includes(v) ? v : 'system'
+        return v === 'light' || v === 'dark' || v === 'system' ? v : 'system'
       } catch { return 'system' }
     },
     async getRecentFiles() {
