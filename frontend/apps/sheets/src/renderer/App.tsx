@@ -1094,7 +1094,7 @@ export function App({
     // that — the tab would strand as a blank in-memory workbook (no save, no
     // shapes) with the queued file silently never opened.
     void window.desktopApi?.hasQueuedWorkbook?.().then((queued) => {
-      if (queued) void handleInspectWorkbook()
+      if (queued) void handleInspectWorkbook(true)
     })
     // Univer 0.25.1 also badges text parseable as date/time, phone numbers, and
     // other long numeric identifiers with "Number stored as text". Those values
@@ -3221,7 +3221,10 @@ export function App({
     if (editor && document.activeElement !== editor) editor.focus()
   }
 
-  async function handleInspectWorkbook(): Promise<void> {
+  /// `queued` opens the file path the shell attached to this tab (Home /
+  /// double-click) without the native picker; the menu 'open' action keeps
+  /// the dialog flow.
+  async function handleInspectWorkbook(queued = false): Promise<void> {
     if (workbookOpeningRef.current) return
     workbookOpeningRef.current = true
     setOpeningWorkbook(true)
@@ -3234,9 +3237,12 @@ export function App({
       if (!window.desktopApi) {
         throw new Error(t('appBridgeUnavailable'))
       }
-      const selected = await window.desktopApi.selectWorkbook()
+      const selected = queued
+        ? await window.desktopApi.openQueuedWorkbook()
+        : await window.desktopApi.selectWorkbook()
       if (!selected) {
-        setMessage(t('appOpenCanceled'))
+        // A queued open shows no picker, so null means the open failed.
+        setMessage(queued ? t('appOpenFailed') : t('appOpenCanceled'))
         finishOpening()
         return
       }

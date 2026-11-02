@@ -6,7 +6,7 @@
  * Channel names match the Go bridge constants in internal/bridge/sheets.go.
  * Stub channels return no-op values so the renderer boots cleanly.
  */
-import { on } from '@yiioffice/wails-bridge'
+import { on, currentTabPath } from '@yiioffice/wails-bridge'
 import * as wb from '@bindings/gitee.com/ethanbourne789/yiioffice/internal/bridge/workbookservice'
 import {
   GetLanguage as HomeLanguage,
@@ -325,7 +325,16 @@ export function createDesktopApi(): DesktopApi {
       return false // stub
     },
     async hasQueuedWorkbook() {
-      return false // stub
+      // The shell attaches the opened file to the tab (HomeService.OpenPath);
+      // a tab that carries a path IS the queued workbook.
+      return (await currentTabPath()) !== null
+    },
+    async openQueuedWorkbook() {
+      // Open the tab's path directly, skipping the native picker that
+      // selectWorkbook shows; docs/slides resolve their tab path the same way.
+      const path = await currentTabPath()
+      if (!path) return null
+      return wb.OpenFile(path).then((file) => (file === null ? null : fromWire<WorkbookFile>(file)))
     },
 
     // --- Headless export ---
