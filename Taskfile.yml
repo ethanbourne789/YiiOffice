@@ -58,9 +58,16 @@ tasks:
       # APP_VERSION is threaded through from the same .VERSION the binary is
       # linked with, so the installer never advertises a stale version.
       - makensis -DAPP_VERSION={{.VERSION}} build/windows/nsis/installer.nsi
+      - task: package:windows:sha256
     preconditions:
       - sh: command -v makensis >/dev/null 2>&1
         msg: "makensis is required to build the installer (install NSIS and add it to PATH)."
+
+  package:windows:sha256:
+    summary: Writes a SHA-256 sidecar next to the installer for release integrity checks
+    platforms: [windows]
+    cmds:
+      - powershell -NoProfile -Command "(Get-FileHash -Algorithm SHA256 'dist/YiiOffice_{{.VERSION}}_setup.exe').Hash | Set-Content -Encoding ascii 'dist/YiiOffice_{{.VERSION}}_setup.exe.sha256'"
 
   run:
     summary: Builds and runs the application
