@@ -49,6 +49,12 @@ var consoleLogger = func() *slog.Logger {
 }()
 
 func main() {
+	// Cap the Go heap with a soft limit so large workbook sessions make the
+	// GC work harder instead of competing with WebView2 renderer processes
+	// for physical memory. 2 GiB is a conservative starting point; revisit
+	// against field data before tuning per-device.
+	debug.SetMemoryLimit(2 << 30)
+
 	// --- Performance trace (dev-only, gated by WAILS_TRACE env var) ---
 	if buildinfo.IsDev() {
 		if os.Getenv("WAILS_TRACE") != "" {
