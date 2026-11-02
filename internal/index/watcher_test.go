@@ -113,3 +113,34 @@ func TestWatcherSyncRootsDropsRemovedRoot(t *testing.T) {
 		t.Fatalf("removed root must stop indexing, got %d", got)
 	}
 }
+
+func TestWatcherRecoversDeletedSubdir(t *testing.T) {
+	_, store, dir := newTestWatcher(t)
+	sub := filepath.Join(dir, "sub")
+	if err := os.Mkdir(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(300 * time.Millisecond)
+	fp := filepath.Join(sub, "a.txt")
+	if err := os.WriteFile(fp, []byte("watchsubrebuild token"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, store, "watchsubrebuild", 1)
+
+	if err := os.RemoveAll(sub); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(500 * time.Millisecond)
+
+	if err := os.Mkdir(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Give the Create-dir re-watch and the Refresh fallback time to land.
+	time.Sleep(600 * time.Millisecond)
+
+	fp2 := filepath.Join(sub, "b.txt")
+	if err := os.WriteFile(fp2, []byte("watchsubrebuilt2 token"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, store, "watchsubrebuilt2", 1)
+}

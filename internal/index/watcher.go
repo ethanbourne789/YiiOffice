@@ -160,6 +160,15 @@ func (w *Watcher) handle(ev fsnotify.Event) {
 
 	if err != nil {
 		// Path is gone (Remove, or rename-from on Windows).
+		if w.purgeStaleWatch(ev.Name) {
+			// A watched directory vanished: the backend already dropped its
+			// handle, so the stale subtree entries must go or a rebuild would
+			// never re-arm the watch. Refresh also clears the subtree's ghost
+			// index rows (e.g. after a directory rename-away).
+			w.ix.Refresh()
+			platform.Emit("home:folder-changed", []string{filepath.Dir(ev.Name)})
+			return
+		}
 		w.removePath(ev.Name)
 		return
 	}
@@ -197,6 +206,27 @@ func (w *Watcher) addWatchedDir(dir string) {
 	}
 }
 
+// purgeStaleWatch drops watching entries for a disappeared path p when p
+// (or any watched directory under it) was itself watched — i.e. a watched
+// directory was deleted or renamed away. Returns true if any entry was
+// purged. The fsnotify backend has already released the handles, so we only
+// clear our bookkeeping (Remove calls are best-effort) to let a later
+// rebuild re-arm the watch via addWatchedDir/SyncRoots.
+func (w *Watcher) purgeStaleWatch(p string) bool {
+	prefix := p + string(filepath.Separator)
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	var purged bool
+	for dir := range w.watching {
+		if dir == p || strings.HasPrefix(dir, prefix) {
+			_ = w.fw.Remove(dir)
+			delete(w.watching, dir)
+			purged = true
+		}
+	}
+	return purged
+}
+
 func (w *Watcher) removePath(p string) {
 	w.mu.Lock()
 	delete(w.pending, p)
@@ -204,7 +234,7 @@ func (w *Watcher) removePath(p string) {
 	if err := w.ix.RemoveIndexed(p); err != nil {
 		platform.Logger().Warn("index: incremental remove failed", "path", p, "error", err)
 	}
-	platform.Emit("home:folder-changed", map[string]any{"path": p})
+	platform.Emit("home:folder-changed", []string{filepath.Dir(p)})
 }
 
 func (w *Watcher) flushLoop() {
@@ -235,6 +265,6 @@ func (w *Watcher) flush(now time.Time) {
 		if err := w.ix.IndexOne(p); err != nil {
 			platform.Logger().Warn("index: incremental index failed", "path", p, "error", err)
 		}
-		platform.Emit("home:folder-changed", map[string]any{"path": p})
+		platform.Emit("home:folder-changed", []string{filepath.Dir(p)})
 	}
 }
