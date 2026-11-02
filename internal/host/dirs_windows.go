@@ -5,6 +5,8 @@ package host
 import (
 	"os"
 	"path/filepath"
+
+	"golang.org/x/sys/windows"
 )
 
 // userDataEnvVar overrides the application data directory. It exists for the
@@ -35,4 +37,20 @@ func AppDataDir() (string, error) {
 		return "", err
 	}
 	return dir, nil
+}
+
+// DocumentsDir returns the user's real Documents folder, honouring Windows
+// folder redirection (e.g. Documents moved to another drive). os.UserHomeDir
+// plus a literal "Documents" misses redirected profiles and would point the
+// default save folder at an empty directory.
+func DocumentsDir() (string, error) {
+	path, err := windows.KnownFolderPath(windows.FOLDERID_Documents, 0)
+	if err == nil && path != "" {
+		return path, nil
+	}
+	home, homeErr := os.UserHomeDir()
+	if homeErr != nil {
+		return "", homeErr
+	}
+	return filepath.Join(home, "Documents"), nil
 }

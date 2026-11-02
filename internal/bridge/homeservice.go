@@ -115,11 +115,11 @@ func (s *HomeService) GetDefaultSaveDir() string {
 	if dir := s.store.Snapshot().DefaultSaveDir; dir != "" {
 		return dir
 	}
-	home, err := os.UserHomeDir()
+	docs, err := host.DocumentsDir()
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(home, "Documents", "YiiOffice")
+	return filepath.Join(docs, "YiiOffice")
 }
 
 // PickDefaultSaveDir opens a directory picker and persists the choice. It

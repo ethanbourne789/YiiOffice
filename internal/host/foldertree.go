@@ -100,11 +100,11 @@ func (fm *FolderManager) defaultRootPath() string {
 			return dir
 		}
 	}
-	home, err := os.UserHomeDir()
+	docs, err := DocumentsDir()
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(home, "Documents", "YiiOffice")
+	return filepath.Join(docs, "YiiOffice")
 }
 
 // GetRoots returns the tree rows: the default save folder first, then every

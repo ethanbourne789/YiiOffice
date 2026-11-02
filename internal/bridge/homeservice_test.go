@@ -171,11 +171,11 @@ func TestHomeServiceGetDefaultSaveDir(t *testing.T) {
 	svc := newTestHomeService(t, tmp)
 
 	// Before the user picks a folder the contract falls back to Documents/YiiOffice.
-	home, err := os.UserHomeDir()
+	docs, err := host.DocumentsDir()
 	if err != nil {
-		t.Skip("no home dir")
+		t.Skip("no documents dir")
 	}
-	want := filepath.Join(home, "Documents", "YiiOffice")
+	want := filepath.Join(docs, "YiiOffice")
 	if dir := svc.GetDefaultSaveDir(); dir != want {
 		t.Fatalf("expected fallback %q, got %q", want, dir)
 	}
