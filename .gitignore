@@ -7,6 +7,9 @@
 # Wails
 /build/bin/
 /build/windows/*.syso
+# wails3 generate icons always emits a mac .icns even for this Windows-only
+# project; the task diverts it into build/windows purely as a scratch output
+/build/windows/icons.icns
 /wails_windows_amd64.syso
 # NOTE: build/windows/nsis/ is *source* (hand-maintained installer scripts),
 # not build output — it must stay tracked, otherwise a fresh clone cannot
