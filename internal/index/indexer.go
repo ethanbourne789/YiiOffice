@@ -1,6 +1,7 @@
 package index
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -185,4 +186,35 @@ func (ix *FileIndexer) indexFile(sf ScannedFile) error {
 		nameTokens.Bi, pathTokens.Bi, bodyTokens.Bi,
 		nameU, pathU, bodyU,
 	)
+}
+
+// IndexOne incrementally (re-)indexes a single path. A missing path is
+// removed from the index, which covers delete and rename-from events in one
+// call. Unsupported extensions and directories are skipped so the watcher
+// can feed raw filesystem events straight in.
+func (ix *FileIndexer) IndexOne(path string) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return ix.store.Remove([]string{path})
+		}
+		return err
+	}
+	if info.IsDir() {
+		return nil
+	}
+	ext := strings.ToLower(filepath.Ext(path))
+	if _, ok := supportedExts[ext]; !ok {
+		return nil
+	}
+	return ix.indexFile(ScannedFile{
+		Path:      path,
+		MtimeMs:   info.ModTime().UnixMilli(),
+		SizeBytes: info.Size(),
+	})
+}
+
+// RemoveIndexed deletes a single path from the index (metadata + FTS rows).
+func (ix *FileIndexer) RemoveIndexed(path string) error {
+	return ix.store.Remove([]string{path})
 }
