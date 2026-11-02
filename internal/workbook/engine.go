@@ -22,6 +22,15 @@ type Engine struct {
 }
 
 type session struct {
+	// mu serialises every access to file and info. excelize.File is not
+	// safe for concurrent use even for reads: GetCellValue and friends
+	// lazily parse sheets into shared caches, so an RWMutex would still
+	// race inside excelize itself. A plain Mutex keeps the writers (Save,
+	// reload, Close) and every reader mutually exclusive.
+	//
+	// Engine.mu is never held while a session lock is taken, and no
+	// session method calls another, so the two locks cannot deadlock.
+	mu   sync.Mutex
 	info FileInfo
 	file *excelize.File
 }
@@ -45,7 +54,9 @@ func (e *Engine) CloseAll() {
 	e.sessions = map[string]*session{}
 	e.mu.Unlock()
 	for _, s := range sessions {
+		s.mu.Lock()
 		s.file.Close()
+		s.mu.Unlock()
 	}
 }
 
@@ -104,6 +115,9 @@ func (e *Engine) Close(sessionID string) error {
 	if !ok {
 		return fmt.Errorf("unknown session %q", sessionID)
 	}
+	// Wait out any in-flight read/write before releasing the file.
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.file.Close()
 }
 
@@ -124,6 +138,8 @@ func (e *Engine) SheetName(sessionID, sheetID string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if _, err := s.file.GetSheetIndex(sheetID); err != nil {
 		return "", fmt.Errorf("unknown sheet %q", sheetID)
 	}
@@ -136,6 +152,8 @@ func (e *Engine) Info(sessionID string) (*FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	info := s.info
 	return &info, nil
 }

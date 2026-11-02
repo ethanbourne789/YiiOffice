@@ -25,6 +25,8 @@ func (e *Engine) ReadRange(sessionID, sheet string, area CellArea) (*RangeResult
 	if err != nil {
 		return nil, err
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if _, err := s.file.GetSheetIndex(sheet); err != nil {
 		return nil, fmt.Errorf("unknown sheet %q", sheet)
 	}
@@ -198,6 +200,8 @@ func (e *Engine) ReadFormulas(sessionID, sheet string) (*FormulaCellsResult, err
 	if err != nil {
 		return nil, err
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	result := &FormulaCellsResult{Cells: []CellRecord{}, SharedGroups: []any{}, IndexingComplete: true}
 	scanSheet(s.file, sheet, func(row, col int, value any, formula string) bool {
 		if formula == "" {
@@ -225,6 +229,8 @@ func (e *Engine) FindCells(req FindRequest) (*FindCellsResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	result := &FindCellsResult{Matches: []FindCellMatch{}, IndexingComplete: true}
 	limit := req.Limit
 	if limit <= 0 || limit > 100_000 {
@@ -340,6 +346,8 @@ func (e *Engine) ReadRowOutline(sessionID, sheet string) (*RowOutlineResult, err
 	if err != nil {
 		return nil, err
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	rows, _ := sheetDimensions(s.file, sheet)
 	result := &RowOutlineResult{Rows: []RowOutlineRow{}, IndexingComplete: true}
 	for row := 0; row < rows; row++ {
@@ -369,7 +377,14 @@ func (e *Engine) Recalc(req RecalcRequest) (*RecalcResult, error) {
 	if len(req.Reads) == 0 {
 		return result, nil
 	}
-	buf, err := s.file.WriteToBuffer()
+	// Only the snapshot touches the shared file; the clone below is
+	// goroutine-local, so the lock is released before the expensive
+	// evaluation to keep readers unblocked.
+	buf, err := func() (*bytes.Buffer, error) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		return s.file.WriteToBuffer()
+	}()
 	if err != nil {
 		return nil, fmt.Errorf("clone workbook: %w", err)
 	}
@@ -430,6 +445,7 @@ func parseNumber(text string) (float64, bool) {
 }
 
 // mediaItems lists the pictures embedded in the workbook.
+// The caller must hold s.mu.
 func (e *Engine) mediaItems(s *session) []MediaItem {
 	items := []MediaItem{}
 	for _, sheet := range s.file.GetSheetList() {
@@ -470,6 +486,8 @@ func (e *Engine) ReadMedia(sessionID, visualID string) (*MediaResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	for _, item := range e.mediaItems(s) {
 		if item.ID == visualID {
 			return &MediaResult{MediaType: item.MediaType, Base64: item.Base64}, nil
@@ -484,6 +502,11 @@ func (e *Engine) Save(req SaveRequest) (*SaveResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	// The whole edit→SaveAs→reload sequence must be atomic: readers must
+	// never observe a half-patched file, and reload swaps s.file beneath
+	// them. reloadLocked runs under this same lock, so no re-entry occurs.
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.info.ReadOnly && req.TargetPath == "" {
 		return nil, fmt.Errorf("workbook is read-only: %s", s.info.Path)
 	}
@@ -509,15 +532,17 @@ func (e *Engine) Save(req SaveRequest) (*SaveResult, error) {
 	if err := s.file.SaveAs(target); err != nil {
 		return nil, fmt.Errorf("save workbook: %w", err)
 	}
-	info, err := e.reload(s, target)
+	info, err := e.reloadLocked(s, target)
 	if err != nil {
 		return nil, err
 	}
 	return &SaveResult{Canceled: false, File: info, TouchedEntries: []string{}}, nil
 }
 
-// reload refreshes the session metadata after the file changed on disk.
-func (e *Engine) reload(s *session, path string) (*FileInfo, error) {
+// reloadLocked refreshes the session metadata after the file changed on
+// disk. The caller must hold s.mu: it closes the old excelize file and
+// swaps in a fresh parse, which readers must never observe half-done.
+func (e *Engine) reloadLocked(s *session, path string) (*FileInfo, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("reload workbook: %w", err)

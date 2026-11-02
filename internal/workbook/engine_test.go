@@ -1,7 +1,9 @@
 package workbook
 
 import (
+	"fmt"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/xuri/excelize/v2"
@@ -256,6 +258,77 @@ func TestRecalcEvaluatesFormulaCells(t *testing.T) {
 	}
 	if cell.Formatted != "19.5" && cell.Formatted != "20" {
 		t.Errorf("formatted = %q", cell.Formatted)
+	}
+}
+
+// TestConcurrentReadersAndWriters hammers one session the way the Wails
+// bindings do: every call arrives on its own goroutine, so reads and saves
+// interleave freely. Run with -race to catch excelize state corruption.
+func TestConcurrentReadersAndWriters(t *testing.T) {
+	eng := NewEngine()
+	defer eng.CloseAll()
+	info, err := eng.Open(fixture(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sheet := info.Sheets[0].ID
+	area := CellArea{StartRow: 0, EndRow: 5, StartColumn: 0, EndColumn: 1}
+	const readers, writers = 8, 4
+	errCh := make(chan error, readers+writers)
+	var wg sync.WaitGroup
+	for i := 0; i < readers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for n := 0; n < 20; n++ {
+				res, err := eng.ReadRange(info.SessionID, sheet, area)
+				if err != nil {
+					errCh <- fmt.Errorf("read: %w", err)
+					return
+				}
+				if !res.IndexingComplete {
+					errCh <- fmt.Errorf("read: indexing incomplete")
+					return
+				}
+			}
+		}()
+	}
+	for i := 0; i < writers; i++ {
+		wg.Add(1)
+		go func(w int) {
+			defer wg.Done()
+			for k := 0; k < 5; k++ {
+				res, err := eng.Save(SaveRequest{
+					SessionID: info.SessionID,
+					Mode:      "save",
+					Edits: []CellEdit{
+						{SheetID: sheet, Row: 6, Column: 0, WriteValue: true,
+							Value: fmt.Sprintf("w%d-%d", w, k)},
+					},
+				})
+				if err != nil {
+					errCh <- fmt.Errorf("save: %w", err)
+					return
+				}
+				if res.File == nil {
+					errCh <- fmt.Errorf("save: no file info")
+					return
+				}
+			}
+		}(i)
+	}
+	wg.Wait()
+	close(errCh)
+	for err := range errCh {
+		t.Error(err)
+	}
+	// The session must still serve a consistent snapshot after the storm.
+	res, err := eng.ReadRange(info.SessionID, sheet, area)
+	if err != nil {
+		t.Fatalf("read after storm: %v", err)
+	}
+	if len(res.Cells) == 0 {
+		t.Error("expected cells after concurrent storm")
 	}
 }
 
