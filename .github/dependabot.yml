@@ -1,0 +1,77 @@
+version: 2
+
+updates:
+  # ── GitHub Actions ─────────────────────────────────────────────
+  # All action bumps land in a single weekly PR.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  # ── Go modules ─────────────────────────────────────────────────
+  # One grouped PR per week for the whole module graph.
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    groups:
+      go-dependencies:
+        patterns:
+          - "*"
+
+  # ── npm workspaces (frontend + e2e) ────────────────────────────
+  # Family groups keep the 24-package Univer set and the tiptap set
+  # from exploding into dozens of PRs; remaining minor/patch bumps
+  # are batched into one PR. Major bumps for the pinned editor stacks
+  # (@univerjs/*, @tiptap/*) are ignored — those are upgraded on a
+  # scheduled regression-testing basis, not automatically.
+  - package-ecosystem: "npm"
+    directories:
+      - "/frontend"
+      - "/e2e"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    ignore:
+      - dependency-name: "@univerjs/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@tiptap/*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      univer:
+        patterns:
+          - "@univerjs/*"
+      tiptap:
+        patterns:
+          - "@tiptap/*"
+      codemirror:
+        patterns:
+          - "@codemirror/*"
+          - "@lezer/*"
+      core-toolchain:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+          - "typescript"
+          - "vite"
+          - "vitest"
+          - "@vitejs/plugin-react"
+          - "jsdom"
+      minor-and-patch:
+        update-types:
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
