@@ -37,4 +37,24 @@ func TestRunIndexesAllSubdirsParity(t *testing.T) {
 	if got := searchTotal(t, store, "parittoken"); got != 14 {
 		t.Fatalf("expected 14 indexed files, got %d", got)
 	}
+
+	// Lock the path-key format: root-level files and subtree files must both
+	// be stored under absRoot-based paths (filepath.Join(dir, ...)), never a
+	// mix of raw-root and ScanDir-normalized forms.
+	files, err := store.GetIndexedFiles()
+	if err != nil {
+		t.Fatalf("GetIndexedFiles: %v", err)
+	}
+	paths := make(map[string]bool, len(files))
+	for _, f := range files {
+		paths[f.Path] = true
+	}
+	for _, want := range []string{
+		filepath.Join(dir, "root0.txt"),
+		filepath.Join(dir, "sub0", "f0_0.txt"),
+	} {
+		if !paths[want] {
+			t.Fatalf("expected indexed path %q, not present in %d stored paths", want, len(paths))
+		}
+	}
 }

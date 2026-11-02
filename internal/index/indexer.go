@@ -107,14 +107,18 @@ func (ix *FileIndexer) run() {
 	var allFiles []ScannedFile
 	var tasks []string
 	for _, root := range roots {
-		entries, err := os.ReadDir(root)
+		absRoot, err := filepath.Abs(root)
+		if err != nil {
+			continue
+		}
+		entries, err := os.ReadDir(absRoot)
 		if err != nil {
 			continue
 		}
 		for _, entry := range entries {
-			full := filepath.Join(root, entry.Name())
+			full := filepath.Join(absRoot, entry.Name())
 			if entry.IsDir() {
-				if isHidden(root, entry.Name()) {
+				if isHidden(absRoot, entry.Name()) {
 					continue
 				}
 				if info, err := entry.Info(); err == nil && info.Mode()&os.ModeSymlink != 0 {
@@ -127,7 +131,7 @@ func (ix *FileIndexer) run() {
 			if _, ok := supportedExts[ext]; !ok {
 				continue
 			}
-			if isHidden(root, entry.Name()) {
+			if isHidden(absRoot, entry.Name()) {
 				continue
 			}
 			info, err := entry.Info()
