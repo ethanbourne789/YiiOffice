@@ -68,13 +68,8 @@ export interface DesktopApi {
   saveDocxNew(suggestedName: string, content: BinaryPayload): Promise<unknown>
   saveDocxTo(path: string, content: BinaryPayload, overwrite: boolean): Promise<unknown>
   writeRecoveryCopy(path: string, content: BinaryPayload): Promise<void>
-  setDocPassword(path: string, password: string): Promise<void>
-  docPasswordIntentRevision(): Promise<number>
-  discardDocPasswordIntents(rev: number): void
-  confirmDocumentReplace(): Promise<boolean>
   getSystemLocale(): Promise<string>
   consumePendingOpenDocx(): Promise<unknown>
-  consumeNewBlankDoc(): Promise<boolean>
 
   // Electron shell surface the docs renderer still calls at boot
   /** paths of the recent documents (start screen "recent" list) */
@@ -149,13 +144,8 @@ export function createDesktopApi(): DesktopApi {
     saveDocxTo: async (path, content, overwrite) =>
       normalizeDocxSave(await docs.docsSaveDocxTo(path, toBase64(content), overwrite)),
     writeRecoveryCopy: (path, content) => docs.docsWriteRecoveryCopy(path, toBase64(content)),
-    setDocPassword: (path, pwd) => docs.docsSetDocPassword(path, pwd),
-    docPasswordIntentRevision: () => docs.docsDocPasswordIntentRevision(),
-    discardDocPasswordIntents: (rev) => docs.docsDiscardDocPasswordIntents(rev),
-    confirmDocumentReplace: () => docs.docsConfirmDocumentReplace(),
     getSystemLocale: () => docs.docsGetSystemLocale(),
     consumePendingOpenDocx: () => docs.docsConsumePendingOpenDocx(),
-    consumeNewBlankDoc: () => docs.docsConsumeNewBlankDoc(),
 
     // Electron shell surface the docs renderer calls while booting. Without
     // these the renderer throws out of its first effects and React unmounts the

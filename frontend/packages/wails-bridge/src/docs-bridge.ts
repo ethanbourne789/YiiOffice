@@ -13,13 +13,7 @@ import {
   SaveDocxNew,
   SaveDocxTo,
   WriteRecoveryCopy,
-  SetDocPassword,
-  DocPasswordIntentRevision,
-  DiscardDocPasswordIntents,
-  ConfirmDocumentReplace,
   GetSystemLocale,
-  ConsumePendingOpenDocx,
-  ConsumeNewBlankDoc,
 } from '@bindings/gitee.com/ethanbourne789/yiioffice/internal/bridge/docsservice'
 import { currentTabPath } from './tabs-bridge'
 
@@ -112,11 +106,10 @@ export async function docsOpenDocxPath(path: string): Promise<any> {
 export async function docsConsumePendingOpenDocx(): Promise<any> {
   // The shell opens a file by creating a tab: HomeService.OpenPath stores the
   // path on the tab, so this renderer resolves it through the tab host the same
-  // way slides and markdown do. Go has no pending queue (it returns an empty
-  // DocxOpenResult), which is why every Word file used to land on a blank page.
+  // way slides and markdown do.
   const path = await currentTabPath()
   if (path) return toOpenFileResult(await OpenDocxPath(path))
-  return toOpenFileResult(await ConsumePendingOpenDocx())
+  return null
 }
 
 export function docsOpenDocxDecrypt(path: string, password: string): Promise<any> {
@@ -143,26 +136,6 @@ export function docsWriteRecoveryCopy(path: string, content: string): Promise<vo
   return WriteRecoveryCopy(path, content)
 }
 
-export function docsSetDocPassword(_path: string, _password: string): Promise<void> {
-  return SetDocPassword(_path, _password)
-}
-
-export function docsDocPasswordIntentRevision(): Promise<number> {
-  return DocPasswordIntentRevision()
-}
-
-export function docsDiscardDocPasswordIntents(rev: number): void {
-  DiscardDocPasswordIntents(rev)
-}
-
-export function docsConfirmDocumentReplace(): Promise<boolean> {
-  return ConfirmDocumentReplace()
-}
-
 export function docsGetSystemLocale(): Promise<string> {
   return GetSystemLocale()
-}
-
-export function docsConsumeNewBlankDoc(): Promise<boolean> {
-  return ConsumeNewBlankDoc()
 }

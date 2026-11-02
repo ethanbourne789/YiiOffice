@@ -240,23 +240,6 @@ func TestDocsServiceSaveDocxTo(t *testing.T) {
 	}
 }
 
-func TestDocsServiceSetDocPassword(t *testing.T) {
-	rm := host.NewRecentManager(t.TempDir())
-	svc := NewDocsService(rm, nil)
-	err := svc.SetDocPassword("/some/path.docx", "secret")
-	if err != nil {
-		t.Fatalf("SetDocPassword should return nil: %v", err)
-	}
-}
-
-func TestDocsServiceConfirmDocumentReplace(t *testing.T) {
-	rm := host.NewRecentManager(t.TempDir())
-	svc := NewDocsService(rm, nil)
-	if !svc.ConfirmDocumentReplace() {
-		t.Fatal("ConfirmDocumentReplace should return true")
-	}
-}
-
 // The editor localisation ships zh + en, so the service must resolve to one of
 // them. Asserting a specific value made this test pass only on the author's
 // machine (it broke on any English Windows); the detection itself is covered by
@@ -271,20 +254,4 @@ func TestDocsServiceGetSystemLocale(t *testing.T) {
 	if locale != platform.SystemLocale() {
 		t.Fatalf("expected %q to match platform.SystemLocale()", locale)
 	}
-}
-
-func TestDocsServiceDocPasswordIntentRevision(t *testing.T) {
-	rm := host.NewRecentManager(t.TempDir())
-	svc := NewDocsService(rm, nil)
-	rev := svc.DocPasswordIntentRevision()
-	if rev != 0 {
-		t.Fatalf("expected revision 0, got %d", rev)
-	}
-}
-
-func TestDocsServiceDiscardDocPasswordIntents(t *testing.T) {
-	rm := host.NewRecentManager(t.TempDir())
-	svc := NewDocsService(rm, nil)
-	// Should not panic
-	svc.DiscardDocPasswordIntents(5)
 }

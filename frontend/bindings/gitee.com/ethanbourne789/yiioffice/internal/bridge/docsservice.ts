@@ -17,54 +17,13 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 import * as $models from "./models.js";
 
 /**
- * ConfirmDocumentReplace is a no-op stub for frontend API compatibility.
- * Always returns true; the frontend handles actual replacement confirmation.
- */
-export function ConfirmDocumentReplace(): $CancellablePromise<boolean> {
-    return $Call.ByID(281537493);
-}
-
-/**
- * ConsumeNewBlankDoc returns whether the tab requested a blank document (no-op at Go level).
- */
-export function ConsumeNewBlankDoc(): $CancellablePromise<boolean> {
-    return $Call.ByID(901953570);
-}
-
-/**
- * ConsumePendingOpenDocx returns the pending file open path (no-op at Go level;
- * renderer resolves path from Tab.Path via currentTabPath()).
- */
-export function ConsumePendingOpenDocx(): $CancellablePromise<$models.DocxOpenResult> {
-    return $Call.ByID(3807701169).then(($result: any) => {
-        return $$createType0($result);
-    });
-}
-
-/**
- * DiscardDocPasswordIntents is a no-op stub for frontend API compatibility.
- * There are no server-side password intents to discard.
- */
-export function DiscardDocPasswordIntents(_rev: number): $CancellablePromise<void> {
-    return $Call.ByID(806391606, _rev);
-}
-
-/**
- * DocPasswordIntentRevision is a no-op stub for frontend API compatibility.
- * Always returns 0 because password intent tracking is a frontend-only concern.
- */
-export function DocPasswordIntentRevision(): $CancellablePromise<number> {
-    return $Call.ByID(806857598);
-}
-
-/**
  * ExportPdf renders the editor's HTML to a PDF file. An empty outPath asks
  * the user for a location; widthIn/heightIn (inches) select the sheet size,
  * zero values keep the document's own @page settings.
  */
 export function ExportPdf(html: string, outPath: string, suggestedName: string, widthIn: number, heightIn: number): $CancellablePromise<$models.ExportResult> {
     return $Call.ByID(3443957730, html, outPath, suggestedName, widthIn, heightIn).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType0($result);
     });
 }
 
@@ -82,7 +41,7 @@ export function GetSystemLocale(): $CancellablePromise<string> {
  */
 export function OpenDocx(): $CancellablePromise<$models.DocxOpenResult> {
     return $Call.ByID(2760794112).then(($result: any) => {
-        return $$createType0($result);
+        return $$createType1($result);
     });
 }
 
@@ -93,7 +52,7 @@ export function OpenDocx(): $CancellablePromise<$models.DocxOpenResult> {
  */
 export function OpenDocxDecrypt(path: string, _password: string): $CancellablePromise<$models.DocxOpenResult> {
     return $Call.ByID(1511137793, path, _password).then(($result: any) => {
-        return $$createType0($result);
+        return $$createType1($result);
     });
 }
 
@@ -102,7 +61,7 @@ export function OpenDocxDecrypt(path: string, _password: string): $CancellablePr
  */
 export function OpenDocxPath(path: string): $CancellablePromise<$models.DocxOpenResult> {
     return $Call.ByID(3442373447, path).then(($result: any) => {
-        return $$createType0($result);
+        return $$createType1($result);
     });
 }
 
@@ -216,15 +175,6 @@ export function SaveTo(path: string, content: string): $CancellablePromise<void>
 }
 
 /**
- * SetDocPassword is a no-op stub for frontend API compatibility.
- * Document password state is entirely managed by the frontend; the backend
- * does not store or enforce passwords.
- */
-export function SetDocPassword(_path: string, _password: string): $CancellablePromise<void> {
-    return $Call.ByID(4035484793, _path, _password);
-}
-
-/**
  * WriteRecoveryCopy saves a recovery copy of the document.
  */
 export function WriteRecoveryCopy(path: string, content: string): $CancellablePromise<void> {
@@ -232,8 +182,8 @@ export function WriteRecoveryCopy(path: string, content: string): $CancellablePr
 }
 
 // Private type creation functions
-const $$createType0 = $models.DocxOpenResult.createFrom;
-const $$createType1 = $models.ExportResult.createFrom;
+const $$createType0 = $models.ExportResult.createFrom;
+const $$createType1 = $models.DocxOpenResult.createFrom;
 const $$createType2 = $Create.Array($Create.Any);
 const $$createType3 = $models.PickedImage.createFrom;
 const $$createType4 = $Create.Nullable($$createType3);

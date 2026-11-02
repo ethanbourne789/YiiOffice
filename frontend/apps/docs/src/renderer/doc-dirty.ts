@@ -9,31 +9,22 @@ import { EMPTY_PENDING_NUMBERING } from './doc-state'
 import type { PendingNumbering } from './doc-state'
 
 export async function runGuardedDocumentAction(
-  confirm: () => Promise<boolean>,
   action: () => void | Promise<unknown>,
 ): Promise<boolean> {
-  if (!(await confirm())) return false
   await action()
   return true
 }
 
 /**
  * Replace the open document with a candidate the user still has to pick (file
- * picker, recent entry). The guard runs only once a candidate exists: confirming
- * may save the current document or drop its recovery copy, so a cancelled picker
- * must never trigger it. `needsGuard` lets a caller defer the guard for a
- * candidate that is not a document yet (an encrypted file waiting for its
- * password); that caller guards itself once the real document is in hand.
+ * picker, recent entry). A cancelled picker (no candidate) never commits.
  */
 export async function runGuardedCandidate<T>(
-  confirm: () => Promise<boolean>,
   choose: () => Promise<T | null | undefined>,
   commit: (candidate: T) => void | Promise<unknown>,
-  needsGuard: (candidate: T) => boolean = () => true,
 ): Promise<boolean> {
   const candidate = await choose()
   if (candidate == null) return false
-  if (needsGuard(candidate) && !(await confirm())) return false
   await commit(candidate)
   return true
 }

@@ -34,18 +34,6 @@ export interface TabsApi {
   list(): Promise<TabSummary[]>
   activate(id: string): Promise<void>
   close(id: string): Promise<void>
-  /**
-   * @deprecated The strip draws its menus itself now (TabBar's MenuPopover):
-   * the editors are same-origin iframes, so a DOM menu stacks above them and
-   * the "native popup at (x, y)" contract the Electron shell needed is gone.
-   * The Wails bridge cannot pop a native menu at a point either, so calling
-   * these was a no-op — keep them only for API compatibility.
-   */
-  showMenu(x: number, y: number): Promise<void>
-  /** @deprecated see showMenu — use the strip's own new-document menu. */
-  showNewMenu(x: number, y: number): Promise<void>
-  /** @deprecated see showMenu — use the strip's own tab context menu. */
-  showTabMenu(id: string, x: number, y: number): Promise<void>
   /** detach a document tab into its own window ("Open in New Window") */
   detach(id: string): Promise<void>
   /**
@@ -73,12 +61,6 @@ export interface TabsApi {
   onDockPreview(handler: (preview: { x: number } | null) => void): () => void
   /** the insertion slot the strip computed for the last dock preview */
   reportDockIndex(index: number): void
-  /**
-   * @deprecated see showMenu — the ☰ button opens the strip's own menu now.
-   * Windows and Linux hide the native menu bar under the tab strip; macOS
-   * keeps the system menu bar and never shows the button.
-   */
-  showAppMenu(x: number, y: number): Promise<void>
   /** move a tab to a new index in the strip; Home stays pinned at index 0 */
   reorder(id: string, toIndex: number): Promise<void>
   /** subscribe to tab list changes (open/close/activate/title updates); returns unsubscribe */
@@ -99,9 +81,6 @@ export const TABS_CHANNELS = {
   list: 'tabs:list',
   activate: 'tabs:activate',
   close: 'tabs:close',
-  showMenu: 'tabs:show-menu',
-  showNewMenu: 'tabs:show-new-menu',
-  showTabMenu: 'tabs:show-tab-menu',
   detach: 'tabs:detach',
   tearOff: 'tabs:tear-off',
   dragTornWindow: 'tabs:drag-torn-window',
@@ -109,7 +88,6 @@ export const TABS_CHANNELS = {
   endTornDrag: 'tabs:end-torn-drag',
   dockPreview: 'tabs:dock-preview',
   dockIndex: 'tabs:dock-index',
-  showAppMenu: 'tabs:show-app-menu',
   reorder: 'tabs:reorder',
   changed: 'tabs:changed',
   chromePressed: 'tabs:chrome-pressed',

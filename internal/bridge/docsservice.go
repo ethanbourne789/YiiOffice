@@ -250,44 +250,9 @@ func (s *DocsService) WriteRecoveryCopy(path, content string) error {
 	return os.WriteFile(recoveryPath, data, 0o644)
 }
 
-// SetDocPassword is a no-op stub for frontend API compatibility.
-// Document password state is entirely managed by the frontend; the backend
-// does not store or enforce passwords.
-func (s *DocsService) SetDocPassword(_path, _password string) error {
-	return nil
-}
-
-// DocPasswordIntentRevision is a no-op stub for frontend API compatibility.
-// Always returns 0 because password intent tracking is a frontend-only concern.
-func (s *DocsService) DocPasswordIntentRevision() int {
-	return 0
-}
-
-// DiscardDocPasswordIntents is a no-op stub for frontend API compatibility.
-// There are no server-side password intents to discard.
-func (s *DocsService) DiscardDocPasswordIntents(_rev int) {
-}
-
-// ConfirmDocumentReplace is a no-op stub for frontend API compatibility.
-// Always returns true; the frontend handles actual replacement confirmation.
-func (s *DocsService) ConfirmDocumentReplace() bool {
-	return true
-}
-
 // GetSystemLocale returns the system locale for the editor. Detection (and the
 // LANG fallback) lives in internal/platform so both the docs and pdf editors
 // answer the same way on every OS.
 func (s *DocsService) GetSystemLocale() string {
 	return platform.SystemLocale()
-}
-
-// ConsumePendingOpenDocx returns the pending file open path (no-op at Go level;
-// renderer resolves path from Tab.Path via currentTabPath()).
-func (s *DocsService) ConsumePendingOpenDocx() DocxOpenResult {
-	return DocxOpenResult{}
-}
-
-// ConsumeNewBlankDoc returns whether the tab requested a blank document (no-op at Go level).
-func (s *DocsService) ConsumeNewBlankDoc() bool {
-	return false
 }

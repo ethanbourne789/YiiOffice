@@ -266,22 +266,12 @@ export interface DesktopApi {
   onChromePressed(handler: () => void): () => void
   openDocx(): Promise<OpenDocxResult>
   openDocxPath(path: string): Promise<OpenDocxResult>
-  confirmDocumentReplace(): Promise<boolean>
   /** decrypt-and-open a password-protected docx (path from a needsPassword result) */
   openDocxDecrypt(path: string, password: string): Promise<DecryptOpenResult>
   /** w:altChunk HTML rendered through html2docx in a hidden window; null when conversion fails */
   convertAltChunkHtml(html: string): Promise<Uint8Array | null>
-  /** Review > Protect: set (or clear with null) the desired next-save password;
-   *  filePath null = document not saved yet, applied on its first successful save */
-  setDocPassword(filePath: string | null, password: string | null): Promise<{ ok: boolean }>
-  /** snapshot the current intent sequence before replacement cleanup is queued */
-  docPasswordIntentRevision(): Promise<number>
-  /** discard prior-document intents through a captured revision */
-  discardDocPasswordIntents(throughRevision: number): Promise<{ ok: boolean }>
   /** mark the renderer ready and consume a file passed by Finder/Explorer at launch */
   consumePendingOpenDocx(): Promise<OpenDocxResult>
-  /** returns true when this tab was created via "New Document" and should start blank */
-  consumeNewBlankDoc(): Promise<boolean>
   /** AI-authored content queued for this tab by create_document; one-shot, null when none */
   consumeAiDocContent(): Promise<AiDocContent | null>
   /** Headless export mode: the path and format this hidden renderer must export, null in normal use */

@@ -4,8 +4,6 @@ const docxPath = 'C:\\docs\\report.docx'
 
 const docsBindings = vi.hoisted(() => ({
   OpenDocxPath: vi.fn(async (path: string) => ({ path, base64: '' })),
-  // Go has no pending queue: it always answers with an empty struct.
-  ConsumePendingOpenDocx: vi.fn(async () => ({})),
 }))
 
 vi.mock('@bindings/gitee.com/ethanbourne789/yiioffice/internal/bridge/docsservice', () => docsBindings)

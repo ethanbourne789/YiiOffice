@@ -662,13 +662,6 @@ const TABLE_MENU_COMMANDS: Partial<Record<MenuCommand, (widthPx: number) => Comm
 }
 
 /** heading level after a define_style patch: null outlineLevel drops heading status, a number sets it, absent keeps the current */
-/** An encrypted file is not a document yet: the replace guard waits until the
- *  password prompt has decrypted one (submitDocPwd), so a cancelled or wrong
- *  password never saves or discards the document that is still open. */
-function replacesDocument(result: NonNullable<OpenDocxResult>): boolean {
-  return !('needsPassword' in result)
-}
-
 /** find the section index containing a given PM doc top-level block index */
 function sectionIndexAtBlock(pmDoc: Editor['state']['doc'], sections: SectionInfo[], blockIndex: number): number {
   for (let i = sections.length - 1; i >= 0; i--) {
@@ -693,8 +686,8 @@ export function App() {
   const [doc, setDoc] = useState<DocState | null>(null)
   /** a phased open is still streaming the document tail: editor stays read-only */
   const [docLoading, setDocLoading] = useState(false)
-  /** true until the pending-open / new-blank boot checks settle; the start screen stays hidden meanwhile */
-  const bootPendingRef = useRef<Promise<[OpenDocxResult, boolean]> | null>(
+  /** pending until the boot open check settles; the start screen stays hidden meanwhile */
+  const bootPendingRef = useRef<Promise<OpenDocxResult> | null>(
     null,
   )
   const bootHandledRef = useRef(false)
@@ -1979,13 +1972,9 @@ export function App() {
     // StrictMode runs the mount effect twice but the pending queues can only be
     // consumed once, so the consume Promise lives in a ref and its result is
     // processed only once.
-    bootPendingRef.current ??= Promise.all([
-      window.desktop.consumePendingOpenDocx(),
-      // Still consume the one-shot new-blank flag so it doesn't leak into the next open
-      window.desktop.consumeNewBlankDoc(),
-    ])
+    bootPendingRef.current ??= window.desktop.consumePendingOpenDocx()
     void bootPendingRef.current
-      .then(async ([pending]) => {
+      .then(async (pending) => {
         if (bootHandledRef.current) return
         bootHandledRef.current = true
         // A failed open (corrupt file etc.) falls back to a blank document —
@@ -2005,30 +1994,16 @@ export function App() {
   }, [commitOpenedFile, editor, loadFile, resetFile])
 
   const openFile = useCallback(
-    () =>
-      runGuardedCandidate(
-        () => window.desktop.confirmDocumentReplace(),
-        () => window.desktop.openDocx(),
-        commitOpenedFile,
-        replacesDocument,
-      ),
+    () => runGuardedCandidate(() => window.desktop.openDocx(), commitOpenedFile),
     [commitOpenedFile],
   )
 
   /** new document from the built-in blank template (AI can then generate into it) */
-  const newFile = useCallback(
-    () => runGuardedDocumentAction(() => window.desktop.confirmDocumentReplace(), resetFile),
-    [resetFile],
-  )
+  const newFile = useCallback(() => runGuardedDocumentAction(resetFile), [resetFile])
 
   const openRecent = useCallback(
     (path: string) =>
-      runGuardedCandidate(
-        () => window.desktop.confirmDocumentReplace(),
-        () => window.desktop.openDocxPath(path),
-        commitOpenedFile,
-        replacesDocument,
-      ),
+      runGuardedCandidate(() => window.desktop.openDocxPath(path), commitOpenedFile),
     [commitOpenedFile],
   )
 
@@ -2038,13 +2013,6 @@ export function App() {
     setDocPwdPrompt({ ...docPwdPrompt, busy: true, errorKey: '' })
     const res = await window.desktop.openDocxDecrypt(docPwdPrompt.path, docPwdPrompt.value)
     if (res.ok) {
-      // Open deferred the replace guard for the encrypted file (see
-      // replacesDocument); it runs once, here, now that a real document exists.
-      // Declining keeps both the prompt and the current document.
-      if (!(await window.desktop.confirmDocumentReplace())) {
-        setDocPwdPrompt((current) => (current ? { ...current, busy: false } : current))
-        return
-      }
       setDocPwdPrompt(null)
       await commitOpenedFile(res.result)
       return
@@ -2068,14 +2036,10 @@ export function App() {
     setShowProtectDialog(false)
     let changed = false
     if (result.openPassword !== undefined) {
-      const cur = fileCtxRef.current.doc
-      const res = await window.desktop.setDocPassword(cur?.filePath ?? null, result.openPassword)
-      if (res.ok) {
-        setDoc((d) => (d ? { ...d, encrypted: !!result.openPassword } : d))
-        // the on-disk file only changes on the next save
-        dirtyRef.current = true
-        changed = true
-      }
+      setDoc((d) => (d ? { ...d, encrypted: !!result.openPassword } : d))
+      // the on-disk file only changes on the next save
+      dirtyRef.current = true
+      changed = true
     }
     if (result.writeProtection !== undefined) {
       setWriteProtection(result.writeProtection)

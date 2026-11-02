@@ -426,11 +426,6 @@ export async function loadFile(
       encrypted: result.encrypted,
     })
     ctx.onRevisionsLoaded(blocksHaveRevisions(parsed.blocks))
-    // this tab's document was replaced: a password parked for the previous
-    // unsaved draft is stale and must not encrypt this document's saves.
-    // Done here, not in the main process's loadDocx — Review > Compare also
-    // opens files without replacing the current document.
-    discardStalePasswordIntents()
     ctx.setDocCss(docStyleCss(parsed))
     ctx.setSection(readSectionSettings(parsed))
     ctx.setSections(readSections(parsed))
@@ -568,9 +563,6 @@ export async function newFile(ctx: FileActionContext): Promise<boolean | undefin
     // a very large document opened in Read Mode must not leave it on for the new one
     ctx.setReadMode(false)
     ctx.setLargeDocSpellOff(false)
-    // a fresh blank draft starts unencrypted: drop any pending password left by
-    // the previous draft (its DocState, including the encrypted flag, is gone)
-    discardStalePasswordIntents()
     ctx.setDocCss(docStyleCss(parsed))
     ctx.setSection(readSectionSettings(parsed))
     ctx.setSections(readSections(parsed))
@@ -815,25 +807,6 @@ export async function writeRecoveryCopy(ctx: FileActionContext): Promise<void> {
 }
 
 const runSerializedSave = createSaveSerializer()
-
-/**
- * Drop unsaved password intents left by a replaced document — queued behind any
- * in-flight save: writeRecoveryCopy silently save-new's a dirty pathless
- * draft, and that save must still consume the draft's desired password (the
- * draft stays protected on disk) before the swap-triggered clear lands.
- */
-function discardStalePasswordIntents(): void {
-  // Start the IPC now, before the replacement document can record a password.
-  // The destructive half stays serialized behind an old in-flight save.
-  const throughRevision = window.desktop.docPasswordIntentRevision()
-  void runSerializedSave(
-    async () => {
-      await window.desktop.discardDocPasswordIntents(await throughRevision)
-      return false // not a save: a queued save pass must never reuse this result
-    },
-    () => false,
-  )
-}
 
 /**
  * Path assigned by the first save of a still-pathless document (silent save-new
