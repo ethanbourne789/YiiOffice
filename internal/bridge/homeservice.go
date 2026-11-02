@@ -141,6 +141,7 @@ func (s *HomeService) PickDefaultSaveDir() (string, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("create save folder: %w", err)
 	}
+	GrantDir(dir)
 	if err := s.store.SetDefaultSaveDir(dir); err != nil {
 		return "", err
 	}
@@ -206,6 +207,10 @@ func (s *HomeService) OpenPath(path string) error {
 	if !ok {
 		return fmt.Errorf("unsupported file type: %s", path)
 	}
+	// Opening a document is the trusted grant point: this exact file was
+	// routed from the sidebar, recents, a dialog or the shell, so later
+	// saves back to it are authorised for the session.
+	GrantFile(path)
 	s.th.AddTab(kind, filepath.Base(path), path)
 	if s.rm != nil {
 		s.rm.AddRecent(path)
@@ -232,7 +237,7 @@ func (s *HomeService) RevealPath(path string) error {
 
 // RenameFile renames a file and returns a result with the new path.
 func (s *HomeService) RenameFile(path string, newName string) RenameResult {
-	newPath, err := s.fo.Rename(path, newName)
+	newPath, err := s.fo.Rename(path, sanitizeFileName(newName))
 	if err != nil {
 		return RenameResult{Error: err.Error()}
 	}
@@ -318,6 +323,7 @@ func (s *HomeService) ListFolder(path string) host.FolderListing {
 
 // CreateFolder creates a folder under the given parent.
 func (s *HomeService) CreateFolder(parentPath string, name string) RenameResult {
+	name = sanitizeFileName(name)
 	path := filepath.Join(parentPath, name)
 	if err := s.fm.CreateFolder(parentPath, name); err != nil {
 		return RenameResult{Error: err.Error()}
@@ -327,6 +333,7 @@ func (s *HomeService) CreateFolder(parentPath string, name string) RenameResult 
 
 // RenameFolder renames a folder and returns a result with the new path.
 func (s *HomeService) RenameFolder(oldPath string, newName string) RenameResult {
+	newName = sanitizeFileName(newName)
 	newPath := filepath.Join(filepath.Dir(oldPath), newName)
 	if err := s.fm.RenameFolder(oldPath, newName); err != nil {
 		return RenameResult{Error: err.Error()}

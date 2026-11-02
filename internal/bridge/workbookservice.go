@@ -85,14 +85,20 @@ type PrinterInfo struct {
 
 // --- Workbook sessions ---
 
-// OpenFile opens a workbook at path and returns its metadata.
+// OpenFile opens a workbook at path and returns its metadata. The path must be
+// granted (a dialog pick or the Home open funnel) or resolve inside the
+// authorised roots; the grant also covers the later Save back over it.
 func (s *WorkbookService) OpenFile(path string) (*workbook.FileInfo, error) {
-	info, err := s.eng.Open(path)
+	authorised, err := authoriseLocalFileRead(nil, recentDocumentDirs(s.rm), path)
+	if err != nil {
+		return nil, err
+	}
+	info, err := s.eng.Open(authorised)
 	if err != nil {
 		return nil, err
 	}
 	if s.rm != nil {
-		s.rm.AddRecent(path)
+		s.rm.AddRecent(authorised)
 	}
 	return info, nil
 }
@@ -182,6 +188,13 @@ func (s *WorkbookService) SaveWorkbook(req workbook.SaveRequest) (*workbook.Save
 		}
 		req.TargetPath = path
 	}
+	if req.TargetPath != "" {
+		authorised, err := AuthoriseWrite(req.TargetPath)
+		if err != nil {
+			return nil, err
+		}
+		req.TargetPath = authorised
+	}
 	result, err := s.eng.Save(req)
 	if err != nil {
 		return nil, err
@@ -215,27 +228,37 @@ func (s *WorkbookService) SaveAs(path string, content string) (string, error) {
 	return path, nil
 }
 
-// ExportCsv writes CSV content to a new path.
+// ExportCsv writes CSV content to a granted path (a save-dialog result or a
+// path inside a picked export folder).
 func (s *WorkbookService) ExportCsv(path string, content string) (string, error) {
 	data, err := base64.StdEncoding.DecodeString(content)
 	if err != nil {
 		data = []byte(content) // fallback: plain text
 	}
-	dir := filepath.Dir(path)
+	authorised, err := AuthoriseWrite(path)
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Dir(authorised)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return "", fmt.Errorf("create directory: %w", err)
 		}
 	}
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := os.WriteFile(authorised, data, 0o644); err != nil {
 		return "", fmt.Errorf("write csv: %w", err)
 	}
-	return path, nil
+	return authorised, nil
 }
 
-// FilesRead reads a file and returns its base64-encoded content.
+// FilesRead reads a granted or root-covered file and returns its
+// base64-encoded content.
 func (s *WorkbookService) FilesRead(path string) (string, error) {
-	data, err := os.ReadFile(path)
+	authorised, err := authoriseLocalFileRead(nil, recentDocumentDirs(s.rm), path)
+	if err != nil {
+		return "", err
+	}
+	data, err := os.ReadFile(authorised)
 	if err != nil {
 		return "", fmt.Errorf("read file: %w", err)
 	}

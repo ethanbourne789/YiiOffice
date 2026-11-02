@@ -28,8 +28,8 @@ import (
 	"gitee.com/ethanbourne789/yiioffice/internal/platform"
 	"gitee.com/ethanbourne789/yiioffice/internal/servmode"
 	"gitee.com/ethanbourne789/yiioffice/internal/update"
-	"gitee.com/ethanbourne789/yiioffice/internal/workbook"
 	"gitee.com/ethanbourne789/yiioffice/internal/watchdog"
+	"gitee.com/ethanbourne789/yiioffice/internal/workbook"
 )
 
 //go:embed all:frontend/dist
@@ -115,6 +115,12 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	// Seed the session write-grant set with the app-managed directories so
+	// exports, recovery copies and temp files keep working (internal/bridge/pathgrants.go).
+	if err := bridge.InitManagedGrants(); err != nil {
+		log.Printf("warning: managed write grants unavailable: %v", err)
+	}
+
 	store, err := host.NewSettingsStore(dataDir)
 	if err != nil {
 		log.Fatal(err)
@@ -259,7 +265,7 @@ func main() {
 			}, fm.RootPaths)),
 			application.NewService(bridge.NewTabService(tabHost, detachedHost)),
 			application.NewService(homeSvc),
-			application.NewService(bridge.NewDocsService(rm, idxLifecycle)),
+			application.NewService(bridge.NewDocsService(rm, idxLifecycle, fm.RootPaths)),
 			application.NewService(bridge.NewSlidesService(rm)),
 			application.NewService(bridge.NewPdfService(rm)),
 			application.NewService(bridge.NewMarkdownService(rm, fm.RootPaths)),

@@ -34,12 +34,16 @@ func pickFolder(title string) (string, error) {
 	if app == nil {
 		return "", fmt.Errorf("app not available")
 	}
-	return app.Dialog.OpenFile().
+	dir, err := app.Dialog.OpenFile().
 		SetTitle(title).
 		CanChooseFiles(false).
 		CanChooseDirectories(true).
 		CanCreateDirectories(true).
 		PromptForSingleSelection()
+	if err == nil && dir != "" {
+		GrantDir(dir)
+	}
+	return dir, err
 }
 
 // pickOtherPdf opens a PDF picker; the returned list is empty when canceled.
@@ -98,7 +102,11 @@ func (s *PdfService) ExtractPagesToFile(filePath string, pages []int, suggestedN
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), pdfOpTimeout)
 	defer cancel()
-	count, err := pdfengine.ExtractRangeToFile(ctx, filePath, out, pages)
+	src, err := s.authoriseRead(filePath)
+	if err != nil {
+		return PdfOpResult{Error: err.Error()}
+	}
+	count, err := pdfengine.ExtractRangeToFile(ctx, src, out, pages)
 	if err != nil {
 		return PdfOpResult{Error: err.Error()}
 	}
@@ -114,6 +122,9 @@ func (s *PdfService) InsertPdfFromDialog(filePath string, afterPageIndex int) Pd
 	}
 	if len(files) == 0 {
 		return PdfOpResult{Canceled: true}
+	}
+	if _, err := s.authoriseTarget(filePath); err != nil {
+		return PdfOpResult{Error: err.Error()}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), pdfOpTimeout)
 	defer cancel()
@@ -141,6 +152,9 @@ func (s *PdfService) ReplacePagesFromDialog(filePath string, pages []int) PdfOpR
 	}
 	if len(files) == 0 {
 		return PdfOpResult{Canceled: true}
+	}
+	if _, err := s.authoriseTarget(filePath); err != nil {
+		return PdfOpResult{Error: err.Error()}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), pdfOpTimeout)
 	defer cancel()
@@ -179,7 +193,11 @@ func (s *PdfService) MergePdfFromDialog(filePath string, suggestedName string) P
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), pdfOpTimeout)
 	defer cancel()
-	inFiles := append([]string{filePath}, files...)
+	src, err := s.authoriseRead(filePath)
+	if err != nil {
+		return PdfOpResult{Error: err.Error()}
+	}
+	inFiles := append([]string{src}, files...)
 	pageCount, err := pdfengine.MergeFiles(ctx, inFiles, out)
 	if err != nil {
 		return PdfOpResult{Error: err.Error()}
@@ -198,7 +216,11 @@ func (s *PdfService) SplitPdfToFolder(filePath string, chunkSize int) PdfOpResul
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), pdfOpTimeout)
 	defer cancel()
-	files, err := pdfengine.SplitToDir(ctx, filePath, chunkSize, dir)
+	src, err := s.authoriseRead(filePath)
+	if err != nil {
+		return PdfOpResult{Error: err.Error()}
+	}
+	files, err := pdfengine.SplitToDir(ctx, src, chunkSize, dir)
 	if err != nil {
 		return PdfOpResult{Error: err.Error()}
 	}
@@ -226,7 +248,11 @@ func (s *PdfService) MergePagesToFile(filePath string, pages []int, pagesPerShee
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), pdfOpTimeout)
 	defer cancel()
-	pageCount, err := pdfengine.NUpToFile(ctx, filePath, pages, pagesPerSheet, strings.Join(opts, ","), out)
+	src, err := s.authoriseRead(filePath)
+	if err != nil {
+		return PdfOpResult{Error: err.Error()}
+	}
+	pageCount, err := pdfengine.NUpToFile(ctx, src, pages, pagesPerSheet, strings.Join(opts, ","), out)
 	if err != nil {
 		return PdfOpResult{Error: err.Error()}
 	}
@@ -244,7 +270,11 @@ func (s *PdfService) SplitPagesToFile(filePath string, pages []int, rows, cols i
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), pdfOpTimeout)
 	defer cancel()
-	pageCount, err := pdfengine.CutToFile(ctx, filePath, pages, rows, cols, out)
+	src, err := s.authoriseRead(filePath)
+	if err != nil {
+		return PdfOpResult{Error: err.Error()}
+	}
+	pageCount, err := pdfengine.CutToFile(ctx, src, pages, rows, cols, out)
 	if err != nil {
 		return PdfOpResult{Error: err.Error()}
 	}
@@ -256,6 +286,9 @@ func (s *PdfService) SplitPagesToFile(filePath string, pages []int, rows, cols i
 // InsertBlankPageAfter inserts one blank page after afterPageIndex (0-based,
 // -1 = front) and rewrites the open document in place.
 func (s *PdfService) InsertBlankPageAfter(filePath string, afterPageIndex int) PdfOpResult {
+	if _, err := s.authoriseTarget(filePath); err != nil {
+		return PdfOpResult{Error: err.Error()}
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), pdfOpTimeout)
 	defer cancel()
 	// InsertBlankPage inserts before a 1-based page number.
@@ -269,6 +302,9 @@ func (s *PdfService) InsertBlankPageAfter(filePath string, afterPageIndex int) P
 // CropPagesFractional shrinks the selected pages to a fractional rectangle of
 // each page and rewrites the open document in place.
 func (s *PdfService) CropPagesFractional(filePath string, pages []int, left, top, right, bottom float64) PdfOpResult {
+	if _, err := s.authoriseTarget(filePath); err != nil {
+		return PdfOpResult{Error: err.Error()}
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), pdfOpTimeout)
 	defer cancel()
 	if err := pdfengine.CropFractionInPlace(ctx, filePath, pages, [4]float64{left, top, right, bottom}); err != nil {
@@ -289,7 +325,11 @@ func (s *PdfService) ExportImagesToFolder(filePath string, pages []int) PdfOpRes
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), pdfOpTimeout)
 	defer cancel()
-	result, err := pdfengine.ExportImages(ctx, filePath, pages, dir)
+	src, err := s.authoriseRead(filePath)
+	if err != nil {
+		return PdfOpResult{Error: err.Error()}
+	}
+	result, err := pdfengine.ExportImages(ctx, src, pages, dir)
 	if err != nil {
 		return PdfOpResult{Error: err.Error()}
 	}

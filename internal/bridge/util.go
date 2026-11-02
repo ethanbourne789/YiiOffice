@@ -46,12 +46,20 @@ func ValidateLocalPath(guard *fsutil.Guard, path string) (string, error) {
 		return "", err
 	}
 	ext := strings.ToLower(filepath.Ext(abs))
-	switch ext {
-	case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg", ".tiff":
-	default:
+	if !isImageExt(ext) {
 		return "", fmt.Errorf("extension not allowed: %s", ext)
 	}
 	return abs, nil
+}
+
+// isImageExt reports whether ext is on the image allowlist every local image
+// read must satisfy — even for a path the user picked in a dialog.
+func isImageExt(ext string) bool {
+	switch ext {
+	case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg", ".tiff":
+		return true
+	}
+	return false
 }
 
 // localReadRoots resolves the directories a renderer may pull local file bytes
@@ -153,6 +161,7 @@ func ValidateExternalURL(raw string) error {
 // ── Dialog helpers ──
 
 // openSingleImageDialog opens a native file dialog for image selection.
+// The chosen path is granted for reads and writes for the rest of the session.
 func openSingleImageDialog() (string, error) {
 	app := platform.App()
 	if app == nil {
@@ -164,10 +173,15 @@ func openSingleImageDialog() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if file != "" {
+		GrantFile(file)
+	}
 	return file, nil
 }
 
-// saveFileDialog shows a native save dialog and returns the chosen path.
+// saveFileDialog shows a native save dialog and returns the chosen path. The
+// chosen path is granted for writes: the user picked that location explicitly,
+// which is exactly what the write whitelist is meant to record.
 func saveFileDialog(defaultName string) (path string, canceled bool, err error) {
 	app := platform.App()
 	if app == nil {
@@ -182,10 +196,12 @@ func saveFileDialog(defaultName string) (path string, canceled bool, err error) 
 	if path == "" {
 		return "", true, nil
 	}
+	GrantFile(path)
 	return path, false, nil
 }
 
 // openFileDialog shows a native open file dialog and returns the chosen path (single select).
+// Chosen paths are granted so the editor can read and later save them.
 func openFileDialog(title string, filterExt ...string) ([]string, error) {
 	app := platform.App()
 	if app == nil {
@@ -196,7 +212,14 @@ func openFileDialog(title string, filterExt ...string) ([]string, error) {
 		dialog.AddFilter(ext, ext)
 	}
 	dialog.AddFilter("All Files", "*.*")
-	return dialog.PromptForMultipleSelection()
+	files, err := dialog.PromptForMultipleSelection()
+	if err != nil {
+		return nil, err
+	}
+	for _, f := range files {
+		GrantFile(f)
+	}
+	return files, nil
 }
 
 // pickFilesByKind opens a multi-select dialog restricted to the media kind
@@ -218,7 +241,14 @@ func pickFilesByKind(title, kind string) ([]string, error) {
 		dialog.AddFilter("PDF", "*.pdf")
 	}
 	dialog.AddFilter("All Files", "*.*")
-	return dialog.PromptForMultipleSelection()
+	files, err := dialog.PromptForMultipleSelection()
+	if err != nil {
+		return nil, err
+	}
+	for _, f := range files {
+		GrantFile(f)
+	}
+	return files, nil
 }
 
 // imageMime maps an image extension to its MIME type. Unknown extensions fall
@@ -240,9 +270,88 @@ func imageMime(path string) string {
 	}
 }
 
+// authoriseLocalImageRead returns the canonical path a local image read may
+// open. A path a native dialog handed back this session wins even when it sits
+// outside every root (the user picked it explicitly); everything else has to
+// resolve inside roots ∪ extra, with the same device-name / alternate-stream /
+// symlink checks the guard applies. This is the single policy shared by
+// ReadImage, SaveImageAs and the /md-asset route so the transports cannot drift.
+func authoriseLocalImageRead(roots func() []string, extra []string, path string) (string, error) {
+	trimmed := strings.TrimSpace(path)
+	if trimmed == "" {
+		return "", errors.New("empty path")
+	}
+	if globalGrants.Allowed(trimmed) {
+		if abs, err := canonicalWritePath(trimmed); err == nil {
+			if info, err := os.Stat(abs); err == nil && !info.IsDir() {
+				// The grant decides *where* a read may go; the image
+				// allowlist still applies, so a granted .txt stays
+				// unreadable through this entry point.
+				if ext := strings.ToLower(filepath.Ext(abs)); !isImageExt(ext) {
+					return "", fmt.Errorf("extension not allowed: %s", ext)
+				}
+				return abs, nil
+			}
+		}
+	}
+	guard, err := fsutil.NewGuard(localReadRootsWith(roots, extra))
+	if err != nil {
+		return "", err
+	}
+	return ValidateLocalPath(guard, trimmed)
+}
+
+// authoriseLocalFileRead is authoriseLocalImageRead without the image
+// extension allowlist: it is the policy for document/media reads (open a file,
+// read a dropped media asset). A granted path (dialog pick, or a file the Home
+// open funnel accepted) passes; otherwise the path must resolve inside
+// roots ∪ extra through the guard.
+func authoriseLocalFileRead(roots func() []string, extra []string, path string) (string, error) {
+	trimmed := strings.TrimSpace(path)
+	if trimmed == "" {
+		return "", errors.New("empty path")
+	}
+	if globalGrants.Allowed(trimmed) {
+		if abs, err := canonicalWritePath(trimmed); err == nil {
+			return abs, nil
+		}
+	}
+	guard, err := fsutil.NewGuard(localReadRootsWith(roots, extra))
+	if err != nil {
+		return "", err
+	}
+	return guard.Authorize(trimmed)
+}
+
+// recentDocumentDirs returns the folders holding the most recent documents, so
+// a note opened from anywhere outside the sidebar can still reach its own
+// images. GetRecents skips entries that no longer stat.
+func recentDocumentDirs(rm *host.RecentManager) []string {
+	if rm == nil {
+		return nil
+	}
+	entries := rm.GetRecents(0, 20)
+	dirs := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if entry.Path == "" {
+			continue
+		}
+		if dir := filepath.Dir(entry.Path); dir != "." && dir != string(filepath.Separator) {
+			dirs = append(dirs, dir)
+		}
+	}
+	return dirs
+}
+
 // saveImageSourceAs writes an editor image (local path or data: URL) to a
 // user-chosen path.
-func saveImageSourceAs(src string) SaveImageAsResult {
+//
+// A local source is authorised exactly like ReadImage: "Save Image As" is
+// reachable from a document link, so it must not become a way to read an
+// arbitrary file and hand its bytes back under a name the user will later
+// trust. roots/extra carry the per-service authorisation inputs (sidebar
+// folders, recent-document folders).
+func saveImageSourceAs(src string, roots func() []string, extra []string) SaveImageAsResult {
 	var data []byte
 	var defaultName string
 	if strings.HasPrefix(src, "data:") {
@@ -268,12 +377,16 @@ func saveImageSourceAs(src string) SaveImageAsResult {
 		}
 		defaultName = "image" + ext
 	} else {
-		read, err := os.ReadFile(src)
+		authorised, err := authoriseLocalImageRead(roots, extra, src)
+		if err != nil {
+			return SaveImageAsResult{Error: fmt.Sprintf("source not authorised: %v", err)}
+		}
+		read, err := os.ReadFile(authorised)
 		if err != nil {
 			return SaveImageAsResult{Error: fmt.Sprintf("read source: %v", err)}
 		}
 		data = read
-		defaultName = filepath.Base(src)
+		defaultName = filepath.Base(authorised)
 	}
 	path, canceled, err := saveFileDialog(defaultName)
 	if err != nil {
@@ -299,7 +412,9 @@ func writeAppManagedCopy(name string, data []byte) (string, error) {
 	if err := os.MkdirAll(defaultDir, 0o755); err != nil {
 		return "", fmt.Errorf("create export dir: %w", err)
 	}
-	path := filepath.Join(defaultDir, name)
+	// The name arrives from the renderer; strip any path components so a
+	// "../.." cannot escape the exports directory.
+	path := filepath.Join(defaultDir, sanitizeFileName(name))
 	return path, os.WriteFile(path, data, 0o644)
 }
 

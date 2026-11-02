@@ -10,7 +10,17 @@ import (
 // atomicSaveBytes atomically writes data to path via a temp-file + rename
 // sequence. Creates the parent directory if it does not exist. The optional
 // callback is invoked on success (after the rename).
+//
+// This is the single choke point for every editor Save/SaveAs/SaveImage
+// binding, so the write whitelist is enforced here: a renderer-supplied path
+// that was never chosen in a dialog or opened through the app cannot be
+// written, no matter which editor calls.
 func atomicSaveBytes(path string, data []byte, fn func()) error {
+	authorised, err := AuthoriseWrite(path)
+	if err != nil {
+		return err
+	}
+	path = authorised
 	dir := filepath.Dir(path)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		if err := os.MkdirAll(dir, 0o755); err != nil {

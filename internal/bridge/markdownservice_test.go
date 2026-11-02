@@ -249,7 +249,7 @@ func TestMarkdownServiceReadImageAllowsDialogGrant(t *testing.T) {
 	}
 
 	svc := newTestMarkdownService(t, t.TempDir())
-	svc.grantDialogPath(imgPath)
+	GrantFile(imgPath)
 
 	encoded, err := svc.ReadImage(imgPath)
 	if err != nil {

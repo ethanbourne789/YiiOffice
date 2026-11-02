@@ -18,11 +18,14 @@ import (
 type DocsService struct {
 	rm    *host.RecentManager
 	idxLc *index.Lifecycle
+	// roots reports the sidebar folder roots used to authorise local image
+	// reads (SaveImageAs), mirroring MarkdownService.
+	roots func() []string
 }
 
-// NewDocsService returns a DocsService.
-func NewDocsService(rm *host.RecentManager, idxLc *index.Lifecycle) *DocsService {
-	return &DocsService{rm: rm, idxLc: idxLc}
+// NewDocsService returns a DocsService. roots may be nil.
+func NewDocsService(rm *host.RecentManager, idxLc *index.Lifecycle, roots func() []string) *DocsService {
+	return &DocsService{rm: rm, idxLc: idxLc, roots: roots}
 }
 
 // docsFileSave atomically writes base64-decoded content to path (temp + rename).
@@ -34,9 +37,15 @@ func docsFileSave(path, content string, idxLc *index.Lifecycle) error {
 	})
 }
 
-// OpenPath reads a file and returns its base64-encoded content.
+// OpenPath reads a file and returns its base64-encoded content. The path must
+// be granted (a dialog pick or the Home open funnel) or resolve inside the
+// authorised roots.
 func (s *DocsService) OpenPath(path string) (string, error) {
-	data, err := os.ReadFile(path)
+	authorised, err := authoriseLocalFileRead(s.roots, recentDocumentDirs(s.rm), path)
+	if err != nil {
+		return "", fmt.Errorf("read file: %w", err)
+	}
+	data, err := os.ReadFile(authorised)
 	if err != nil {
 		return "", fmt.Errorf("read file: %w", err)
 	}
@@ -110,7 +119,10 @@ func (s *DocsService) PickImage() (*PickedImage, error) {
 // path or a data: URL produced by the editor. The result type is shared with
 // MarkdownService.
 func (s *DocsService) SaveImageAs(src string) SaveImageAsResult {
-	return saveImageSourceAs(src)
+	if strings.HasPrefix(src, "http://") || strings.HasPrefix(src, "https://") {
+		return SaveImageAsResult{Error: "remote image sources are not supported"}
+	}
+	return saveImageSourceAs(src, s.roots, recentDocumentDirs(s.rm))
 }
 
 // Renamed emits the file-renamed event and refreshes the index.
@@ -161,16 +173,22 @@ func (s *DocsService) OpenDocx() DocxOpenResult {
 }
 
 // OpenDocxPath reads a docx file at the given path and returns base64 content.
+// The path must be granted (dialog pick or Home open funnel) or inside the
+// authorised roots.
 func (s *DocsService) OpenDocxPath(path string) DocxOpenResult {
 	if path == "" {
 		return DocxOpenResult{Error: "empty path"}
 	}
-	data, err := os.ReadFile(path)
+	authorised, err := authoriseLocalFileRead(s.roots, recentDocumentDirs(s.rm), path)
 	if err != nil {
 		return DocxOpenResult{Error: fmt.Sprintf("read file: %v", err)}
 	}
-	s.Opened(path)
-	return DocxOpenResult{Path: path, Base64: base64.StdEncoding.EncodeToString(data)}
+	data, err := os.ReadFile(authorised)
+	if err != nil {
+		return DocxOpenResult{Error: fmt.Sprintf("read file: %v", err)}
+	}
+	s.Opened(authorised)
+	return DocxOpenResult{Path: authorised, Base64: base64.StdEncoding.EncodeToString(data)}
 }
 
 // OpenDocxDecrypt reads a potentially encrypted docx file.
@@ -238,10 +256,7 @@ func (s *DocsService) WriteRecoveryCopy(path, content string) error {
 	if err := os.MkdirAll(recoveryDir, 0o755); err != nil {
 		return fmt.Errorf("create recovery dir: %w", err)
 	}
-	base := filepath.Base(path)
-	if base == "" {
-		base = "untitled"
-	}
+	base := sanitizeFileName(filepath.Base(path))
 	recoveryPath := filepath.Join(recoveryDir, base)
 	data, err := base64.StdEncoding.DecodeString(content)
 	if err != nil {

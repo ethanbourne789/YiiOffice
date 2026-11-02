@@ -159,6 +159,8 @@ func (s *ExportService) MergePdfParts(parts []string, outPath string, suggestedN
 
 // PickExportFolder opens a folder picker for "Export as Images" and returns the
 // chosen directory together with a temp PDF path the renderer may write to.
+// Both are granted: the directory subtree (image exports write files into it)
+// and the temp PDF path (TakeTempPdf reads it back).
 func (s *ExportService) PickExportFolder(title string) (ExportFolder, error) {
 	app := platform.App()
 	if app == nil {
@@ -179,6 +181,7 @@ func (s *ExportService) PickExportFolder(title string) (ExportFolder, error) {
 	if dir == "" {
 		return ExportFolder{}, nil
 	}
+	GrantDir(dir)
 	tmp, err := os.CreateTemp("", "yiioffice-export-*.pdf")
 	if err != nil {
 		return ExportFolder{}, fmt.Errorf("create temp pdf: %w", err)
@@ -186,6 +189,7 @@ func (s *ExportService) PickExportFolder(title string) (ExportFolder, error) {
 	pdfPath := tmp.Name()
 	tmp.Close()
 	os.Remove(pdfPath)
+	GrantFile(pdfPath)
 	return ExportFolder{Dir: dir, PdfPath: pdfPath}, nil
 }
 
@@ -210,28 +214,40 @@ func (s *ExportService) PickSaveFile(defaultName string, ext string) (string, er
 }
 
 // TakeTempPdf reads a temp PDF written for an image export and deletes it.
+// Only paths handed out by PickExportFolder (or otherwise granted) are
+// accepted, so this cannot become a way to read and delete arbitrary files.
 func (s *ExportService) TakeTempPdf(path string) (string, error) {
-	data, err := os.ReadFile(path)
+	authorised, err := AuthoriseWrite(path)
+	if err != nil {
+		return "", fmt.Errorf("temp pdf path: %w", err)
+	}
+	data, err := os.ReadFile(authorised)
 	if err != nil {
 		return "", fmt.Errorf("read pdf: %w", err)
 	}
-	os.Remove(path)
+	os.Remove(authorised)
 	return base64.StdEncoding.EncodeToString(data), nil
 }
 
 // WriteBase64File writes base64-encoded bytes to path and returns the path.
+// The path must be granted (inside a picked export folder, or a file the user
+// opened/picked this session); arbitrary paths are rejected.
 func (s *ExportService) WriteBase64File(path string, content string) ExportResult {
 	data, err := base64.StdEncoding.DecodeString(content)
 	if err != nil {
 		return ExportResult{Error: fmt.Sprintf("decode content: %v", err)}
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	authorised, err := AuthoriseWrite(path)
+	if err != nil {
+		return ExportResult{Error: err.Error()}
+	}
+	if err := os.MkdirAll(filepath.Dir(authorised), 0o755); err != nil {
 		return ExportResult{Error: fmt.Sprintf("create directory: %v", err)}
 	}
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := os.WriteFile(authorised, data, 0o644); err != nil {
 		return ExportResult{Error: fmt.Sprintf("write file: %v", err)}
 	}
-	return ExportResult{OK: true, Path: path}
+	return ExportResult{OK: true, Path: authorised}
 }
 
 // ListPrinters returns the names of the installed system printers.
@@ -247,8 +263,11 @@ func pageOptions(widthIn, heightIn float64) platform.PrintOptions {
 	return platform.PrintOptions{PageSize: &platform.PageSizeInches{Width: widthIn, Height: heightIn}}
 }
 
-// resolveExportTarget normalizes the file name, creates the parent directory and
-// falls back to a save dialog when outPath is empty.
+// resolveExportTarget normalizes the file name and resolves the write target.
+// An empty outPath opens a save dialog (whose result is granted). A supplied
+// outPath must already be granted — a save-dialog pick, an opened file, or a
+// path inside a picked export folder — otherwise the export is rejected rather
+// than written to an arbitrary location.
 func resolveExportTarget(suggestedName, outPath, ext string) (string, bool, error) {
 	name := sanitizeFileName(suggestedName)
 	if strings.TrimSpace(name) == "" {
@@ -258,10 +277,14 @@ func resolveExportTarget(suggestedName, outPath, ext string) (string, bool, erro
 		name += ext
 	}
 	if outPath != "" {
-		if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
+		authorised, err := AuthoriseWrite(outPath)
+		if err != nil {
+			return "", false, err
+		}
+		if err := os.MkdirAll(filepath.Dir(authorised), 0o755); err != nil {
 			return "", false, fmt.Errorf("create output directory: %w", err)
 		}
-		return outPath, false, nil
+		return authorised, false, nil
 	}
 	return saveFileDialog(name)
 }

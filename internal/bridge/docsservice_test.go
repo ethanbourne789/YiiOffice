@@ -13,7 +13,7 @@ import (
 func newTestDocsService(t *testing.T, dataDir string) *DocsService {
 	t.Helper()
 	rm := host.NewRecentManager(dataDir)
-	return NewDocsService(rm, nil)
+	return NewDocsService(rm, nil, nil)
 }
 
 func TestDocsServiceOpenPath(t *testing.T) {
@@ -135,7 +135,7 @@ func TestDocsServiceSaveTo(t *testing.T) {
 func TestDocsServiceOpened(t *testing.T) {
 	tmp := t.TempDir()
 	rm := host.NewRecentManager(tmp)
-	svc := NewDocsService(rm, nil)
+	svc := NewDocsService(rm, nil, nil)
 
 	testPath := filepath.Join(tmp, "recent.docx")
 	// Create the file so it exists
@@ -166,7 +166,7 @@ func TestDocsServiceOpenDocxPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	rm := host.NewRecentManager(tmp)
-	svc := NewDocsService(rm, nil)
+	svc := NewDocsService(rm, nil, nil)
 	result := svc.OpenDocxPath(docx)
 	if result.Error != "" {
 		t.Fatalf("unexpected error: %s", result.Error)
@@ -183,7 +183,7 @@ func TestDocsServiceOpenDocxPath(t *testing.T) {
 func TestDocsServiceSaveDocx(t *testing.T) {
 	tmp := t.TempDir()
 	rm := host.NewRecentManager(tmp)
-	svc := NewDocsService(rm, nil)
+	svc := NewDocsService(rm, nil, nil)
 	content := base64.StdEncoding.EncodeToString([]byte("docx bytes"))
 	result := svc.SaveDocx(filepath.Join(tmp, "out.docx"), content, false)
 	if !result.OK {
@@ -197,7 +197,7 @@ func TestDocsServiceSaveDocx(t *testing.T) {
 
 func TestDocsServiceOpenDocxPathNotFound(t *testing.T) {
 	rm := host.NewRecentManager(t.TempDir())
-	svc := NewDocsService(rm, nil)
+	svc := NewDocsService(rm, nil, nil)
 	result := svc.OpenDocxPath("/nonexistent.docx")
 	if result.Error == "" {
 		t.Fatal("expected error for missing file")
@@ -206,7 +206,7 @@ func TestDocsServiceOpenDocxPathNotFound(t *testing.T) {
 
 func TestDocsServiceSaveDocxEmptyPath(t *testing.T) {
 	rm := host.NewRecentManager(t.TempDir())
-	svc := NewDocsService(rm, nil)
+	svc := NewDocsService(rm, nil, nil)
 	result := svc.SaveDocx("", "dG90YWxseSBpbnZhbGlk", false)
 	if result.OK {
 		t.Fatal("expected failure for empty path")
@@ -218,7 +218,7 @@ func TestDocsServiceSaveDocxEmptyPath(t *testing.T) {
 
 func TestDocsServiceOpenDocxPathEmpty(t *testing.T) {
 	rm := host.NewRecentManager(t.TempDir())
-	svc := NewDocsService(rm, nil)
+	svc := NewDocsService(rm, nil, nil)
 	result := svc.OpenDocxPath("")
 	if result.Error == "" {
 		t.Fatal("expected error for empty path")
@@ -228,7 +228,7 @@ func TestDocsServiceOpenDocxPathEmpty(t *testing.T) {
 func TestDocsServiceSaveDocxTo(t *testing.T) {
 	tmp := t.TempDir()
 	rm := host.NewRecentManager(tmp)
-	svc := NewDocsService(rm, nil)
+	svc := NewDocsService(rm, nil, nil)
 	content := base64.StdEncoding.EncodeToString([]byte("docx to bytes"))
 	result := svc.SaveDocxTo(filepath.Join(tmp, "saveto.docx"), content, false)
 	if !result.OK {
@@ -246,7 +246,7 @@ func TestDocsServiceSaveDocxTo(t *testing.T) {
 // internal/platform's locale tests.
 func TestDocsServiceGetSystemLocale(t *testing.T) {
 	rm := host.NewRecentManager(t.TempDir())
-	svc := NewDocsService(rm, nil)
+	svc := NewDocsService(rm, nil, nil)
 	locale := svc.GetSystemLocale()
 	if locale != "zh" && locale != "en" {
 		t.Fatalf("expected zh or en, got %q", locale)

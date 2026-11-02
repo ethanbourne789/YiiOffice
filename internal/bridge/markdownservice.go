@@ -2,15 +2,12 @@ package bridge
 
 import (
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
-	"gitee.com/ethanbourne789/yiioffice/internal/fsutil"
 	"gitee.com/ethanbourne789/yiioffice/internal/host"
 	"gitee.com/ethanbourne789/yiioffice/internal/platform"
 )
@@ -70,10 +67,17 @@ func (s *MarkdownService) SaveImageBeside(docPath string, base64Data string, ext
 	default:
 		cleanExt = "png"
 	}
+	// The assets directory belongs to the document, so writing into it is
+	// allowed exactly when the document itself was opened through a granted
+	// path (a dialog pick or the Home open funnel).
+	if _, err := AuthoriseWrite(docPath); err != nil {
+		return "", fmt.Errorf("document not opened through a trusted path: %w", err)
+	}
 	assetsDir := filepath.Join(filepath.Dir(docPath), "assets")
 	if err := os.MkdirAll(assetsDir, 0o755); err != nil {
 		return "", fmt.Errorf("create assets directory: %w", err)
 	}
+	GrantDir(assetsDir)
 	name := fmt.Sprintf("image-%d.%s", time.Now().UnixNano(), cleanExt)
 	if _, err := s.SaveImage(filepath.Join(assetsDir, name), base64.StdEncoding.EncodeToString(data)); err != nil {
 		return "", err
@@ -89,14 +93,7 @@ type MarkdownService struct {
 	// authorises against them (plus the folder of a recently opened document),
 	// so a link inside a document cannot turn into an arbitrary file read.
 	roots func() []string
-
-	mu      sync.Mutex
-	granted []string // absolute paths a native dialog handed back, oldest first
 }
-
-// maxGrantedDialogPaths bounds the dialog grants. The set only has to cover the
-// images inserted during one editing session, so it never needs to grow.
-const maxGrantedDialogPaths = 64
 
 // NewMarkdownService returns a MarkdownService. roots may be nil, in which case
 // only the user profile and recent-document folders are readable.
@@ -104,9 +101,15 @@ func NewMarkdownService(rm *host.RecentManager, roots func() []string) *Markdown
 	return &MarkdownService{rm: rm, roots: roots}
 }
 
-// ReadFile reads a markdown file and returns its text content.
+// ReadFile reads a markdown file and returns its text content. The path must
+// have been granted (dialog pick or Home open funnel) or sit inside the
+// authorised roots, so a crafted document cannot name any file it likes.
 func (s *MarkdownService) ReadFile(path string) (string, error) {
-	data, err := os.ReadFile(path)
+	authorised, err := authoriseLocalFileRead(s.roots, recentDocumentDirs(s.rm), path)
+	if err != nil {
+		return "", fmt.Errorf("read file: %w", err)
+	}
+	data, err := os.ReadFile(authorised)
 	if err != nil {
 		return "", fmt.Errorf("read file: %w", err)
 	}
@@ -158,95 +161,16 @@ func (s *MarkdownService) ReadImage(path string) (string, error) {
 	return base64.StdEncoding.EncodeToString(data), nil
 }
 
-// authoriseImageRead returns the canonical path ReadImage is allowed to open.
-//
-// Order matters. A path a native dialog just handed back wins even when it sits
-// outside every root — the user picked that file explicitly — and it is checked
-// for existence rather than re-authorised by location. Everything else has to
-// resolve inside roots ∪ folders of recent documents.
+// authoriseImageRead returns the canonical path ReadImage is allowed to open
+// (shared policy: dialog grants first, then roots ∪ recent-document folders).
 func (s *MarkdownService) authoriseImageRead(path string) (string, error) {
-	trimmed := strings.TrimSpace(path)
-	if trimmed == "" {
-		return "", errors.New("empty path")
-	}
-	if granted := s.grantedDialogPath(trimmed); granted != "" {
-		if info, err := os.Stat(granted); err == nil && !info.IsDir() {
-			return granted, nil
-		}
-	}
-	guard, err := fsutil.NewGuard(localReadRootsWith(s.roots, s.recentDocumentDirs()))
-	if err != nil {
-		return "", err
-	}
-	return ValidateLocalPath(guard, trimmed)
+	return authoriseLocalImageRead(s.roots, recentDocumentDirs(s.rm), path)
 }
 
-// recentDocumentDirs returns the folders holding the most recent documents, so
-// a note opened from anywhere outside the sidebar can still reach its own
-// images. GetRecents skips entries that no longer stat.
-func (s *MarkdownService) recentDocumentDirs() []string {
-	if s.rm == nil {
-		return nil
-	}
-	entries := s.rm.GetRecents(0, 20)
-	dirs := make([]string, 0, len(entries))
-	for _, entry := range entries {
-		if entry.Path == "" {
-			continue
-		}
-		if dir := filepath.Dir(entry.Path); dir != "." && dir != string(filepath.Separator) {
-			dirs = append(dirs, dir)
-		}
-	}
-	return dirs
-}
-
-// grantDialogPath remembers a file the user chose in a native dialog.
-func (s *MarkdownService) grantDialogPath(path string) {
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		return
-	}
-	key := strings.ToLower(abs)
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for _, existing := range s.granted {
-		if strings.ToLower(existing) == key {
-			return
-		}
-	}
-	s.granted = append(s.granted, abs)
-	if len(s.granted) > maxGrantedDialogPaths {
-		s.granted = s.granted[len(s.granted)-maxGrantedDialogPaths:]
-	}
-}
-
-// grantedDialogPath reports the granted form of path, or "" when it was never
-// handed back by a dialog.
-func (s *MarkdownService) grantedDialogPath(path string) string {
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		return ""
-	}
-	key := strings.ToLower(abs)
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for _, granted := range s.granted {
-		if strings.ToLower(granted) == key {
-			return granted
-		}
-	}
-	return ""
-}
-
-// PickImage opens a native file dialog for image selection and returns the path.
+// PickImage opens a native file dialog for image selection and returns the
+// path. The dialog helper records the grant used by later reads and writes.
 func (s *MarkdownService) PickImage() (string, error) {
-	path, err := openSingleImageDialog()
-	if err != nil || strings.TrimSpace(path) == "" {
-		return path, err
-	}
-	s.grantDialogPath(path)
-	return path, nil
+	return openSingleImageDialog()
 }
 
 // SaveImageAsResult is returned by SaveImageAs.
@@ -259,20 +183,15 @@ type SaveImageAsResult struct {
 
 // SaveImageAs reads the source image (local path or data: URL) and writes it via a save dialog.
 //
-// A local source is authorised exactly like ReadImage: "Save Image As" is
-// reachable from a document link, so it must not become a way to copy an
-// arbitrary file to a destination the user will later trust.
+// A local source is authorised exactly like ReadImage inside
+// saveImageSourceAs: "Save Image As" is reachable from a document link, so it
+// must not become a way to copy an arbitrary file to a destination the user
+// will later trust.
 func (s *MarkdownService) SaveImageAs(src string) SaveImageAsResult {
-	if strings.HasPrefix(src, "data:") ||
-		strings.HasPrefix(src, "http://") ||
-		strings.HasPrefix(src, "https://") {
-		return saveImageSourceAs(src)
+	if strings.HasPrefix(src, "http://") || strings.HasPrefix(src, "https://") {
+		return SaveImageAsResult{Error: "remote image sources are not supported"}
 	}
-	authorised, err := s.authoriseImageRead(src)
-	if err != nil {
-		return SaveImageAsResult{Error: err.Error()}
-	}
-	return saveImageSourceAs(authorised)
+	return saveImageSourceAs(src, s.roots, recentDocumentDirs(s.rm))
 }
 
 // ExportDocxResult is returned by ExportDocx.
@@ -290,7 +209,9 @@ func (s *MarkdownService) ExportDocx(base64Data string, suggestedName string, mo
 	if err != nil {
 		return ExportDocxResult{OK: false, Error: fmt.Sprintf("decode base64: %v", err)}
 	}
-	name := suggestedName
+	// The name is renderer-supplied: sanitize before it reaches any
+	// filepath.Join (openInDocs) or dialog default.
+	name := sanitizeFileName(suggestedName)
 	if !strings.HasSuffix(strings.ToLower(name), ".docx") {
 		name += ".docx"
 	}
@@ -321,14 +242,22 @@ type ExportPdfResult struct {
 }
 
 // ExportPdf renders HTML to a PDF via Edge headless.
+//
+// outPath must be a path the user already chose this session (a save-dialog
+// result or an opened file); anything else is rejected instead of being
+// written silently. An empty outPath opens the dialog, which grants the path.
 func (s *MarkdownService) ExportPdf(html string, suggestedName string, outPath string) ExportPdfResult {
-	name := suggestedName
+	name := sanitizeFileName(suggestedName)
 	if !strings.HasSuffix(strings.ToLower(name), ".pdf") {
 		name += ".pdf"
 	}
-	var path string
+	path := outPath
 	if outPath != "" {
-		path = outPath
+		authorised, err := AuthoriseWrite(outPath)
+		if err != nil {
+			return ExportPdfResult{OK: false, Error: err.Error()}
+		}
+		path = authorised
 	} else {
 		var canceled bool
 		var err error

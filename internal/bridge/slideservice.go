@@ -22,9 +22,15 @@ func NewSlidesService(rm *host.RecentManager) *SlidesService {
 	return &SlidesService{rm: rm}
 }
 
-// OpenPath reads a file and returns its base64-encoded content.
+// OpenPath reads a file and returns its base64-encoded content. The path must
+// be granted (a dialog pick or the Home open funnel) or resolve inside the
+// authorised roots, so a crafted deck cannot name any file it likes.
 func (s *SlidesService) OpenPath(path string) (string, error) {
-	data, err := os.ReadFile(path)
+	authorised, err := authoriseLocalFileRead(nil, recentDocumentDirs(s.rm), path)
+	if err != nil {
+		return "", fmt.Errorf("read file: %w", err)
+	}
+	data, err := os.ReadFile(authorised)
 	if err != nil {
 		return "", fmt.Errorf("read file: %w", err)
 	}
@@ -80,15 +86,19 @@ type PickedAttachment struct {
 // FilesAdd validates a picked/dropped media path and returns its bytes
 // base64-encoded, so the renderer can embed it without a second read.
 func (s *SlidesService) FilesAdd(path string) PickedAttachment {
-	data, err := os.ReadFile(path)
+	authorised, err := authoriseLocalFileRead(nil, recentDocumentDirs(s.rm), path)
+	if err != nil {
+		return PickedAttachment{Error: fmt.Sprintf("media path not authorised: %v", err)}
+	}
+	data, err := os.ReadFile(authorised)
 	if err != nil {
 		return PickedAttachment{Error: fmt.Sprintf("read media: %v", err)}
 	}
 	return PickedAttachment{
 		OK:     true,
-		Path:   path,
-		Name:   filepath.Base(path),
-		Mime:   imageMime(path),
+		Path:   authorised,
+		Name:   filepath.Base(authorised),
+		Mime:   imageMime(authorised),
 		Base64: base64.StdEncoding.EncodeToString(data),
 	}
 }
