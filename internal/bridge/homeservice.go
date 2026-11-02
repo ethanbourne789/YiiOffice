@@ -16,15 +16,15 @@ import (
 // (language, theme, document-theme, auto-save-default) — editor services must
 // not redeclare them.
 type HomeService struct {
-	version string
-	store   *host.SettingsStore
-	rm      *host.RecentManager
-	fm      *host.FolderManager
-	th      *host.TabHost
-	fo      *host.FileOps
-	dam     *host.DefaultAppManager
-	idxLc   *index.Lifecycle
-	openFile func() ([]string, error)
+	version    string
+	store      *host.SettingsStore
+	rm         *host.RecentManager
+	fm         *host.FolderManager
+	th         *host.TabHost
+	fo         *host.FileOps
+	dam        *host.DefaultAppManager
+	idxLc      *index.Lifecycle
+	openFile   func() ([]string, error)
 	revealPath func(string) error
 }
 
@@ -298,7 +298,7 @@ func (s *HomeService) RemoveFolderRoot(path string) {
 
 // SyncIndexRoots pushes the current sidebar root set to the file index
 // watcher. Called after every folder root mutation so incremental indexing
-// and local-image authorization stay in sync without a restart.
+// stays in sync without a restart.
 func (s *HomeService) SyncIndexRoots() {
 	if s.idxLc != nil {
 		s.idxLc.SyncRoots(s.fm.RootPaths())

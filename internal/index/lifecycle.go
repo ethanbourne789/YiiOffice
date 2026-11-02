@@ -55,13 +55,18 @@ func Init(dataDir string, rootPaths []string) (*Lifecycle, error) {
 	return lc, nil
 }
 
-// SyncRoots updates the watched directories after sidebar roots change.
+// SyncRoots updates the watched directories after sidebar roots change and
+// schedules a rescan, so files that already exist under a newly added root
+// enter the index and ghost rows under a removed root are cleaned up.
 // Safe to call at any time; a no-op when the watcher failed to start.
+// Concurrent binding calls may interleave the indexer/watcher steps; that is
+// a low-probability, self-healing risk because the next sync realigns both.
 func (lc *Lifecycle) SyncRoots(roots []string) {
 	lc.indexer.SetRoots(roots)
 	if lc.watcher != nil {
 		lc.watcher.SyncRoots(roots)
 	}
+	lc.indexer.Refresh()
 }
 
 // Store returns the file index store.

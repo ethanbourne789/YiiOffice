@@ -1,9 +1,10 @@
-﻿package bridge
+package bridge
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"gitee.com/ethanbourne789/yiioffice/internal/host"
 	"gitee.com/ethanbourne789/yiioffice/internal/index"
@@ -438,8 +439,8 @@ func TestHomeServiceOpenPathRoutesByExtension(t *testing.T) {
 		func(string) error { return nil })
 
 	tests := []struct {
-		ext       string
-		wantKind  host.TabKind
+		ext      string
+		wantKind host.TabKind
 	}{
 		{".docx", host.TabKindDocs},
 		{".doc", host.TabKindDocs},
@@ -640,11 +641,33 @@ func TestHomeServiceSearchFilesWithReadyIndexButNilLifecycle(t *testing.T) {
 	}
 }
 
-// TestHomeServiceFolderRootsSyncIndex verifies adding and removing a folder
-// root forwards the new root set to the index lifecycle (watcher re-sync).
+// waitForIndexHits polls store.Search until the query has want hits.
+func waitForIndexHits(t *testing.T, store *index.FileIndexStore, q string, want int) {
+	t.Helper()
+	deadline := time.Now().Add(8 * time.Second)
+	for time.Now().Before(deadline) {
+		res, err := store.Search(q, index.SearchOptions{})
+		if err != nil {
+			t.Fatalf("search %q: %v", q, err)
+		}
+		if res.Total == want {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatalf("timeout waiting for %q to have %d hits", q, want)
+}
+
+// TestHomeServiceFolderRootsSyncIndex verifies that the real folder-root
+// mutation bindings push the new root set into the index lifecycle: a file
+// that already exists under a not-yet-added root only becomes searchable
+// after DropFolderRoots triggers the SyncRoots rescan, and removing the root
+// clears the ghost row again.
 func TestHomeServiceFolderRootsSyncIndex(t *testing.T) {
 	dir := t.TempDir()
 	dataDir := t.TempDir()
+	extra := t.TempDir()
+
 	fm := host.NewFolderManager(dataDir, func() string { return dir })
 	lc, err := index.Init(dataDir, fm.RootPaths())
 	if err != nil {
@@ -654,20 +677,16 @@ func TestHomeServiceFolderRootsSyncIndex(t *testing.T) {
 
 	svc := NewHomeService("test", nil, nil, fm, nil, nil, nil, lc, nil, nil)
 
-	extra := filepath.Join(dir, "watched")
-	if err := os.Mkdir(extra, 0o755); err != nil {
+	// Stock file: written before the root is added, so only the
+	// SyncRoots-triggered rescan (not the watcher) can bring it into the index.
+	fp := filepath.Join(extra, "stock.txt")
+	if err := os.WriteFile(fp, []byte("bridgesyncstock token"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	fm.AddRoot(extra, "")
-	svc.SyncIndexRoots()
 
-	// No panic and the root is listed: the sync call reached the lifecycle.
-	if len(fm.RootPaths()) != 2 {
-		t.Fatalf("expected 2 roots, got %d", len(fm.RootPaths()))
-	}
-	fm.RemoveRoot(extra)
-	svc.SyncIndexRoots()
-	if len(fm.RootPaths()) != 1 {
-		t.Fatalf("expected 1 root after removal, got %d", len(fm.RootPaths()))
-	}
+	svc.DropFolderRoots([]string{extra})
+	waitForIndexHits(t, lc.Store(), "bridgesyncstock", 1)
+
+	svc.RemoveFolderRoot(extra)
+	waitForIndexHits(t, lc.Store(), "bridgesyncstock", 0)
 }
