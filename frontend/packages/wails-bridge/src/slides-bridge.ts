@@ -7,8 +7,18 @@ import {
   FilesAdd,
   PickFiles,
   Opened,
+  Save,
+  SaveAs,
 } from '@bindings/gitee.com/ethanbourne789/yiioffice/internal/bridge/slidesservice'
+import { PickSaveFile } from '@bindings/gitee.com/ethanbourne789/yiioffice/internal/bridge/exportservice'
 import { currentTabPath } from './tabs-bridge'
+import { exportPdfFile, pickExportFolder, pickSavePath, writeBase64File } from './export-bridge'
+import {
+  buildSlidesExportHtml,
+  slidePageSizeInches,
+  type SlidesExportHtmlOp,
+  type SlidesExportImagesOp,
+} from './slides-export-html'
 
 /**
  * Edit handlers published by the renderer at boot (apps/slides/src/renderer/edit-handlers.ts
@@ -48,11 +58,11 @@ export interface SlidesDesktopApi {
   // File I/O
   openPptx(fitWidthPx: number): Promise<{ path: string; base64: string } | null>
   openPptxPath(path: string): Promise<{ path: string; base64: string } | null>
-  // Saving is owned by the renderer (file-actions.ts): it serializes the deck and
-  // writes it through the shell, so these entry points only exist for call-site
-  // compatibility. Their result shapes follow the renderer contract in ipc.ts.
-  save(...args: any[]): Promise<any>
-  saveAs(...args: any[]): Promise<any>
+  // The renderer (file-actions.ts) serializes the deck and passes { path, base64 }
+  // here; the bridge writes through Go SlidesService.Save/SaveAs (atomic).
+  // saveAs always resolves the target via the native save dialog.
+  save(req?: { path?: string; base64?: string }): Promise<{ ok: boolean; path?: string; error?: string; canceled?: boolean }>
+  saveAs(req?: { path?: string; base64?: string }): Promise<{ ok: boolean; path?: string; error?: string; canceled?: boolean }>
   savePicture(...args: any[]): Promise<any>
   filesRead(path: string): Promise<string>
   filesReadImage(path: string): Promise<string>
@@ -64,8 +74,8 @@ export interface SlidesDesktopApi {
   newBlank(fitWidthPx: number): Promise<{ base64: string } | null>
 
   // Export
-  exportImages(...args: any[]): Promise<any>
-  exportPdf(...args: any[]): Promise<any>
+  exportImages(op: SlidesExportImagesOp): Promise<{ ok: boolean; paths?: string[]; error?: string }>
+  exportPdf(op: SlidesExportHtmlOp & { filePath: string }): Promise<{ ok: boolean; path?: string; canceled?: boolean; error?: string }>
   pickExportDir(): Promise<string | null>
   pickExportPdfPath(name: string): Promise<string | null>
 
@@ -239,13 +249,39 @@ export function createSlidesDesktopApi(): SlidesDesktopApi {
         return null
       }
     },
-    // Serializing and writing the deck is owned by the renderer (file-actions.ts);
-    // these entry points stay so older call sites do not throw.
-    async save() {
-      return { ok: true }
+    // The renderer (file-actions.ts) serializes the deck and hands the bytes here;
+    // the Go SlidesService writes them atomically (temp file + rename).
+    async save(req?: { path?: string; base64?: string }) {
+      if (!req?.path || typeof req.base64 !== 'string') {
+        return { ok: false, error: 'save requires { path, base64 }' }
+      }
+      try {
+        await Save(req.path, req.base64)
+        return { ok: true, path: req.path }
+      } catch (err) {
+        return { ok: false, error: String(err) }
+      }
     },
-    async saveAs() {
-      return { ok: false, error: 'Use Save As from the shell menu' }
+    // Save As always asks the shell for a target via the native dialog; a bare
+    // name from an untitled deck must never resolve against the process CWD.
+    async saveAs(req?: { path?: string; base64?: string }) {
+      if (typeof req?.base64 !== 'string') {
+        return { ok: false, error: 'saveAs requires { base64 }' }
+      }
+      const name = (req.path?.split(/[\\/]/).pop()) || 'presentation.pptx'
+      let target = ''
+      try {
+        target = (await PickSaveFile(name, 'pptx')) || ''
+      } catch {
+        return { ok: false, error: 'Save As dialog is unavailable' }
+      }
+      if (!target) return { ok: false, canceled: true }
+      try {
+        const savedPath = await SaveAs(target, req.base64)
+        return { ok: true, path: savedPath || target }
+      } catch (err) {
+        return { ok: false, error: String(err) }
+      }
     },
     async savePicture() {
       return { ok: false, error: 'Save as picture is not wired to the Wails shell yet' }
@@ -287,27 +323,66 @@ export function createSlidesDesktopApi(): SlidesDesktopApi {
       return null // Renderer creates blank deck internally
     },
 
-    // Export
-    // The renderer renders the slides itself; the Go export service only accepts HTML
-    // or whole PDFs, so image/PDF export still needs a renderer -> Go data path. Until
-    // then report the gap instead of resolving with undefined (call sites read `r.ok`).
-    async exportImages() {
-      return { ok: false, error: 'Slide image export is not wired to the Wails shell yet' }
+    // Export. The renderer renders the slides (PNG pages / vector SVG pages); this
+    // bridge hands the bytes to Go ExportService: WriteBase64File for images, and
+    // a print-HTML document fed to headless Edge --print-to-pdf for PDFs. A dialog
+    // cancel resolves null; every other failure surfaces as { ok:false, error } (or
+    // a rejection from the pickers, which the renderer's try/catch turns into a
+    // visible status) — never a fake success.
+    async exportImages(op) {
+      try {
+        const dir = String(op?.dir ?? '').replace(/[\\/]+$/, '')
+        const baseName = String(op?.baseName ?? '').trim() || 'presentation'
+        const pngs = Array.isArray(op?.pngsBase64) ? op.pngsBase64 : []
+        if (!dir || pngs.length === 0) {
+          return { ok: false, error: 'image export requires { dir, pngsBase64 }' }
+        }
+        const paths: string[] = []
+        for (const [i, png] of pngs.entries()) {
+          const path = `${dir}/${baseName}-${String(i + 1).padStart(2, '0')}.png`
+          const r = await writeBase64File(path, png)
+          if (!r.ok) return { ok: false, error: r.error ?? `write ${path} failed` }
+          paths.push(r.path ?? path)
+        }
+        return { ok: true, paths }
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : String(err) }
+      }
     },
-    async exportPdf() {
-      return { ok: false, error: 'Slide PDF export is not wired to the Wails shell yet' }
+    async exportPdf(op) {
+      try {
+        if (!op?.filePath) return { ok: false, error: 'PDF export requires a target path' }
+        if (!op.pages?.length) return { ok: false, error: 'PDF export requires at least one page' }
+        const html = buildSlidesExportHtml(op)
+        const { widthIn, heightIn } = slidePageSizeInches(op.widthPx, op.heightPx)
+        const name = op.filePath.split(/[\\/]/).pop() || 'presentation.pdf'
+        const r = await exportPdfFile(html, op.filePath, name, widthIn, heightIn)
+        return {
+          ok: r.ok,
+          ...(r.path !== undefined && { path: r.path }),
+          ...(r.canceled !== undefined && { canceled: r.canceled }),
+          ...(r.error !== undefined && { error: r.error }),
+        }
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : String(err) }
+      }
     },
     async pickExportDir() {
-      return null
+      // Cancel (empty dir) -> null; a dialog error rejects so the caller's
+      // try/catch can show it instead of silently treating it as a cancel.
+      const folder = await pickExportFolder('Export as Images')
+      return folder?.dir ?? null
     },
-    async pickExportPdfPath(_name) {
-      return null
+    async pickExportPdfPath(name) {
+      return pickSavePath(name, 'pdf')
     },
 
-    // Session state
+    // Session state. The deck lives in the renderer, so the dirty answer comes
+    // from the handler it registers (edit-handlers.ts: pptx-engine element
+    // flags). An unregistered renderer reports clean — never fabricate dirty
+    // from the mere existence of a file path.
     async isDirty() {
-      const path = await currentTabPath()
-      return !!path
+      return !!(await callEdit('isDirty'))
     },
     reportCloseSaveResult: () => undefined,
     headlessExportDone: () => undefined,

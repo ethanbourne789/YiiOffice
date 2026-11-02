@@ -1662,10 +1662,12 @@ export interface SlidesApi {
   exportPdf: (op: ExportPdfOp) => Promise<ExportPdfResult>
   /** Print (system dialog; cancel counts as ok=false without an error) */
   printSlides: (op: PrintSlidesOp) => Promise<{ ok: boolean; error?: string }>
-  save: () => Promise<{ ok: boolean; path?: string; error?: string; slides?: RenderSlide[] }>
+  /** Write the serialized deck to the open path via Go SlidesService.Save (atomic) */
+  save: (req: { path: string; base64: string }) => Promise<{ ok: boolean; path?: string; error?: string }>
+  /** Save As: native dialog picks the target, Go writes it; cancel yields { ok:false, canceled:true } */
   saveAs: (
-    defaultName: string,
-  ) => Promise<{ ok: boolean; path?: string; error?: string; slides?: RenderSlide[] }>
+    req: { path: string; base64: string },
+  ) => Promise<{ ok: boolean; path?: string; error?: string; canceled?: boolean }>
   /** The close guard chose "Save": the main process asks the renderer to run the full save flow */
   onCloseSaveRequest: (handler: () => void) => () => void
   /** Undo/redo stack occupancy pushed by the main process (drives the QAT button gray states) */

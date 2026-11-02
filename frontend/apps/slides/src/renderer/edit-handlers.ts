@@ -1392,5 +1392,27 @@ export function createEditHandlers(ctx: EditHandlerContext): Record<string, (...
     return renderAllSlides(restored, { fitWidthPx: ctx.fitWidthPx })
   }
 
+  // ── Session state ──────────────────────────────────────────────────────
+  // pptx-engine's per-element dirty flags (the same predicate its save path
+  // uses to decide what to patch). An opened-but-never-edited deck has none
+  // set, so it reads clean; commitSaved clears them after a real write.
+  h.isDirty = async () => {
+    const o = ctx.openedPptxRef.current
+    if (!o) return false
+    return o.deck.slides.some(
+      (s) =>
+        !!s.structureDirty ||
+        s.elements.some(
+          (e) =>
+            e.dirty ||
+            e.dirtyTransform ||
+            e.dirtyFill ||
+            e.dirtyStroke ||
+            e.dirtySrcRect ||
+            e.dirtyPPr,
+        ),
+    )
+  }
+
   return h
 }

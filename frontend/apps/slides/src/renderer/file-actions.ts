@@ -103,7 +103,8 @@ export async function save(getCtx: () => ActionCtx, quiet = false): Promise<bool
       const { serializeToBase64 } = await import('./pptx-model')
       const { commitSaved } = await import('@yiioffice/pptx-engine')
       const base64 = await serializeToBase64(opened)
-      await (window.desktop as any).save({ path: ctx.path, base64 })
+      const r = await (window.desktop as any).save({ path: ctx.path, base64 })
+      if (!r?.ok) throw new Error(r?.error ?? 'save failed')
       commitSaved(opened)
       ctx.setDirty(false)
       const saved = t('appStatusSaved')
@@ -130,17 +131,21 @@ export async function saveAs(getCtx: () => ActionCtx): Promise<void> {
     try {
       const { serializeToBase64 } = await import('./pptx-model')
       const base64 = await serializeToBase64(opened)
-      const targetPath = ctx.path || `${name}`
-      const result = await (window.desktop as any).saveAs({ path: targetPath, base64 })
-      if (result) {
-        const { commitSaved } = await import('@yiioffice/pptx-engine')
-        commitSaved(opened)
-        ctx.setPath(typeof result === 'string' ? result : targetPath)
-        ctx.setDirty(false)
-        const saved = t('appStatusSavedAs')
-        ctx.setStatus(saved)
-        showToast(saved)
+      const result = await (window.desktop as any).saveAs({ path: ctx.path || name, base64 })
+      if (result?.canceled) return
+      if (!result?.ok) {
+        const failed = t('appStatusSaveFailed', { error: result?.error ?? t('appUnknownError') })
+        ctx.setStatus(failed)
+        showToast(failed, 'error')
+        return
       }
+      const { commitSaved } = await import('@yiioffice/pptx-engine')
+      commitSaved(opened)
+      ctx.setPath(result.path)
+      ctx.setDirty(false)
+      const saved = t('appStatusSavedAs')
+      ctx.setStatus(saved)
+      showToast(saved)
     } catch (err) {
       const failed = t('appStatusSaveFailed', { error: String(err) })
       ctx.setStatus(failed)
@@ -154,30 +159,46 @@ export function exportBaseName(ctx: ActionCtx): string {
   return (baseName(ctx.path ?? '') || t('appUntitledPresentation')).replace(/\.pptx$/i, '')
 }
 
+/**
+ * One export pass at a time: deck rendering plus the Edge print are slow, and
+ * two overlapping runs would race on the same target files. A second click
+ * while an export is in flight is ignored (the running one already owns the
+ * status line).
+ */
+let exportInFlight = false
+
 /** Export as images: each page (skipping hidden ones) rendered offscreen to 2x PNG, written to disk by the main process */
 export async function exportImages(ctx: ActionCtx): Promise<void> {
+  if (exportInFlight) return
   const visible = ctx.slides.filter((s) => !s.hidden)
   if (visible.length === 0) {
     ctx.setStatus(t('appExportNoSlides'))
     return
   }
-  const dir = await window.desktop.pickExportDir()
-  if (!dir) return
-  ctx.setStatus(t('appExportImagesProgress', { count: visible.length }))
+  exportInFlight = true
   try {
+    const dir = await window.desktop.pickExportDir()
+    if (!dir) return
+    ctx.setStatus(t('appExportImagesProgress', { count: visible.length }))
     const pngs = await renderSlidesToPngBase64(visible, ctx.images)
     const r = await window.desktop.exportImages({
       dir,
       baseName: exportBaseName(ctx),
       pngsBase64: pngs,
     })
-    ctx.setStatus(
-      r.ok
-        ? t('appExportImagesDone', { count: r.paths?.length ?? 0, dir })
-        : t('appExportImagesFailed', { error: r.error ?? t('appUnknownError') }),
-    )
+    if (r.ok) {
+      ctx.setStatus(t('appExportImagesDone', { count: r.paths?.length ?? 0, dir }))
+    } else {
+      const failed = t('appExportImagesFailed', { error: r.error ?? t('appUnknownError') })
+      ctx.setStatus(failed)
+      showToast(failed, 'error')
+    }
   } catch (err) {
-    ctx.setStatus(t('appExportImagesFailed', { error: String(err) }))
+    const failed = t('appExportImagesFailed', { error: String(err) })
+    ctx.setStatus(failed)
+    showToast(failed, 'error')
+  } finally {
+    exportInFlight = false
   }
 }
 
@@ -210,15 +231,17 @@ async function collectPdfLinks(ctx: ActionCtx): Promise<ExportPdfLink[][]> {
  * the file goes. Resolves true only when a PDF was written.
  */
 export async function exportPdf(ctx: ActionCtx, outPath?: string): Promise<boolean> {
+  if (exportInFlight) return false
   const visible = ctx.slides.filter((s) => !s.hidden)
   if (visible.length === 0) {
     ctx.setStatus(t('appExportNoSlides'))
     return false
   }
-  const target = outPath ?? (await window.desktop.pickExportPdfPath(`${exportBaseName(ctx)}.pdf`))
-  if (!target) return false
-  ctx.setStatus(t('appExportPdfProgress'))
+  exportInFlight = true
   try {
+    const target = outPath ?? (await window.desktop.pickExportPdfPath(`${exportBaseName(ctx)}.pdf`))
+    if (!target) return false
+    ctx.setStatus(t('appExportPdfProgress'))
     const { pages, fontCss } = await renderSlidesToPdfPages(visible, ctx.images)
     const links = await collectPdfLinks(ctx)
     const r = await window.desktop.exportPdf({
@@ -229,14 +252,20 @@ export async function exportPdf(ctx: ActionCtx, outPath?: string): Promise<boole
       links,
       fontCss,
     })
-    ctx.setStatus(
-      r.ok
-        ? t('appExportPdfDone', { path: r.path ?? '' })
-        : t('appExportPdfFailed', { error: r.error ?? t('appUnknownError') }),
-    )
-    return r.ok
-  } catch (err) {
-    ctx.setStatus(t('appExportPdfFailed', { error: String(err) }))
+    if (r.ok) {
+      ctx.setStatus(t('appExportPdfDone', { path: r.path ?? '' }))
+      return true
+    }
+    const failed = t('appExportPdfFailed', { error: r.error ?? t('appUnknownError') })
+    ctx.setStatus(failed)
+    showToast(failed, 'error')
     return false
+  } catch (err) {
+    const failed = t('appExportPdfFailed', { error: String(err) })
+    ctx.setStatus(failed)
+    showToast(failed, 'error')
+    return false
+  } finally {
+    exportInFlight = false
   }
 }
