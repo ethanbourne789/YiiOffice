@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"gitee.com/ethanbourne789/yiioffice/internal/platform"
+	"golang.org/x/sync/errgroup"
 )
 
 // FileIndexer keeps the store in sync with the filesystem.
@@ -89,17 +90,73 @@ func (ix *FileIndexer) loop() {
 	}
 }
 
+// scanParallelism bounds concurrent directory walks during a full refresh.
+const scanParallelism = 4
+
 func (ix *FileIndexer) run() {
 	ix.mu.Lock()
 	roots := make([]string, len(ix.roots))
 	copy(roots, ix.roots)
 	ix.mu.Unlock()
 
-	// 1. Scan all roots
+	// 1. Scan all roots. Each root is split into one task per first-level
+	// subdirectory (root-level files are collected inline) so several
+	// goroutines walk in parallel. Results are merged under a mutex; the
+	// downstream diff logic is unchanged, so duplicate paths from nested
+	// tasks are impossible (tasks are disjoint subtrees).
 	var allFiles []ScannedFile
+	var tasks []string
 	for _, root := range roots {
-		result := ScanDir(root)
-		allFiles = append(allFiles, result.Files...)
+		entries, err := os.ReadDir(root)
+		if err != nil {
+			continue
+		}
+		for _, entry := range entries {
+			full := filepath.Join(root, entry.Name())
+			if entry.IsDir() {
+				if isHidden(root, entry.Name()) {
+					continue
+				}
+				if info, err := entry.Info(); err == nil && info.Mode()&os.ModeSymlink != 0 {
+					continue
+				}
+				tasks = append(tasks, full)
+				continue
+			}
+			ext := strings.ToLower(filepath.Ext(entry.Name()))
+			if _, ok := supportedExts[ext]; !ok {
+				continue
+			}
+			if isHidden(root, entry.Name()) {
+				continue
+			}
+			info, err := entry.Info()
+			if err != nil {
+				continue
+			}
+			allFiles = append(allFiles, ScannedFile{
+				Path:      full,
+				MtimeMs:   info.ModTime().UnixMilli(),
+				SizeBytes: info.Size(),
+			})
+		}
+	}
+
+	var mu sync.Mutex
+	g := new(errgroup.Group)
+	g.SetLimit(scanParallelism)
+	for _, task := range tasks {
+		task := task
+		g.Go(func() error {
+			res := ScanDir(task)
+			mu.Lock()
+			allFiles = append(allFiles, res.Files...)
+			mu.Unlock()
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		platform.Logger().Warn("index: parallel scan failed", "error", err)
 	}
 
 	// 2. Diff against existing index
