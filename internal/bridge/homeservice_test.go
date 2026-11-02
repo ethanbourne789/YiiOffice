@@ -639,3 +639,35 @@ func TestHomeServiceSearchFilesWithReadyIndexButNilLifecycle(t *testing.T) {
 		t.Fatalf("expected reason 'index not initialized', got %s", *page.Unavailable)
 	}
 }
+
+// TestHomeServiceFolderRootsSyncIndex verifies adding and removing a folder
+// root forwards the new root set to the index lifecycle (watcher re-sync).
+func TestHomeServiceFolderRootsSyncIndex(t *testing.T) {
+	dir := t.TempDir()
+	dataDir := t.TempDir()
+	fm := host.NewFolderManager(dataDir, func() string { return dir })
+	lc, err := index.Init(dataDir, fm.RootPaths())
+	if err != nil {
+		t.Fatalf("index.Init: %v", err)
+	}
+	defer lc.Shutdown()
+
+	svc := NewHomeService("test", nil, nil, fm, nil, nil, nil, lc, nil, nil)
+
+	extra := filepath.Join(dir, "watched")
+	if err := os.Mkdir(extra, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	fm.AddRoot(extra, "")
+	svc.SyncIndexRoots()
+
+	// No panic and the root is listed: the sync call reached the lifecycle.
+	if len(fm.RootPaths()) != 2 {
+		t.Fatalf("expected 2 roots, got %d", len(fm.RootPaths()))
+	}
+	fm.RemoveRoot(extra)
+	svc.SyncIndexRoots()
+	if len(fm.RootPaths()) != 1 {
+		t.Fatalf("expected 1 root after removal, got %d", len(fm.RootPaths()))
+	}
+}

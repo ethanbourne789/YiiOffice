@@ -271,6 +271,7 @@ func (s *HomeService) AddFolderRoot() (*host.FolderRoot, error) {
 		return nil, nil
 	}
 	s.fm.AddRoot(dir, "")
+	s.SyncIndexRoots()
 	row, ok := s.fm.FindRoot(dir)
 	if !ok {
 		return nil, nil
@@ -285,11 +286,24 @@ func (s *HomeService) DropFolderRoots(paths []string) []host.FolderRoot {
 			s.fm.AddRoot(p, "")
 		}
 	}
+	s.SyncIndexRoots()
 	return s.fm.GetRoots()
 }
 
 // RemoveFolderRoot removes a folder root by path.
-func (s *HomeService) RemoveFolderRoot(path string) { s.fm.RemoveRoot(path) }
+func (s *HomeService) RemoveFolderRoot(path string) {
+	s.fm.RemoveRoot(path)
+	s.SyncIndexRoots()
+}
+
+// SyncIndexRoots pushes the current sidebar root set to the file index
+// watcher. Called after every folder root mutation so incremental indexing
+// and local-image authorization stay in sync without a restart.
+func (s *HomeService) SyncIndexRoots() {
+	if s.idxLc != nil {
+		s.idxLc.SyncRoots(s.fm.RootPaths())
+	}
+}
 
 // ListFolder lists the entries under a folder path.
 func (s *HomeService) ListFolder(path string) host.FolderListing {
