@@ -344,6 +344,15 @@ export function StatPaths(paths: string[]): $CancellablePromise<host$0.FileInfo[
 }
 
 /**
+ * SyncIndexRoots pushes the current sidebar root set to the file index
+ * watcher. Called after every folder root mutation so incremental indexing
+ * stays in sync without a restart.
+ */
+export function SyncIndexRoots(): $CancellablePromise<void> {
+    return $Call.ByID(3175139340);
+}
+
+/**
  * ToggleStar flips the starred state of a path.
  */
 export function ToggleStar(path: string): $CancellablePromise<boolean> {
