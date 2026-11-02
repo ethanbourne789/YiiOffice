@@ -500,6 +500,27 @@ html.yiioffice-popover-open .ribbon-tabs {
   white-space: nowrap;
 }
 
+/* Export is an action menu built on the shared gs-dd control; it sits among the
+ * quick-access buttons, so it takes their box instead of the select chrome. */
+.qa-export.gs-dd {
+  min-width: 0;
+}
+
+.qa-export .gs-dd-btn {
+  height: 28px;
+  padding: 0 6px;
+  gap: 4px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.qa-export .gs-dd-btn:hover:not(:disabled) {
+  background: var(--hover);
+}
+
 .qa-btn svg {
   display: block;
   margin: 0 auto;

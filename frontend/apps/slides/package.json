@@ -16,7 +16,6 @@
     "@vitejs/plugin-react": "^6.1.2",
     "@yiioffice/docx-engine": "*",
     "@yiioffice/desktop-utils": "*",
-    "@yiioffice/file-parse": "*",
     "@yiioffice/i18n": "*",
     "@yiioffice/pptx-engine": "*",
     "@yiioffice/pptx-ops": "*",

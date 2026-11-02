@@ -5,8 +5,6 @@ import {
   SaveAs,
   PickImage,
   SaveImageAs,
-  PickFiles,
-  ExportPdf,
   OpenDocx,
   OpenDocxPath,
   OpenDocxDecrypt,
@@ -53,23 +51,6 @@ export function docsSaveImageAs(
   return SaveImageAs(src)
 }
 
-/** Opens a multi-select media dialog; empty when canceled. */
-export async function docsPickFiles(kind: string): Promise<string[]> {
-  const files = await PickFiles(kind)
-  return Array.isArray(files) ? files : []
-}
-
-/** Renders HTML to a PDF (empty outPath opens a save dialog). */
-export function docsExportPdf(
-  html: string,
-  outPath: string,
-  suggestedName: string,
-  widthIn: number,
-  heightIn: number,
-): Promise<{ ok: boolean; path?: string; canceled?: boolean; error?: string }> {
-  return ExportPdf(html, outPath, suggestedName, widthIn, heightIn)
-}
-
 // ─── Docs editor docx-specific file I/O ─────────────────────────────
 
 /**
@@ -111,7 +92,7 @@ async function toOpenFileResult(raw: unknown): Promise<unknown> {
   // hit on image-heavy documents; the renderer fetches it once, right after the
   // open, so it can be released shortly after.
   const dataUrl = URL.createObjectURL(new Blob([bytes], { type: DOCX_MIME }))
-  setTimeout(() => URL.revokeObjectURL(dataUrl), 60_000)
+  setTimeout(() => URL.revokeObjectURL(dataUrl), 10_000)
   return {
     path,
     name: path.split(/[\\/]/).pop() || path,

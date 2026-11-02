@@ -196,60 +196,21 @@ func (s *WorkbookService) SaveWorkbook(req workbook.SaveRequest) (*workbook.Save
 
 // Save atomically writes base64-decoded content to path.
 func (s *WorkbookService) Save(path string, content string) error {
-	data, err := base64.StdEncoding.DecodeString(content)
-	if err != nil {
-		return fmt.Errorf("decode content: %w", err)
-	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), "*.tmp")
-	if err != nil {
-		return fmt.Errorf("create temp: %w", err)
-	}
-	tmpName := tmp.Name()
-	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
-		os.Remove(tmpName)
-		return fmt.Errorf("write temp: %w", err)
-	}
-	tmp.Close()
-	if err := os.Rename(tmpName, path); err != nil {
-		os.Remove(tmpName)
-		return fmt.Errorf("rename: %w", err)
-	}
-	if s.rm != nil {
-		s.rm.AddRecent(path)
-	}
-	return nil
+	return atomicBase64Save(path, content, func() {
+		if s.rm != nil {
+			s.rm.AddRecent(path)
+		}
+	})
 }
 
 // SaveAs atomically writes base64-decoded content to a new path and returns it.
 func (s *WorkbookService) SaveAs(path string, content string) (string, error) {
-	data, err := base64.StdEncoding.DecodeString(content)
-	if err != nil {
-		return "", fmt.Errorf("decode content: %w", err)
-	}
-	dir := filepath.Dir(path)
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return "", fmt.Errorf("create directory: %w", err)
+	if err := atomicBase64Save(path, content, func() {
+		if s.rm != nil {
+			s.rm.AddRecent(path)
 		}
-	}
-	tmp, err := os.CreateTemp(dir, "*.tmp")
-	if err != nil {
-		return "", fmt.Errorf("create temp: %w", err)
-	}
-	tmpName := tmp.Name()
-	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
-		os.Remove(tmpName)
-		return "", fmt.Errorf("write temp: %w", err)
-	}
-	tmp.Close()
-	if err := os.Rename(tmpName, path); err != nil {
-		os.Remove(tmpName)
-		return "", fmt.Errorf("rename: %w", err)
-	}
-	if s.rm != nil {
-		s.rm.AddRecent(path)
+	}); err != nil {
+		return "", err
 	}
 	return path, nil
 }
@@ -349,12 +310,7 @@ func (s *WorkbookService) ExportPdf(fileName string, html string) (WorkbookExpor
 
 // ListPrinters returns the names of the installed system printers.
 func (s *WorkbookService) ListPrinters() []PrinterInfo {
-	names := platform.ListPrinterNames()
-	out := make([]PrinterInfo, 0, len(names))
-	for _, name := range names {
-		out = append(out, PrinterInfo{Name: name, DisplayName: name})
-	}
-	return out
+	return resolversListPrinters()
 }
 
 // Renamed emits the file-renamed event.

@@ -316,9 +316,9 @@ register({
       }
     }
   },
-  apply(op, ctx): OpRecord {
+  async apply(op, ctx): Promise<OpRecord> {
     const { index } = resolveSlide(ctx, op)
-    const added = addMedia(ctx.opened, index, {
+    const added = await addMedia(ctx.opened, index, {
       kind: op.kind as 'video' | 'audio',
       bytes: reqBytes(op),
       ext: String(op.ext),
@@ -339,9 +339,9 @@ register({
     reqBytes(op)
     if (typeof op.ext !== 'string' || !op.ext) throw new GuidedError('op "addModel3d" needs "ext".')
   },
-  apply(op, ctx): OpRecord {
+  async apply(op, ctx): Promise<OpRecord> {
     const { index } = resolveSlide(ctx, op)
-    const added = addModel3d(ctx.opened, index, {
+    const added = await addModel3d(ctx.opened, index, {
       bytes: reqBytes(op),
       ext: String(op.ext),
       ...(op.poster ? { poster: op.poster as { bytes: Uint8Array; ext: string } } : {}),

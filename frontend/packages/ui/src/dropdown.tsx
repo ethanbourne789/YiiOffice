@@ -56,6 +56,7 @@ export function Dropdown<K extends string>({
   ariaLabel,
   disabled,
   tip,
+  triggerLabel,
   ariaRequired,
   ariaInvalid,
 }: {
@@ -64,11 +65,17 @@ export function Dropdown<K extends string>({
   readonly onPick: (value: K) => void
   /** Extra class on the wrapper (apps set width there). */
   readonly className?: string
-  /** Control name for screen readers; defaults to the current option's label. */
+  /** Control name for screen readers; defaults to the trigger text. */
   readonly ariaLabel?: string
   readonly disabled?: boolean
   /** ScreenTip text (data-tip on the trigger). */
   readonly tip?: string
+  /**
+   * Trigger text for an action menu — a list that runs a command instead of
+   * picking a value. The trigger keeps this label after a pick, so `value` can
+   * be a sentinel that is not one of the options.
+   */
+  readonly triggerLabel?: string
   /** Form semantics passthrough (AcroForm widgets etc.). */
   readonly ariaRequired?: boolean
   readonly ariaInvalid?: boolean
@@ -95,6 +102,7 @@ export function Dropdown<K extends string>({
   // No fallback to options[0]: an off-list value (e.g. a document-only font)
   // must read as itself, not masquerade as the first option
   const current = options.find((o) => o.value === value)
+  const triggerText = triggerLabel ?? (current ? (current.render ?? current.label) : value)
   // mirrors the .active class: a disabled row is never the active option
   const activeOption = open && options[active] && !options[active]!.disabled ? active : null
   const openList = () => {
@@ -155,7 +163,7 @@ export function Dropdown<K extends string>({
         aria-expanded={open}
         aria-controls={open ? listId : undefined}
         aria-activedescendant={activeOption === null ? undefined : optionId(activeOption)}
-        aria-label={ariaLabel ?? current?.label ?? value}
+        aria-label={ariaLabel ?? triggerLabel ?? current?.label ?? value}
         aria-required={ariaRequired}
         aria-invalid={ariaInvalid}
         onClick={() => (open ? setOpen(false) : openList())}
@@ -166,7 +174,7 @@ export function Dropdown<K extends string>({
           if (!wrapRef.current?.contains(e.relatedTarget as Node)) setOpen(false)
         }}
       >
-        <span className="gs-dd-value">{current ? (current.render ?? current.label) : value}</span>
+        <span className="gs-dd-value">{triggerText}</span>
         <span className="gs-dd-caret" aria-hidden="true">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
             <path

@@ -1,16 +1,11 @@
 {
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2020",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
+    // Slides runs in the WebView2/WebKit shell, same baseline as the other apps,
+    // so it shares the ES2022 lib (`.at()`/`replaceAll`/`Object.hasOwn` are used).
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "types": ["vite/client"]
   },
   "include": ["src"]

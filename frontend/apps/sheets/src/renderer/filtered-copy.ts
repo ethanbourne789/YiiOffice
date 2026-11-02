@@ -13,7 +13,7 @@
  * still included in copies.
  */
 import { IUniverInstanceService, UniverInstanceType, type IRange, type Workbook } from '@univerjs/core'
-import { ISheetClipboardService } from '@univerjs/preset-sheets-core'
+import { ISheetClipboardService } from '@univerjs/sheets-ui'
 // The plugin package, not the preset: the preset re-exports the filter UI,
 // whose module scope needs a browser canvas (Path2D) and cannot load in
 // node-side tests.

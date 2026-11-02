@@ -1,7 +1,5 @@
 import { installBridge } from '@yiioffice/wails-bridge'
-import { installMarkdownBridge } from './markdown-bridge'
 installBridge()
-installMarkdownBridge()
 
 import { createRoot } from 'react-dom/client'
 import { htmlDir, htmlLang, type Lang } from '@yiioffice/i18n'

@@ -117,6 +117,8 @@ import { formatRulerValue, type RulerUnit } from './ruler-ticks'
 import * as fileActions from './file-actions'
 import * as clipboardActions from './clipboard-actions'
 import * as insertActions from './insert-actions'
+import { createEditHandlers } from './edit-handlers'
+import { registerEditHandlers } from '@yiioffice/wails-bridge'
 import { bytesToBase64 } from './insert-actions'
 import { classifyDroppedFile, fileExt } from '../shared/media-kinds'
 import * as animationActions from './animation-actions'
@@ -332,6 +334,11 @@ function thumbBox(slide: RenderSlide, width: number) {
 export function App() {
   const { lang } = useI18n()
   const [slides, setSlides] = useState<RenderSlide[]>([])
+  // OpenedPptx model held in a ref — edit operations modify it directly;
+  // save serializes it to base64 and writes via Go backend.
+  const openedPptxRef = useRef<import('@yiioffice/pptx-engine').OpenedPptx | null>(null)
+  // Undo/redo stack for snapshot-based history
+  const undoStackRef = useRef<import('./undo-stack').UndoStack | null>(null)
   // Layouts may reference Office-private fonts (resolved in main); register them as FontFaces
   useEffect(() => {
     if (slides.length) void syncPrivateFonts()
@@ -819,31 +826,41 @@ export function App() {
   }, [hasDoc, fitZoom, rawFit, viewMode])
 
   const applyOpen = useCallback(
-    (result: { path: string; slides: RenderSlide[]; defaultFont?: string } | null) => {
+    async (result: { path: string; base64: string } | null) => {
       if (!result) return
-      setSlides(result.slides)
-      setDefaultFont(result.defaultFont ?? null)
-      setPath(result.path)
-      setCurrent(0)
-      setSelectedSlides([0])
-      setSelectedIds([])
-      setEditing(null)
-      setDirty(false)
-      setInkTool('select')
-      setUngroupedSets([])
-      needsFitRef.current = true
-      setStatus(
-        result.path
-          ? t('appStatusOpened', {
-              name: baseName(result.path),
-              count: result.slides.length,
-            })
-          : t('appStatusNewBlank'),
-      )
-      // Fetch the layout list asynchronously (doesn't block opening)
-      void window.desktop.getLayouts().then((r) => setLayoutsResult(r))
+      try {
+        const { openFromBase64 } = await import('./pptx-model')
+        const { opened, slides: rendered } = await openFromBase64(result.base64, FIT_WIDTH)
+        openedPptxRef.current = opened
+        // Initialize undo stack with initial state
+        const { createUndoStack } = await import('./undo-stack')
+        undoStackRef.current = await createUndoStack()
+        await undoStackRef.current.push(opened)
+        setSlides(rendered)
+        setDefaultFont(null)
+        setPath(result.path)
+        setCurrent(0)
+        setSelectedSlides([0])
+        setSelectedIds([])
+        setEditing(null)
+        setDirty(false)
+        setInkTool('select')
+        setUngroupedSets([])
+        needsFitRef.current = true
+        setStatus(
+          result.path
+            ? t('appStatusOpened', {
+                name: baseName(result.path),
+                count: rendered.length,
+              })
+            : t('appStatusNewBlank'),
+        )
+        void window.desktop.getLayouts().then((r) => setLayoutsResult(r))
+      } catch (err) {
+        console.error('Failed to open pptx:', err)
+      }
     },
-    [fitZoom],
+    [],
   )
 
   const setSelectedId = useCallback((id: string | null, additive = false) => {
@@ -1178,10 +1195,33 @@ export function App() {
   }, [hasDoc, viewMode, previewZoom, slides.length])
 
   const newBlank = useCallback(async () => {
-    const r = await window.desktop.newBlank(FIT_WIDTH)
-    applyOpen(r)
-    return r
-  }, [applyOpen])
+    try {
+      const { createNewBlank } = await import('./pptx-model')
+      const { opened, slides: rendered } = await createNewBlank(FIT_WIDTH)
+      openedPptxRef.current = opened
+      // Initialize undo stack with initial state
+      const { createUndoStack } = await import('./undo-stack')
+      undoStackRef.current = await createUndoStack()
+      await undoStackRef.current.push(opened)
+      setSlides(rendered)
+      setDefaultFont(null)
+      setPath(null)
+      setCurrent(0)
+      setSelectedSlides([0])
+      setSelectedIds([])
+      setEditing(null)
+      setDirty(false)
+      setInkTool('select')
+      setUngroupedSets([])
+      needsFitRef.current = true
+      setStatus(t('appStatusNewBlank'))
+      void window.desktop.getLayouts().then((r) => setLayoutsResult(r))
+      return true
+    } catch (err) {
+      console.error('Failed to create blank pptx:', err)
+      return false
+    }
+  }, [])
 
   // Files are pushed open by the main process (double-click/command line); with no pending file the
   // window lands directly in the editor on a fresh blank deck.
@@ -1197,8 +1237,10 @@ export function App() {
           showToast(err instanceof Error ? err.message : String(err), 'error')
         })
       })
-    const off = window.desktop.onOpened((r) => applyOpen(r))
-    consumePendingRef.current ??= window.desktop.consumePendingOpen(FIT_WIDTH)
+    // File pushes arrive through tab creation in the Wails build; this channel only
+    // carries the path, so it is kept as the unsubscribe handle the mount expects.
+    const off = window.desktop.onOpened(() => undefined)
+    consumePendingRef.current ??= window.desktop.consumePendingOpen()
     void consumePendingRef.current
       .then((r) => {
         if (bootHandledRef.current) return
@@ -1332,6 +1374,35 @@ export function App() {
       setAnnotationsNonce((n) => n + 1)
     })
   }, [])
+
+  // Renderer-side edit dispatch: the bridge's callEdit looks up the handlers
+  // registered here, so this must run before the first effect calls an edit
+  // channel (the animations refetch below is the earliest). Without it every
+  // channel resolves undefined and setAnimations(undefined) crashes the render.
+  useEffect(() => {
+    const undoStack: import('./undo-stack').UndoStack = {
+      push: async (opened) => {
+        await undoStackRef.current?.push(opened)
+      },
+      undo: () => undoStackRef.current?.undo() ?? Promise.resolve(null),
+      redo: () => undoStackRef.current?.redo() ?? Promise.resolve(null),
+      canUndo: () => undoStackRef.current?.canUndo() ?? false,
+      canRedo: () => undoStackRef.current?.canRedo() ?? false,
+      discardRedo: () => undoStackRef.current?.discardRedo(),
+      clear: () => undoStackRef.current?.clear(),
+    }
+    registerEditHandlers(
+      createEditHandlers({
+        openedPptxRef,
+        fitWidthPx: FIT_WIDTH,
+        setDirty,
+        applySlide,
+        applyDeck,
+        getCurrent: () => ctxRef.current.current,
+        undoStack,
+      }),
+    )
+  }, [applySlide, applyDeck])
 
   const addSlide = useCallback(() => slideActions.addSlide(ctxRef.current), [])
   const addSlideWithLayout = useCallback(
@@ -2794,6 +2865,7 @@ export function App() {
   // Refresh the action-module context every render so extracted actions never see stale state
   ctxRef.current = {
     slides,
+    openedPptxRef,
     setSlides,
     current,
     setCurrent,

@@ -15,7 +15,7 @@ import {
   type ICellData,
   type Workbook,
 } from '@univerjs/core'
-import { ISheetClipboardService } from '@univerjs/preset-sheets-core'
+import { ISheetClipboardService } from '@univerjs/sheets-ui'
 
 import type { UniverRuntime } from './univer-state'
 

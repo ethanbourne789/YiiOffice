@@ -17,6 +17,7 @@ import * as docs from './docs-bridge'
 import * as md from './markdown-bridge'
 import * as exportBridge from './export-bridge'
 import { currentTabPath, setCurrentTabDirty } from './tabs-bridge'
+import { toBase64, normalizeDocxSave, type BinaryPayload } from './binary'
 
 // Shared helper: reuse across all editors without repeating inline .then chains
 async function editorGetLanguage(): Promise<'zh' | 'en'> {
@@ -60,11 +61,13 @@ export interface DesktopApi {
   openDocx(): Promise<unknown>
   openDocxPath(path: string): Promise<unknown>
   openDocxDecrypt(path: string, password: string): Promise<unknown>
-  saveDocx(path: string, content: string, auto: boolean): Promise<unknown>
-  saveDocxAs(suggestedName: string, content: string, srcPath: string): Promise<unknown>
-  saveDocxNew(suggestedName: string, content: string): Promise<unknown>
-  saveDocxTo(path: string, content: string, overwrite: boolean): Promise<unknown>
-  writeRecoveryCopy(path: string, content: string): Promise<void>
+  // Binary arguments are base64-encoded on the way to Go (see binary.ts): the
+  // docs editor hands over an ArrayBuffer, the bindings are JSON.
+  saveDocx(path: string, content: BinaryPayload, auto: boolean): Promise<unknown>
+  saveDocxAs(suggestedName: string, content: BinaryPayload, srcPath: string): Promise<unknown>
+  saveDocxNew(suggestedName: string, content: BinaryPayload): Promise<unknown>
+  saveDocxTo(path: string, content: BinaryPayload, overwrite: boolean): Promise<unknown>
+  writeRecoveryCopy(path: string, content: BinaryPayload): Promise<void>
   setDocPassword(path: string, password: string): Promise<void>
   docPasswordIntentRevision(): Promise<number>
   discardDocPasswordIntents(rev: number): void
@@ -137,11 +140,15 @@ export function createDesktopApi(): DesktopApi {
     openDocx: () => docs.docsOpenDocx(),
     openDocxPath: (path) => docs.docsOpenDocxPath(path),
     openDocxDecrypt: (path, pwd) => docs.docsOpenDocxDecrypt(path, pwd),
-    saveDocx: (path, content, auto) => docs.docsSaveDocx(path, content, auto),
-    saveDocxAs: (name, content, src) => docs.docsSaveDocxAs(name, content, src),
-    saveDocxNew: (name, content) => docs.docsSaveDocxNew(name, content),
-    saveDocxTo: (path, content, overwrite) => docs.docsSaveDocxTo(path, content, overwrite),
-    writeRecoveryCopy: (path, content) => docs.docsWriteRecoveryCopy(path, content),
+    saveDocx: async (path, content, auto) =>
+      normalizeDocxSave(await docs.docsSaveDocx(path, toBase64(content), auto)),
+    saveDocxAs: async (name, content, src) =>
+      normalizeDocxSave(await docs.docsSaveDocxAs(name, toBase64(content), src)),
+    saveDocxNew: async (name, content) =>
+      normalizeDocxSave(await docs.docsSaveDocxNew(name, toBase64(content))),
+    saveDocxTo: async (path, content, overwrite) =>
+      normalizeDocxSave(await docs.docsSaveDocxTo(path, toBase64(content), overwrite)),
+    writeRecoveryCopy: (path, content) => docs.docsWriteRecoveryCopy(path, toBase64(content)),
     setDocPassword: (path, pwd) => docs.docsSetDocPassword(path, pwd),
     docPasswordIntentRevision: () => docs.docsDocPasswordIntentRevision(),
     discardDocPasswordIntents: (rev) => docs.docsDiscardDocPasswordIntents(rev),
@@ -380,7 +387,13 @@ export function createMarkdownApi(): MarkdownApi {
         return null
       }
     },
-    saveImageAs: (src) => md.mdSaveImageAs(src),
+    saveImageAs: async (src) => {
+      // A relative `![](assets/x.png)` is relative to the note, not to the
+      // process working directory; a data: URL carries its own bytes.
+      if (/^(data:|https?:)/i.test(src)) return md.mdSaveImageAs(src)
+      const absolute = resolveDocRelative(await currentTabPath(), src)
+      return md.mdSaveImageAs(absolute ?? src)
+    },
     onViewImage: (handler) =>
       subscribe<string>('yiioffice:view-image', handler, (v) => typeof v === 'string'),
     onExportRequest: (handler) =>
@@ -426,12 +439,21 @@ export function createMarkdownApi(): MarkdownApi {
     onDocumentThemeChanged: (handler) =>
       subscribe<string>('app:document-theme-changed', handler, (v) => typeof v === 'string'),
     getAutoSaveDefault: async () => {
-      const enabled = await _GetAutoSaveDefault()
-      return { on: !!enabled, updatedAt: 0 }
+      const v = await _GetAutoSaveDefault()
+      // Go now returns {on, updatedAt} struct; handle legacy bool fallback
+      if (typeof v === 'object' && v !== null && 'on' in v) {
+        return { on: Boolean((v as any).on), updatedAt: Number((v as any).updatedAt || 0) }
+      }
+      return { on: Boolean(v), updatedAt: 0 }
     },
     onAutoSaveDefaultChanged: (handler) =>
       on('app:auto-save-default-changed', (data) => {
-        if (typeof data === 'boolean') handler({ on: data, updatedAt: Date.now() })
+        // Go now emits {on, updatedAt} struct
+        if (typeof data === 'object' && data !== null && 'on' in data) {
+          handler({ on: Boolean((data as any).on), updatedAt: Number((data as any).updatedAt || 0) })
+        } else if (typeof data === 'boolean') {
+          handler({ on: data, updatedAt: Date.now() })
+        }
       }),
     onChromePressed: () => () => undefined,
   }

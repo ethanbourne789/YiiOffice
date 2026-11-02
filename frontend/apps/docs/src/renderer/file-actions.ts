@@ -61,7 +61,7 @@ import { docStyleCss } from './doc-style-css'
 import { setNoteNumFmts } from './note-format'
 import type { CompareEntry } from './editor/compare'
 import { blocksToPmDoc, pmDocOptions, pmDocToSavePlan, type PmNode } from './editor/convert'
-import { TABLE_TRAILING_SKIP, setLazyMediaHashes } from './editor/extensions'
+import { TABLE_TRAILING_SKIP } from './editor/extensions'
 import { TRACK_IGNORE } from './editor/revisions'
 import {
   cancelPhasedContent,
@@ -403,7 +403,6 @@ export async function loadFile(
       // like a parse failure: a tab with no document falls back to a blank one
       return 'failed'
     }
-    setLazyMediaHashes(parsed.extras.lazyMediaHashes)
     // before setContent: blockAttrs/marks bake fontTable-driven factors and chains into the DOM
     const adopted = await adoptEmbeddedFonts(parsed.embeddedFonts)
     if (!adopted || generation !== openGeneration) return 'superseded'
@@ -550,7 +549,6 @@ export async function newFile(ctx: FileActionContext): Promise<boolean | undefin
     const bytes = await blankDocxBytes()
     const parsed = await parseDocx(bytes)
     if (generation !== openGeneration) return
-    setLazyMediaHashes([])
     const adopted = await adoptEmbeddedFonts(parsed.embeddedFonts)
     if (!adopted || generation !== openGeneration) return
     setDocFontTable(parsed.fontTable)
@@ -1060,7 +1058,6 @@ async function saveOnce(
       return true
     }
     // Reload from saved bytes so docxIndex anchors point at the new file.
-    setLazyMediaHashes(reparsed.extras.lazyMediaHashes)
     setDocFontTable(reparsed.fontTable)
     editor.storage.listNumbering.styles = reparsed.styles
     editor.storage.listNumbering.docDefaults = reparsed.docDefaults

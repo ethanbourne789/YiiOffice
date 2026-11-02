@@ -15,7 +15,7 @@ import type { Editor } from '@tiptap/core'
 import { TextSelection } from '@tiptap/pm/state'
 import { exportImages } from './export/imageExport'
 import type { StringKey } from './i18n/locale'
-import { useI18n } from './i18n/locale'
+import { t as message, useI18n } from './i18n/locale'
 import {
   buildFrontmatterRaw,
   frontmatterInner,
@@ -34,7 +34,7 @@ import { tiptapFindTarget } from './editor/findTarget'
 import { collectOutline, type OutlineItem } from './editor/outline'
 import { buildSlashItems } from './editor/slashCommand'
 import type { SlashController, SlashMenuState } from './editor/slashCommand'
-import { dirOf, setImageBaseDir, VIEW_IMAGE_EVENT } from './editor/localImage'
+import { dirOf, resolveImageSrc, setImageBaseDir, VIEW_IMAGE_EVENT } from './editor/localImage'
 import { Ribbon } from './components/Ribbon'
 import { OutlinePane } from './components/OutlinePane'
 import { SourcePane } from './components/SourcePane'
@@ -46,6 +46,7 @@ import { FrontmatterPanel } from './components/FrontmatterPanel'
 import { DOCX_MAX_IMAGE_PX, exportDocxBytes } from './export/docxExport'
 import { decodeImageDataUrl, toDocxImage } from './export/exportImage'
 import { buildPrintHtml } from './export/printHtml'
+import { inlineLocalImages } from './export/inlineImages'
 import { diagramSvgToPng, renderDiagram } from './editor/diagrams'
 import type { DiagramLanguage } from './editor/diagrams'
 import type { ExportFormat, SaveMode } from '../shared/ipc'
@@ -208,6 +209,7 @@ export default function App() {
     window.markdownApi.setDirty(true)
   }, [])
 
+  const insertImageRef = useRef<(() => void) | null>(null)
   const insertImage = useCallback(() => {
     void (async () => {
       const relPath = await window.markdownApi.pickImage()
@@ -215,6 +217,7 @@ export default function App() {
       if (relPath && current) uiOp(current, { op: 'insertImage', after: 'selection', src: relPath })
     })()
   }, [])
+  insertImageRef.current = insertImage
 
   const extensions = useMemo(() => {
     const controller: SlashController = {
@@ -226,9 +229,9 @@ export default function App() {
     return buildExtensions({
       slashController: controller,
       slashItems: () =>
-        buildSlashItems({ insertImage: filePathRef.current ? insertImage : undefined }),
+        buildSlashItems({ insertImage: filePathRef.current ? (insertImageRef.current ?? undefined) : undefined }),
     })
-  }, [insertImage])
+  }, [])
 
   const editor = useEditor({
     extensions,
@@ -577,6 +580,18 @@ export default function App() {
     [flushSource, sourceMode, doSaveSource],
   )
 
+  /**
+   * Print HTML for the exports that leave the app (PDF / per-page PNG). The
+   * pictures are inlined first because those paths print from a `file://` page
+   * in Edge headless, where a root-relative /md-asset request has no server.
+   * The live editor DOM is cloned so the rewrite never reaches the document.
+   */
+  const buildExportHtml = useCallback(async (root: HTMLElement, title: string) => {
+    const clone = root.cloneNode(true) as HTMLElement
+    await inlineLocalImages(clone)
+    return buildPrintHtml(clone, title)
+  }, [])
+
   /** `outPath` (headless export only) skips the save dialog; resolves true when a file was written. */
   const runExport = useCallback(
     async (format: ExportFormat, outPath?: string) => {
@@ -602,7 +617,7 @@ export default function App() {
             ].map((image) => image.decode().catch(() => {})),
           )
           const result = await exportImages(
-            buildPrintHtml(current.view.dom, suggestedName),
+            await buildExportHtml(current.view.dom, suggestedName),
             suggestedName,
             (count) => setImageExportStatus({ key: 'appExportImagesProgress', params: { count } }),
           )
@@ -628,13 +643,16 @@ export default function App() {
       }
       try {
         if (format === 'pdf') {
-          const html = buildPrintHtml(current.view.dom, suggestedName)
+          const html = await buildExportHtml(current.view.dom, suggestedName)
           const result = await window.markdownApi.exportPdf({
             html,
             suggestedName,
             ...(outPath ? { outPath } : {}),
           })
-          if (!result.ok) console.error('[markdown] pdf export failed:', result.error)
+          if (!result.ok) {
+            console.error('[markdown] pdf export failed:', result.error)
+            showToast(message('exportFailed', { error: result.error }), 'error')
+          }
           return result.ok && !('canceled' in result)
         }
         const loadImage = async (src: string) => {
@@ -651,21 +669,28 @@ export default function App() {
           suggestedName,
           mode: format === 'docs' ? 'openInDocs' : 'dialog',
         })
-        if (!result.ok) console.error('[markdown] docx export failed:', result.error)
+        if (!result.ok) {
+          console.error('[markdown] docx export failed:', result.error)
+          showToast(message('exportFailed', { error: result.error }), 'error')
+        }
         return result.ok && !('canceled' in result)
       } catch (err) {
         console.error('[markdown] export failed:', err)
+        showToast(
+          message('exportFailed', { error: err instanceof Error ? err.message : String(err) }),
+          'error',
+        )
         return false
       }
     },
-    [sourceMode],
+    [sourceMode, buildExportHtml],
   )
 
   /**
    * Print through the same self-contained HTML the PDF export uses, loaded into a
-   * hidden same-session iframe (md-asset:// images keep resolving) — printing the
-   * live page would drag the ribbon/panels along, and Electron has no built-in
-   * preview to crop them out.
+   * hidden same-session iframe (`<base href>` keeps the /md-asset pictures
+   * resolving) — printing the live page would drag the ribbon/panels along, and
+   * Electron has no built-in preview to crop them out.
    */
   const sourceHistory = useMemo(
     () => ({
@@ -952,6 +977,7 @@ export default function App() {
         onFind={() => openFind(false)}
         autoSave={autoSave}
         onToggleAutoSave={setAutoSave}
+        onExport={(format) => void runExport(format)}
         imageEnabled={Boolean(filePath)}
         onInsertImage={insertImage}
         frontmatterOpen={fmOpen}
@@ -1081,7 +1107,9 @@ export default function App() {
       <ToastHost />
       {viewImage && (
         <ImageViewer
-          src={viewImage}
+          // viewImage is the authored path (what Go can read and write); the
+          // viewer needs the display URL.
+          src={resolveImageSrc(viewImage)}
           lang={lang}
           labels={{
             zoomIn: t('zoomIn'),

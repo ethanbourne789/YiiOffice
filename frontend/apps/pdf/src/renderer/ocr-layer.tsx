@@ -17,7 +17,7 @@ import type { PageEntry } from './search'
 import type { SearchIndexCache } from './search'
 import { measurePt } from './text-wrap'
 import { foldCase } from '@yiioffice/ui'
-import { isNoSpaceScript, scriptOf } from '@yiioffice/pdf2docx/script'
+import { isNoSpaceScript, scriptOf } from '../shared/script'
 
 export interface OcrWord {
   text: string
@@ -110,7 +110,7 @@ function lineWordsFallback(words: LineWord[], line: PdfOcrLine): LineWord[] {
 }
 
 /** No-space scripts (cjk/kana/thai, NOT hangul — Korean spaces are real) via
-    the shared pdf2docx classifier, so the viewer and the converter agree. */
+    the script classifier in shared/script, so every consumer agrees. */
 const noSpaceEdge = (code: number | undefined): boolean =>
   code !== undefined && isNoSpaceScript(scriptOf(code))
 const endsNoSpaceScript = (text: string): boolean => noSpaceEdge([...text].pop()?.codePointAt(0))

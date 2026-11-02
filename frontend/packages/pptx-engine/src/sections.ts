@@ -19,7 +19,7 @@
  * unsectioned — an intuitive rule that naturally self-heals stale
  * references.
  */
-import { randomUUID } from 'node:crypto'
+import { randomUUID, textToBytes } from './browser-compat'
 import { resolveTarget } from './zip'
 import { escapeXmlAttr } from './xml-utils'
 import { unescapeXml } from './notes'
@@ -142,7 +142,7 @@ export function setSections(opened: OpenedPptx, sections: SectionInfo[]): void {
       next = next.replace('</p:presentation>', () => `<p:extLst>${ext}</p:extLst></p:presentation>`)
     }
   }
-  archive.entries.set(PRES_PATH, Buffer.from(next, 'utf8'))
+  archive.entries.set(PRES_PATH, textToBytes(next))
 }
 
 /**
@@ -296,9 +296,8 @@ export function moveSlide(opened: OpenedPptx, fromIndex: number, toIndex: number
   tags.splice(to, 0, tag!)
   archive.entries.set(
     PRES_PATH,
-    Buffer.from(
+    textToBytes(
       pres.replace(m[0], () => `<p:sldIdLst>${tags.join('')}</p:sldIdLst>`),
-      'utf8',
     ),
   )
 
@@ -354,9 +353,8 @@ export function moveSection(
   const newInner = newOldOrder.map((i) => tags[i]!).join('')
   archive.entries.set(
     PRES_PATH,
-    Buffer.from(
+    textToBytes(
       pres.replace(m[0], () => `<p:sldIdLst>${newInner}</p:sldIdLst>`),
-      'utf8',
     ),
   )
 

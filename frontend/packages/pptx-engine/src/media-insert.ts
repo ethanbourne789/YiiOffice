@@ -11,7 +11,7 @@
  * no am3d extension XML is written (the schema is complex and easily triggers
  * repair); shows as the poster image in PowerPoint.
  */
-import { deflateSync } from 'node:zlib'
+import { allocBytes, asciiToBytes, concatBytes, fromBytes, loadDeflate, textToBytes, writeAscii, writeUInt32BE } from './browser-compat'
 import type { EmuRect, Slide } from './types'
 import { creationIdXml, escapeXmlAttr, hasDefaultFor, maxRelationshipIdNumber } from './xml-utils'
 import { relsPathFor } from './zip'
@@ -60,23 +60,24 @@ function crc32(buf: Uint8Array): number {
   return (c ^ -1) >>> 0
 }
 
-function pngChunk(type: string, data: Uint8Array): Buffer {
-  const head = Buffer.alloc(8)
-  head.writeUInt32BE(data.length, 0)
-  head.write(type, 4, 'ascii')
-  const crcBuf = Buffer.alloc(4)
-  crcBuf.writeUInt32BE(crc32(Buffer.concat([Buffer.from(type, 'ascii'), data])), 0)
-  return Buffer.concat([head, data, crcBuf])
+function pngChunk(type: string, data: Uint8Array): Uint8Array {
+  const head = allocBytes(8)
+  writeUInt32BE(head, data.length, 0)
+  writeAscii(head, type, 4)
+  const crcBuf = allocBytes(4)
+  writeUInt32BE(crcBuf, crc32(concatBytes([asciiToBytes(type), data])), 0)
+  return concatBytes([head, data, crcBuf])
 }
 
 /** Generate a w×h solid-color PNG (RGB, no alpha). Used as a poster frame placeholder. */
-export function solidPng(w: number, h: number, rgb: [number, number, number]): Buffer {
-  const ihdr = Buffer.alloc(13)
-  ihdr.writeUInt32BE(w, 0)
-  ihdr.writeUInt32BE(h, 4)
+export async function solidPng(w: number, h: number, rgb: [number, number, number]): Promise<Uint8Array> {
+  const deflate = await loadDeflate()
+  const ihdr = allocBytes(13)
+  writeUInt32BE(ihdr, w, 0)
+  writeUInt32BE(ihdr, h, 4)
   ihdr[8] = 8 // bit depth
   ihdr[9] = 2 // color type RGB
-  const raw = Buffer.alloc(h * (1 + w * 3))
+  const raw = allocBytes(h * (1 + w * 3))
   for (let y = 0; y < h; y++) {
     const row = y * (1 + w * 3)
     raw[row] = 0 // filter none
@@ -86,11 +87,11 @@ export function solidPng(w: number, h: number, rgb: [number, number, number]): B
       raw[row + 3 + x * 3] = rgb[2]
     }
   }
-  return Buffer.concat([
-    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+  return concatBytes([
+    fromBytes([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
     pngChunk('IHDR', ihdr),
-    pngChunk('IDAT', deflateSync(raw)),
-    pngChunk('IEND', Buffer.alloc(0)),
+    pngChunk('IDAT', deflate(raw)),
+    pngChunk('IEND', allocBytes(0)),
   ])
 }
 
@@ -103,10 +104,7 @@ function ensureDefaultContentType(opened: OpenedPptx, ext: string, mime: string)
     const dflt = `<Default Extension="${ext}" ContentType="${mime}"/>`
     opened.archive.entries.set(
       ctPath,
-      Buffer.from(
-        ct.replace('</Types>', () => `${dflt}</Types>`),
-        'utf8',
-      ),
+      textToBytes(ct.replace('</Types>', () => `${dflt}</Types>`)),
     )
   }
 }
@@ -144,7 +142,7 @@ function appendRels(
       `<Relationship Id="${rid}" Type="${rel.type}" Target="${escapeXmlAttr(rel.target)}"${mode}/></Relationships>`,
     )
   }
-  opened.archive.entries.set(relsPath, Buffer.from(xml, 'utf8'))
+  opened.archive.entries.set(relsPath, textToBytes(xml))
   return rids
 }
 
@@ -163,11 +161,11 @@ export interface NewMediaOptions {
 }
 
 /** Insert audio/video: media/poster parts + dual relationships + <p:pic> fragment, append + reparse. */
-export function addMedia(
+export async function addMedia(
   opened: OpenedPptx,
   slideIndex: number,
   opts: NewMediaOptions,
-): { slide: Slide; elementId: string } | null {
+): Promise<{ slide: Slide; elementId: string } | null> {
   const slide = opened.deck.slides[slideIndex]
   if (!slide) return null
   const ext = opts.ext.toLowerCase()
@@ -181,7 +179,7 @@ export function addMedia(
   // 2) Poster frame part (solid color by default; square for audio, whose frame is PowerPoint's 64 pt icon)
   const poster = opts.poster ?? {
     bytes:
-      opts.kind === 'video' ? solidPng(16, 9, [38, 38, 44]) : solidPng(16, 16, [240, 240, 244]),
+      opts.kind === 'video' ? await solidPng(16, 9, [38, 38, 44]) : await solidPng(16, 16, [240, 240, 244]),
     ext: 'png',
   }
   const posterExt = poster.ext.toLowerCase()
@@ -237,11 +235,11 @@ export interface NewModel3dOptions {
  * parts) + a poster placeholder image element; descr records
  * `aislides-3d:{partPath}` for recognition on reopen. No am3d extension is written.
  */
-export function addModel3d(
+export async function addModel3d(
   opened: OpenedPptx,
   slideIndex: number,
   opts: NewModel3dOptions,
-): { slide: Slide; elementId: string } | null {
+): Promise<{ slide: Slide; elementId: string } | null> {
   const slide = opened.deck.slides[slideIndex]
   if (!slide) return null
   const ext = opts.ext.toLowerCase()
@@ -251,7 +249,7 @@ export function addModel3d(
   const modelPath = newMediaPart(opened, 'media', ext, opts.bytes)
   ensureDefaultContentType(opened, ext, mime)
 
-  const poster = opts.poster ?? { bytes: solidPng(16, 9, [58, 58, 66]), ext: 'png' }
+  const poster = opts.poster ?? { bytes: await solidPng(16, 9, [58, 58, 66]), ext: 'png' }
   const posterExt = poster.ext.toLowerCase()
   const posterPath = newMediaPart(opened, 'image', posterExt, poster.bytes)
   ensureDefaultContentType(

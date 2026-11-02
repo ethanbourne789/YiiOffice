@@ -123,6 +123,12 @@ function familyOf(ext: string | undefined): readonly string[] | null {
   return FILTER_FAMILY[ext] ?? [ext.toLowerCase()]
 }
 
+function filepathJoin(base: string, name: string): string {
+  const sep = base.includes('\\') ? '\\' : '/'
+  const suffix = base.endsWith(sep) || base.endsWith('/') ? '' : sep
+  return base + suffix + name
+}
+
 /**
  * Pages the full list the way the Electron main process did: the ext/group
  * filters and the totals are applied here because HomeService.Recents only
@@ -155,6 +161,12 @@ function asEntries(value: unknown): RecentEntry[] {
 
 
 /** Subset of the Electron HomeApi required by the shell home screen in Phase 1. */
+export type AutoSaveDefault = { on: boolean; updatedAt: number }
+export interface RenameResult {
+  ok: boolean
+  path?: string
+  error?: string
+}
 export interface HomeBridge {
   getAppVersion(): Promise<string>
   getTheme(): Promise<AppTheme>
@@ -168,7 +180,7 @@ export interface HomeBridge {
   setDocumentTheme(theme: string): Promise<void>
 
   // Auto save default
-  getAutoSaveDefault(): Promise<boolean>
+  getAutoSaveDefault(): Promise<AutoSaveDefault>
   setAutoSaveDefault(enabled: boolean): Promise<void>
 
   // Default save dir
@@ -194,7 +206,7 @@ export interface HomeBridge {
   openPath(path: string): Promise<void>
   browse(): Promise<string[]>
   revealPath(path: string): Promise<void>
-  renameFile(path: string, newName: string): Promise<string>
+  renameFile(path: string, newName: string): Promise<RenameResult>
   duplicateFile(path: string): Promise<string>
   deleteFiles(paths: string[]): Promise<string[]>
   openTrash(): Promise<void>
@@ -211,8 +223,8 @@ export interface HomeBridge {
   removeFolderRoot(path: string): Promise<void>
   listFolder(path: string): Promise<any>
   pathForFile(file: File): string
-  createFolder(parentPath: string, name: string): Promise<void>
-  renameFolder(path: string, newName: string): Promise<void>
+  createFolder(parentPath: string, name: string): Promise<RenameResult>
+  renameFolder(path: string, newName: string): Promise<RenameResult>
   movePaths(paths: string[], destDir: string): Promise<void>
   deleteFolder(path: string): Promise<void>
   onFolderChanged(handler: (data: any) => void): () => void
@@ -266,7 +278,12 @@ export function createHomeApi(): HomeBridge {
 
     // Auto save default
     async getAutoSaveDefault() {
-      return GetAutoSaveDefault()
+      const v = await GetAutoSaveDefault()
+      // Go now returns {on, updatedAt} struct; handle legacy bool fallback
+      if (typeof v === 'object' && v !== null && 'on' in v) {
+        return { on: Boolean((v as any).on), updatedAt: Number((v as any).updatedAt || 0) }
+      }
+      return { on: Boolean(v), updatedAt: 0 }
     },
     async setAutoSaveDefault(enabled) {
       await SetAutoSaveDefault(enabled)
@@ -356,8 +373,16 @@ export function createHomeApi(): HomeBridge {
       await RevealPath(path)
     },
     async renameFile(path, newName) {
-      const value = await RenameFile(path, newName)
-      return typeof value === 'string' ? value : ''
+      try {
+        const result = await RenameFile(path, newName)
+        if (typeof result === 'object' && result !== null && 'ok' in result) {
+          return result as RenameResult
+        }
+        if (typeof result === 'string') return { ok: true, path: result }
+        return { ok: false, error: 'unexpected response' }
+      } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : String(e) }
+      }
     },
     async duplicateFile(path) {
       const value = await DuplicateFile(path)
@@ -417,10 +442,27 @@ export function createHomeApi(): HomeBridge {
       return value ?? { dir: path, folders: [], files: [], missing: true }
     },
     async createFolder(parentPath, name) {
-      await CreateFolder(parentPath, name)
+      try {
+        const result = await CreateFolder(parentPath, name)
+        if (typeof result === 'object' && result !== null && 'ok' in result) {
+          return result as RenameResult
+        }
+        return { ok: true, path: filepathJoin(parentPath, name) }
+      } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : String(e) }
+      }
     },
     async renameFolder(path, newName) {
-      await RenameFolder(path, newName)
+      try {
+        const result = await RenameFolder(path, newName)
+        if (typeof result === 'object' && result !== null && 'ok' in result) {
+          return result as RenameResult
+        }
+        const dir = path.slice(0, path.lastIndexOf('/') > path.lastIndexOf('\\') ? path.lastIndexOf('/') : path.lastIndexOf('\\'))
+        return { ok: true, path: dir ? dir + '/' + newName : newName }
+      } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : String(e) }
+      }
     },
     async movePaths(paths, destDir) {
       await MovePaths(paths, destDir)

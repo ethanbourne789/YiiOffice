@@ -142,6 +142,8 @@ export interface ChartDataDialogInit {
 export interface ActionCtx {
   // Document
   slides: RenderSlide[]
+  /** OpenedPptx model ref (Wails: renderer holds the edit model). Mutable ref so file-actions can access it. */
+  openedPptxRef: { current: { deck: any; archive: any } | null }
   setSlides: Set<RenderSlide[]>
   current: number
   setCurrent: Set<number>

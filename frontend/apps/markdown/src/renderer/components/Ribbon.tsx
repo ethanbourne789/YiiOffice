@@ -13,6 +13,7 @@ import { useI18n } from '../i18n/locale'
 import type { StringKey } from '../i18n/locale'
 
 import { uiOp, type BlockType, type ListKind, type StylableMark } from '../editor/ops'
+import type { ExportFormat } from '../../shared/ipc'
 import {
   IconBullets,
   IconHr,
@@ -61,7 +62,23 @@ interface Props {
   sourceMode?: boolean
   /** source mode: history lives in CodeMirror, not the TipTap editor */
   sourceHistory?: { canUndo: boolean; canRedo: boolean; undo(): void; redo(): void }
+  /** Export the rendered document (PDF / Word / editable copy / page images) */
+  onExport: (format: ExportFormat) => void
 }
+
+/**
+ * Export targets offered in the ribbon, in menu order.
+ *
+ * 'docs' (an app-managed .docx copy opened in the document editor) is not
+ * listed: the copy is written, but opening it needs a tab the host creates, and
+ * no renderer-facing API does that yet — offering it would leave a file the user
+ * cannot find. runExport still accepts it for the headless/event path.
+ */
+const EXPORT_MENU: ReadonlyArray<{ format: ExportFormat; label: StringKey }> = [
+  { format: 'pdf', label: 'exportPdf' },
+  { format: 'docx', label: 'exportWord' },
+  { format: 'png', label: 'exportImages' },
+]
 
 type BlockStyle = 'paragraph' | 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'quote' | 'codeBlock'
 
@@ -144,6 +161,7 @@ export function Ribbon({
   onToggleSpellcheck,
   sourceMode = false,
   sourceHistory,
+  onExport,
 }: Props) {
   const { t } = useI18n()
   const collapse = useRibbonCollapse('mdapp.ribbonCollapsed', {
@@ -238,6 +256,22 @@ export function Ribbon({
         >
           {t('saveAs')}
         </button>
+        {/* Export is an action menu, not a value picker: the sentinel `value`
+            never matches an option, so the trigger keeps "Export". */}
+        <Dropdown<'export' | ExportFormat>
+          className="qa-export"
+          value="export"
+          triggerLabel={t('ribbonExport')}
+          tip={t('ribbonExportTip')}
+          disabled={disabled || sourceMode}
+          options={EXPORT_MENU.map(({ format, label }) => ({
+            value: format,
+            label: t(label),
+          }))}
+          onPick={(format) => {
+            if (format !== 'export') onExport(format)
+          }}
+        />
         <button
           type="button"
           className="qa-btn"

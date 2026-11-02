@@ -4,13 +4,13 @@
 *.test
 *.out
 
-# Stray build artifact accidentally committed (PE binary)
--C
-
 # Wails
 /build/bin/
 /build/windows/*.syso
-/build/windows/nsis/
+# NOTE: build/windows/nsis/ is *source* (hand-maintained installer scripts),
+# not build output — it must stay tracked, otherwise a fresh clone cannot
+# build the installer. Wails' own generated template lives nowhere: the
+# pipeline runs `makensis build/windows/nsis/installer.nsi` directly.
 
 # Installer / packaged output
 /dist/
@@ -39,6 +39,10 @@ e2e/playwright-report/
 .trae-html-share-packages/
 .screenshots/
 .workbuddy/
+# Icon source backups (regenerate with `task generate:icons`)
+.icon-backup/
+# Playwright run output from a test invocation that did not run inside e2e/
+/test-results/
 
 # OS
 .DS_Store

@@ -8,7 +8,7 @@
  */
 import JSZip from "jszip";
 import { assertZipInflatesWithinLimits } from "@yiioffice/zip-gate";
-import { createHash } from "node:crypto";
+import { sha256Hex, bytesToText } from "./browser-compat";
 import { XMLParser } from "fast-xml-parser";
 import type { SlideSize } from "./types";
 import { asXmlNode, xmlArray } from "./xml-utils";
@@ -72,7 +72,7 @@ export class PackageArchive {
   ) {}
 
   static async open(bytes: Uint8Array): Promise<PackageArchive> {
-    const originalHash = createHash("sha256").update(bytes).digest("hex");
+    const originalHash = await sha256Hex(bytes);
     // The declared-size pass below is advisory; this metered gate is the one
     // that holds when a part lies about its size (GH #759, measured at
     // 1.2 GB of RSS from a 1.1 MB deck).
@@ -97,7 +97,7 @@ export class PackageArchive {
   readText(path: string): string | null {
     const bytes = this.entries.get(path);
     if (!bytes) return null;
-    return Buffer.from(bytes).toString("utf8");
+    return bytesToText(bytes);
   }
 
   readBytes(path: string): Uint8Array | null {

@@ -179,7 +179,7 @@ export interface MarkdownApi {
    * inside the document's directory are allowed; anything else returns null.
    */
   readImage(src: string): Promise<ImageData | null>
-  /** Save a displayed image (md-asset://, data: or remote URL) through a Save dialog */
+  /** Save an image the document references (authored path or data: URL) through a Save dialog */
   saveImageAs(src: string): Promise<{ ok: boolean; path?: string; error?: string }>
   /** Native context menu "View Image" → renderer opens the viewer */
   onViewImage(handler: (src: string) => void): () => void

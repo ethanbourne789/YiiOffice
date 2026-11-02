@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@codemirror/autocomplete": "^6.20.3",
@@ -29,8 +30,8 @@
     "@tiptap/extension-link": "3.32.0",
     "@tiptap/extension-list": "3.32.0",
     "@tiptap/extension-paragraph": "3.32.0",
-    "@tiptap/extension-table": "3.32.0",
     "@tiptap/extensions": "3.32.0",
+    "@tiptap/extension-table": "3.32.0",
     "@tiptap/markdown": "3.32.0",
     "@tiptap/pm": "3.32.0",
     "@tiptap/react": "3.32.0",
@@ -41,7 +42,6 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "@yiioffice/docx-engine": "*",
-    "@yiioffice/html2docx": "*",
     "@yiioffice/i18n": "*",
     "@yiioffice/ui": "*",
     "@yiioffice/wails-bridge": "*",

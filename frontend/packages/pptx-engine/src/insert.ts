@@ -1,3 +1,5 @@
+import { textToBytes } from './browser-compat'
+
 /**
  * Element insertion — synthesizes a raw <p:sp> fragment and hangs it on
  * slide.elements.
@@ -560,9 +562,8 @@ export function addImageMediaAndRel(
     const dflt = `<Default Extension="${ext}" ContentType="${mime}"/>`
     archive.entries.set(
       ctPath,
-      Buffer.from(
+      textToBytes(
         ct.replace('</Types>', () => `${dflt}</Types>`),
-        'utf8',
       ),
     )
   }
@@ -577,9 +578,8 @@ export function addImageMediaAndRel(
   const relXml = `<Relationship Id="${rid}" Type="${IMAGE_REL_TYPE}" Target="../media/${mediaPath.slice('ppt/media/'.length)}"/>`
   archive.entries.set(
     relsPath,
-    Buffer.from(
+    textToBytes(
       rels.replace('</Relationships>', () => `${relXml}</Relationships>`),
-      'utf8',
     ),
   )
   return { rid, mediaPath }

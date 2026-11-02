@@ -10,7 +10,7 @@ describe('blank slide above the first slide in one transaction', () => {
   it('lands the new slide at index 0 of a single-slide deck', async () => {
     const opened = await openPptx(await createBlankPptx())
     const original = opened.deck.slides[0]!.path
-    const r = runTxn(opened, {
+    const r = await runTxn(opened, {
       ops: [
         { op: 'addBlankSlide', target: { slide: 0 } },
         { op: 'moveSlide', target: { slide: 0 }, to: 1 },

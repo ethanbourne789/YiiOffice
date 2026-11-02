@@ -1,6 +1,6 @@
 module gitee.com/ethanbourne789/yiioffice
 
-go 1.27.3
+go 1.27
 
 require (
 	github.com/pdfcpu/pdfcpu v0.16.4

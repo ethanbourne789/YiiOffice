@@ -15,7 +15,7 @@ let tableId: string
 
 beforeAll(async () => {
   opened = await openPptx(await createBlankPptx())
-  const r = runTxn(opened, {
+  const r = await runTxn(opened, {
     ops: [
       {
         op: 'addTable',
@@ -31,7 +31,7 @@ beforeAll(async () => {
   tableId = table!.id
 })
 
-const run = (cells: unknown) =>
+const run = async (cells: unknown) =>
   runTxn(opened, {
     ops: [
       {
@@ -43,54 +43,54 @@ const run = (cells: unknown) =>
     ],
   })
 
-const expectRejected = (cells: unknown, pattern: RegExp) => {
-  const r = run(cells)
+const expectRejected = async (cells: unknown, pattern: RegExp) => {
+  const r = await run(cells)
   expect(r.applied).toBe(false)
   expect(r.failures).toHaveLength(1)
   expect(r.failures![0]!.error).toMatch(pattern)
 }
 
 describe('setTableStyle cells validation', () => {
-  it('accepts a normal list of row/column pairs', () => {
-    const r = run([
+  it('accepts a normal list of row/column pairs', async () => {
+    const r = await run([
       { row: 0, col: 0 },
       { row: 1, col: 1 },
     ])
     expect(r.applied).toBe(true)
   })
 
-  it('accepts an empty list', () => {
-    expect(run([]).applied).toBe(true)
+  it('accepts an empty list', async () => {
+    expect((await run([])).applied).toBe(true)
   })
 
-  it('rejects a non-array cells value', () => {
-    expectRejected(7, /cells must be an array/)
-    expectRejected('0,0', /cells must be an array/)
-    expectRejected({ row: 0, col: 0 }, /cells must be an array/)
+  it('rejects a non-array cells value', async () => {
+    await expectRejected(7, /cells must be an array/)
+    await expectRejected('0,0', /cells must be an array/)
+    await expectRejected({ row: 0, col: 0 }, /cells must be an array/)
   })
 
-  it('rejects null and primitive entries', () => {
-    expectRejected([null], /cells\[0\] must be a \{ row, col \} object/)
-    expectRejected([{ row: 0, col: 0 }, null], /cells\[1\] must be a \{ row, col \} object/)
-    expectRejected([3], /cells\[0\] must be a \{ row, col \} object/)
+  it('rejects null and primitive entries', async () => {
+    await expectRejected([null], /cells\[0\] must be a \{ row, col \} object/)
+    await expectRejected([{ row: 0, col: 0 }, null], /cells\[1\] must be a \{ row, col \} object/)
+    await expectRejected([3], /cells\[0\] must be a \{ row, col \} object/)
   })
 
-  it('rejects non-integer row/column', () => {
-    expectRejected([{ row: 0.5, col: 1 }], /must be integers/)
-    expectRejected([{ row: 0, col: 1.5 }], /must be integers/)
-    expectRejected([{ row: '0', col: 1 }], /must be integers/)
-    expectRejected([{ row: NaN, col: 1 }], /must be integers/)
-    expectRejected([{ col: 1 }], /must be integers/)
-    expectRejected([{ row: 0 }], /must be integers/)
+  it('rejects non-integer row/column', async () => {
+    await expectRejected([{ row: 0.5, col: 1 }], /must be integers/)
+    await expectRejected([{ row: 0, col: 1.5 }], /must be integers/)
+    await expectRejected([{ row: '0', col: 1 }], /must be integers/)
+    await expectRejected([{ row: NaN, col: 1 }], /must be integers/)
+    await expectRejected([{ col: 1 }], /must be integers/)
+    await expectRejected([{ row: 0 }], /must be integers/)
   })
 
-  it('rejects negative row/column', () => {
-    expectRejected([{ row: -1, col: 0 }], /must be >= 0/)
-    expectRejected([{ row: 0, col: -2 }], /must be >= 0/)
+  it('rejects negative row/column', async () => {
+    await expectRejected([{ row: -1, col: 0 }], /must be >= 0/)
+    await expectRejected([{ row: 0, col: -2 }], /must be >= 0/)
   })
 
-  it('rejects an oversized list before it reaches the engine', () => {
+  it('rejects an oversized list before it reaches the engine', async () => {
     const huge = Array.from({ length: 200_000 }, (_, i) => ({ row: 0, col: i % 50 }))
-    expectRejected(huge, /cells takes at most 4096 entries, got 200000/)
+    await expectRejected(huge, /cells takes at most 4096 entries, got 200000/)
   })
 })

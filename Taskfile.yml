@@ -44,7 +44,9 @@ tasks:
     deps:
       - task: build
     cmds:
-      - makensis build/windows/nsis/installer.nsi
+      # APP_VERSION is threaded through from the same .VERSION the binary is
+      # linked with, so the installer never advertises a stale version.
+      - makensis -DAPP_VERSION={{.VERSION}} build/windows/nsis/installer.nsi
     preconditions:
       - sh: command -v makensis >/dev/null 2>&1
         msg: "makensis is required to build the installer (install NSIS and add it to PATH)."
@@ -238,7 +240,10 @@ tasks:
     generates:
       - frontend/bindings/**/*
     cmds:
-      - wails3 generate bindings -f '{{.BUILD_FLAGS}}' -clean=true -time-type=Date{{if eq .OBFUSCATED "true"}} -obfuscated{{end}}
+      # `-ts` emits typed TypeScript modules instead of JSDoc-annotated JS: the
+      # frontend typechecks the generated bindings, so untyped output turns every
+      # call site into `any`. `-time-type=Date` keeps time.Time mapping as Date.
+      - wails3 generate bindings -ts -f '{{.BUILD_FLAGS}}' -clean=true -time-type=Date{{if eq .OBFUSCATED "true"}} -obfuscated{{end}}
 
   generate:icons:
     summary: Generates Windows `.ico` and Mac `.icns` from an image; on macOS, `-iconcomposerinput appicon.icon -macassetdir darwin` also produces `Assets.car` from a `.icon` file (skipped on other platforms).
@@ -447,3 +452,60 @@ tasks:
         xcrun devicectl device install app --device "{{.UDID}}" "$APP_PATH"
         echo "Launching: {{.BUNDLE_ID}}"
         xcrun devicectl device process launch --device "{{.UDID}}" --stderr console --stdout console "{{.BUNDLE_ID}}"
+
+  # ── End-to-end tests ──────────────────────────────────────────────────────
+  # The suite drives a server build of the app (-tags server): the same renderer
+  # bundles and the same Go services as the desktop build, served over HTTP so
+  # Playwright can automate it. See e2e/README.md and docs/e2e-test-strategy.md.
+  e2e:build:
+    summary: Builds the renderer bundles and the server-mode binary the E2E suite drives
+    # Sequential on purpose: bindings feed the renderers, the renderers land in
+    # frontend/dist, and the Go build embeds that dist (Task runs `deps`
+    # concurrently, `cmds` in order).
+    cmds:
+      - task: e2e:build:bindings
+      - task: e2e:build:renderers
+      - task: e2e:build:server
+
+  e2e:build:bindings:
+    internal: true
+    dir: "{{.ROOT_DIR}}"
+    cmds:
+      # Official guide, "Prepare a starter application": generate the bindings
+      # with the server tag before building the frontend, so the suite calls
+      # exactly the service surface the server binary exposes ("wails3 generate
+      # bindings -f '-tags=server'"). Flags match generate:bindings (typed
+      # TypeScript, Date for time.Time) plus `production`, the tag the E2E
+      # binary itself is built with.
+      - wails3 generate bindings -ts -f '-tags=server,production' -clean=true -time-type=Date
+
+  e2e:build:renderers:
+    internal: true
+    dir: frontend
+    cmds:
+      # every app under frontend/apps → frontend/dist (embedded by the Go build)
+      - npm run build
+
+  e2e:build:server:
+    internal: true
+    cmds:
+      - go build -tags server,production -buildvcs=false -o build/bin/YiiOffice-e2e-server.exe .
+
+  e2e:
+    summary: Runs the E2E suite against the real Go backend (default)
+    desc: |
+      Builds what the suite needs, then runs the `real` Playwright project: the
+      app boots as a server build, every binding call lands in Go, and each test
+      gets a throw-away YIIOFFICE_USER_DATA directory.
+
+      Usage: task e2e [SPEC=specs/real/docs.spec.ts]
+    deps:
+      - task: e2e:build
+    preconditions:
+      - sh: test -d node_modules
+        msg: "E2E dependencies are missing. Run: cd e2e && npm install && npx playwright install chromium"
+    dir: e2e
+    cmds:
+      - npx playwright test --project=real {{.SPEC}}
+    vars:
+      SPEC: ""

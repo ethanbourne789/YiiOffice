@@ -13,7 +13,7 @@ describe('flipElements on rotated shape', () => {
     })
     el.transform.rot = 45 * 60000
     const before = { ...el.transform.offset }
-    const r = runTxn(opened, {
+    const r = await runTxn(opened, {
       ops: [{ op: 'flipElements', target: { slide: 0 }, els: [el.id], axis: 'h' }],
     })
     expect(r.applied).toBe(true)

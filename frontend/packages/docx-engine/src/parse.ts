@@ -1,6 +1,5 @@
 import JSZip from 'jszip'
 import type { JSZipObject } from 'jszip'
-import { LAZY_MEDIA_PLACEHOLDER_BYTES, lazyMediaHashOf, lazyMediaUrl } from './lazy-media'
 import { parseCustGeom } from '@yiioffice/pptx-engine/custgeom'
 import { parseChartPartXml } from './chart'
 import { findInkRuns, stripInkRuns } from './ink'
@@ -316,8 +315,6 @@ export interface ParseExtras {
   opaqueRegions: Array<{ start: number; end: number }>
   /** original XML of chart parts referenced by chart blocks (partPath -> xml) */
   chartParts: Record<string, string>
-  /** source-document hashes named by lazily served pictures */
-  lazyMediaHashes: string[]
   /** HTML/MHT altChunk parts skipped for want of a converter (a Worker parse):
    *  the host reparses on the UI thread, where one is installed */
   altChunksNeedConverter?: number
@@ -618,7 +615,6 @@ export async function parseDocx(
       elements,
       opaqueRegions: scan.opaqueRegions,
       chartParts,
-      lazyMediaHashes: [...(lazyHashesByZip.get(zip) ?? [])],
       ...(unconvertedChunksByZip.get(zip)
         ? { altChunksNeedConverter: unconvertedChunksByZip.get(zip) }
         : {}),
@@ -7326,32 +7322,15 @@ async function readMediaPartDataUrl(zip: JSZip, partPath: string): Promise<strin
   if (!mime) return null
   if (isMetafileMime(mime)) return metafileToDataUrl(await file.async('arraybuffer'), mime)
   if (isTiffMime(mime)) return tiffToDataUrlAsync(await file.async('arraybuffer'))
-  return mediaPartSrc(zip, file, partPath, mime)
+  return inlineMediaDataUrl(file, mime)
 }
 
-/** picture URL for a media part: a lazy-media placeholder points at the
- *  source document's part, anything else inlines the bytes */
-const lazyHashesByZip = new WeakMap<JSZip, Set<string>>()
 /** w:altChunk HTML/MHT parts left unexpanded because no converter is installed */
 const unconvertedChunksByZip = new WeakMap<JSZip, number>()
 
-async function mediaPartSrc(
-  zip: JSZip,
-  file: JSZipObject,
-  partPath: string,
-  mime: string,
-): Promise<string> {
-  const declared = (file as unknown as { _data?: { uncompressedSize?: number } })._data
-    ?.uncompressedSize
-  if (declared === LAZY_MEDIA_PLACEHOLDER_BYTES) {
-    const hash = lazyMediaHashOf(await file.async('uint8array'))
-    if (hash) {
-      let seen = lazyHashesByZip.get(zip)
-      if (!seen) lazyHashesByZip.set(zip, (seen = new Set()))
-      seen.add(hash)
-      return lazyMediaUrl(hash, partPath)
-    }
-  }
+/** picture URL for a media part: the bytes are inlined, so the renderer needs no
+ *  server and no custom scheme to display the picture */
+async function inlineMediaDataUrl(file: JSZipObject, mime: string): Promise<string> {
   return `data:${mime};base64,${await file.async('base64')}`
 }
 
@@ -7768,7 +7747,7 @@ async function extractDiagramDrawing(
     const mime = await imagePartMime(ctx.zip, path)
     if (!mime) return null
     if (isMetafileMime(mime)) return metafileToDataUrl(await f.async('arraybuffer'), mime)
-    return mediaPartSrc(ctx.zip, f, path, mime)
+    return inlineMediaDataUrl(f, mime)
   }
   const sps: XNode[] = []
   collectNodes(parsed, 'dsp:sp', sps)
@@ -7887,7 +7866,7 @@ async function oleDisplay(
       const converted = await metafileToDataUrl(await file.async('arraybuffer'), mime)
       if (converted) out.imageDataUrl = converted
     } else if (mime) {
-      out.imageDataUrl = await mediaPartSrc(ctx.zip, file, path, mime)
+      out.imageDataUrl = await inlineMediaDataUrl(file, mime)
     }
   }
   // Word draws the preview at the declared size — v:shape style (pt), falling

@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
-import type { TabSummary } from '../shared/tabs-api'
+import type { TabSummary } from '../../shared/tabs-api'
+import { ErrorBoundary } from './error-boundary'
 import { Home } from './Home'
 import { TabBar } from './TabBar'
 import { TabFrame } from './TabFrame'
+import { ToastHost } from './toast'
 
 export function AppFrame() {
   const [tabs, setTabs] = useState<TabSummary[]>([])
@@ -30,13 +32,15 @@ export function AppFrame() {
   const homeActive = activeTabId === ''
 
   return (
-    <div className="app-frame">
-      <TabBar />
-      <div
+    <ErrorBoundary>
+      <div className="app-frame">
+        <ToastHost />
+        <TabBar />
+        <div
         className="app-frame-content"
         style={{ visibility: homeActive ? 'visible' : 'hidden' }}
       >
-        <Home />
+        <Home active={homeActive} />
       </div>
       {hasEditorTabs && (
         <TabFrame
@@ -45,5 +49,6 @@ export function AppFrame() {
         />
       )}
     </div>
+    </ErrorBoundary>
   )
 }

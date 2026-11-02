@@ -7,17 +7,19 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"gitee.com/ethanbourne789/yiioffice/internal/fsutil"
 )
 
 // Settings is the persisted preference document.
 type Settings struct {
-	Language        string `json:"language"`
-	Theme           string `json:"theme"`
-	DocumentTheme   string `json:"documentTheme"`
-	AutoSaveDefault bool   `json:"autoSaveDefault"`
-	DefaultSaveDir  string `json:"defaultSaveDir"`
+	Language               string `json:"language"`
+	Theme                  string `json:"theme"`
+	DocumentTheme          string `json:"documentTheme"`
+	AutoSaveDefault        bool   `json:"autoSaveDefault"`
+	AutoSaveDefaultUpdated int64  `json:"autoSaveDefaultUpdated"`
+	DefaultSaveDir         string `json:"defaultSaveDir"`
 }
 
 var (
@@ -85,9 +87,12 @@ func (s *SettingsStore) SetDocumentTheme(theme string) error {
 	return s.update(func(d *Settings) { d.DocumentTheme = theme })
 }
 
-// SetAutoSaveDefault persists the auto-save default toggle.
+// SetAutoSaveDefault persists the auto-save default toggle and records the time.
 func (s *SettingsStore) SetAutoSaveDefault(enabled bool) error {
-	return s.update(func(d *Settings) { d.AutoSaveDefault = enabled })
+	return s.update(func(d *Settings) {
+		d.AutoSaveDefault = enabled
+		d.AutoSaveDefaultUpdated = time.Now().UnixMilli()
+	})
 }
 
 // SetDefaultSaveDir persists the default save directory.

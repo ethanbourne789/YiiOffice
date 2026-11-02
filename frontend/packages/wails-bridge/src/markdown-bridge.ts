@@ -1,8 +1,6 @@
 // Thin wrapper over the official Wails V3 generated MarkdownService bindings.
 import {
   ReadFile,
-  Save,
-  SaveImage,
   ReadImage,
   PickImage,
   SaveImageAs,
@@ -14,12 +12,6 @@ import {
 
 export function mdReadFile(path: string): Promise<string> {
   return ReadFile(path)
-}
-export function mdSave(path: string, content: string): Promise<void> {
-  return Save(path, content)
-}
-export function mdSaveImage(path: string, content: string): Promise<string> {
-  return SaveImage(path, content)
 }
 export function mdReadImage(path: string): Promise<string> {
   return ReadImage(path)

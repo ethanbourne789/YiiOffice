@@ -16,7 +16,6 @@ export {
   type ParseOptions,
 } from './parse'
 export { assertZipInflatesWithinLimits, assertZipWithinLimits, DOCX_ZIP_LIMITS } from './zip-load'
-export { LAZY_MEDIA_SCHEME, isLazyMediaPart, lazyMediaUrl, parseLazyMediaUrl } from './lazy-media'
 export { setAltChunkHtmlConverter, type AltChunkHtmlConverter } from './alt-chunk'
 export { tocLevelOf } from './parse-fields'
 export { mergeStyleBorders } from './parse-props'

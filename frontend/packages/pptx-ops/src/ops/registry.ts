@@ -188,8 +188,12 @@ export interface OpDef {
   name: string
   /** Plan-time validation; throws GuidedError. Runs against the pre-transaction state. */
   validate(op: Op, ctx: OpContext): void
-  /** Execution; mutates the model and returns the record. Throws GuidedError on failure. */
-  apply(op: Op, ctx: OpContext): OpRecord
+  /**
+   * Execution; mutates the model and returns the record. Throws GuidedError on failure.
+   * May be async: media/3-D inserts render a poster frame through the async engine API.
+   * The executor awaits either form.
+   */
+  apply(op: Op, ctx: OpContext): OpRecord | Promise<OpRecord>
 }
 
 const REGISTRY = new Map<string, OpDef>()

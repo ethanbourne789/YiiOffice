@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"gitee.com/ethanbourne789/yiioffice/internal/host"
@@ -28,35 +27,11 @@ func NewDocsService(rm *host.RecentManager, idxLc *index.Lifecycle) *DocsService
 
 // docsFileSave atomically writes base64-decoded content to path (temp + rename).
 func docsFileSave(path, content string, idxLc *index.Lifecycle) error {
-	data, err := base64.StdEncoding.DecodeString(content)
-	if err != nil {
-		return fmt.Errorf("decode content: %w", err)
-	}
-	dir := filepath.Dir(path)
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return fmt.Errorf("create directory: %w", err)
+	return atomicBase64Save(path, content, func() {
+		if idxLc != nil {
+			idxLc.Refresh()
 		}
-	}
-	tmp, err := os.CreateTemp(dir, "*.tmp")
-	if err != nil {
-		return fmt.Errorf("create temp: %w", err)
-	}
-	tmpName := tmp.Name()
-	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
-		os.Remove(tmpName)
-		return fmt.Errorf("write temp: %w", err)
-	}
-	tmp.Close()
-	if err := os.Rename(tmpName, path); err != nil {
-		os.Remove(tmpName)
-		return fmt.Errorf("rename: %w", err)
-	}
-	if idxLc != nil {
-		idxLc.Refresh()
-	}
-	return nil
+	})
 }
 
 // OpenPath reads a file and returns its base64-encoded content.
@@ -81,25 +56,9 @@ func (s *DocsService) SaveAs(path string, content string) (string, error) {
 	return path, nil
 }
 
-// SaveTo atomically writes base64-decoded content to the given path (same as Save, no directory creation).
+// SaveTo atomically writes base64-decoded content to the given path.
 func (s *DocsService) SaveTo(path string, content string) error {
-	data, err := base64.StdEncoding.DecodeString(content)
-	if err != nil {
-		return fmt.Errorf("decode content: %w", err)
-	}
-	dir := filepath.Dir(path)
-	tmp, err := os.CreateTemp(dir, "*.tmp")
-	if err != nil {
-		return fmt.Errorf("create temp: %w", err)
-	}
-	tmpName := tmp.Name()
-	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
-		os.Remove(tmpName)
-		return fmt.Errorf("write temp: %w", err)
-	}
-	tmp.Close()
-	return os.Rename(tmpName, path)
+	return docsFileSave(path, content, s.idxLc)
 }
 
 // Opened records the file in the recent list.
@@ -291,32 +250,35 @@ func (s *DocsService) WriteRecoveryCopy(path, content string) error {
 	return os.WriteFile(recoveryPath, data, 0o644)
 }
 
-// SetDocPassword sets the document password. Password state managed by frontend.
+// SetDocPassword is a no-op stub for frontend API compatibility.
+// Document password state is entirely managed by the frontend; the backend
+// does not store or enforce passwords.
 func (s *DocsService) SetDocPassword(_path, _password string) error {
 	return nil
 }
 
-// DocPasswordIntentRevision returns the current password intent revision.
+// DocPasswordIntentRevision is a no-op stub for frontend API compatibility.
+// Always returns 0 because password intent tracking is a frontend-only concern.
 func (s *DocsService) DocPasswordIntentRevision() int {
 	return 0
 }
 
-// DiscardDocPasswordIntents discards pending password intents.
+// DiscardDocPasswordIntents is a no-op stub for frontend API compatibility.
+// There are no server-side password intents to discard.
 func (s *DocsService) DiscardDocPasswordIntents(_rev int) {
 }
 
-// ConfirmDocumentReplace always confirms document replacement.
+// ConfirmDocumentReplace is a no-op stub for frontend API compatibility.
+// Always returns true; the frontend handles actual replacement confirmation.
 func (s *DocsService) ConfirmDocumentReplace() bool {
 	return true
 }
 
-// GetSystemLocale returns the system locale for the editor.
+// GetSystemLocale returns the system locale for the editor. Detection (and the
+// LANG fallback) lives in internal/platform so both the docs and pdf editors
+// answer the same way on every OS.
 func (s *DocsService) GetSystemLocale() string {
-	lang := "zh"
-	if strings.HasPrefix(runtime.GOOS, "win") {
-		lang = "zh"
-	}
-	return lang
+	return platform.SystemLocale()
 }
 
 // ConsumePendingOpenDocx returns the pending file open path (no-op at Go level;

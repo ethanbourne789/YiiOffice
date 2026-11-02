@@ -4,6 +4,7 @@ import type { TabsApi, TabSummary } from '../../shared/tabs-api'
 import { TEAR_OFF_SLACK, insertionIndexForX, isBeyondBand } from '../../shared/tab-drag-geometry'
 import { notifyFilesChanged } from './file-events'
 import { useI18n } from './locale'
+import { showToast } from '@yiioffice/ui'
 import { WindowControls } from './WindowControls'
 
 declare global {
@@ -161,13 +162,15 @@ function MenuPopover({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') closeRef.current()
     }
+    const onBlur = (): void => closeRef.current()
     // capture: the strip's own pointer handlers must not swallow the dismissal
     document.addEventListener('pointerdown', onPointerDown, true)
     document.addEventListener('keydown', onKeyDown, true)
-    window.addEventListener('blur', () => closeRef.current())
+    window.addEventListener('blur', onBlur)
     return () => {
       document.removeEventListener('pointerdown', onPointerDown, true)
       document.removeEventListener('keydown', onKeyDown, true)
+      window.removeEventListener('blur', onBlur)
     }
   }, [])
   const left = Math.max(4, Math.min(x, window.innerWidth - MENU_WIDTH - 4))
@@ -309,7 +312,7 @@ export function TabBar() {
     const newName = renamedFileName(tab.filePath, value)
     if (newName === tab.title) return
     void window.aiOffice.renameFile(tab.filePath, newName).then((result) => {
-      if (!result.ok) window.alert(result.error ?? t('renameFailed'))
+      if (!result.ok) showToast(result.error ?? t('renameFailed'), 'error')
       // Home shares this renderer and only re-pulls on window focus, which the
       // rename input already holds: tell it the recents / folder rows moved.
       else notifyFilesChanged()

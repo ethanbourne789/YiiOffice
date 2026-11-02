@@ -448,7 +448,7 @@ describe('addMedia / addModel3d', () => {
   it('video embeds media part with dual rels and parses back as picture.media', async () => {
     const opened = await openPptx(fx('01_standard_business.pptx'))
     const bytes = new Uint8Array([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70]) // fake mp4 header
-    const r = addMedia(opened, 0, { kind: 'video', bytes, ext: 'mp4', offset: { ...OFF } })
+    const r = await addMedia(opened, 0, { kind: 'video', bytes, ext: 'mp4', offset: { ...OFF } })
     expect(r).not.toBeNull()
 
     const reopened = await openPptx(await savePptx(opened))
@@ -462,7 +462,7 @@ describe('addMedia / addModel3d', () => {
 
   it('audio parses back with audio kind', async () => {
     const opened = await openPptx(fx('01_standard_business.pptx'))
-    const r = addMedia(opened, 0, {
+    const r = await addMedia(opened, 0, {
       kind: 'audio',
       bytes: new Uint8Array([0x49, 0x44, 0x33]),
       ext: 'mp3',
@@ -477,7 +477,7 @@ describe('addMedia / addModel3d', () => {
   it('3d model embeds glb part and poster picture with descr marker', async () => {
     const opened = await openPptx(fx('01_standard_business.pptx'))
     const glb = new Uint8Array([0x67, 0x6c, 0x54, 0x46]) // "glTF"
-    const r = addModel3d(opened, 0, { bytes: glb, ext: 'glb', offset: { ...OFF } })
+    const r = await addModel3d(opened, 0, { bytes: glb, ext: 'glb', offset: { ...OFF } })
     expect(r).not.toBeNull()
 
     const reopened = await openPptx(await savePptx(opened))
@@ -488,8 +488,8 @@ describe('addMedia / addModel3d', () => {
     expect(reopened.archive.readBytes(part!)).toEqual(glb)
   })
 
-  it('solidPng produces a decodable png signature', () => {
-    const png = solidPng(4, 3, [10, 20, 30])
+  it('solidPng produces a decodable png signature', async () => {
+    const png = await solidPng(4, 3, [10, 20, 30])
     expect([...png.slice(0, 8)]).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
   })
 })

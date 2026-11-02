@@ -45,7 +45,8 @@ function scriptFontsOf(themeXml: string, tag: string): Record<string, string> | 
   if (!section) return undefined
   const out: Record<string, string> = {}
   for (const m of section.matchAll(/<a:font script="([^"]+)" typeface="([^"]+)"/g)) {
-    out[m[1]] = m[2]
+    const [, script, typeface] = m
+    if (script && typeface) out[script] = typeface
   }
   return Object.keys(out).length > 0 ? out : undefined
 }
@@ -100,7 +101,10 @@ export function readThemeColors(themeXml: string): ThemeColors | null {
     const m = new RegExp(
       `<a:${tag}>\\s*<a:(?:srgbClr val|sysClr[^>]*? lastClr)="([0-9A-Fa-f]{6})"`,
     ).exec(scheme)
-    if (m) out[tag] = m[1].toUpperCase()
+    if (m) {
+      const hex = m[1]
+      if (hex) out[tag] = hex.toUpperCase()
+    }
   }
   return Object.keys(out).length > 0 ? out : null
 }
@@ -181,7 +185,9 @@ export function resolveThemeColor(
     .join('')
 }
 
-function rgbToHsl([r, g, b]: number[]): [number, number, number] {
+function rgbToHsl(rgb: number[]): [number, number, number] {
+  // Callers always pass an RGB triple; the defaults only satisfy noUncheckedIndexedAccess.
+  const [r = 0, g = 0, b = 0] = rgb
   const max = Math.max(r, g, b)
   const min = Math.min(r, g, b)
   const l = (max + min) / 2

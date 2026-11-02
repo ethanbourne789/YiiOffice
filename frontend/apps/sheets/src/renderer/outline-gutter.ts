@@ -13,7 +13,7 @@ import {
   type SpreadsheetSkeleton,
   type UniverRenderingContext,
 } from '@univerjs/engine-render'
-import { SheetSkeletonManagerService } from '@univerjs/preset-sheets-core'
+import { SheetSkeletonManagerService } from '@univerjs/sheets-ui'
 import { columnLabel } from '@yiioffice/xlsx-gateway/domain/cell-address'
 
 import { t } from './i18n/locale'

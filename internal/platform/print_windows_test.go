@@ -96,12 +96,3 @@ func TestBuildEdgePrintArgsWithMargins(t *testing.T) {
 	}
 }
 
-func TestPrintToPdfNilWindow(t *testing.T) {
-	err := PrintToPdf(nil, "out.pdf", PrintOptions{})
-	if err == nil {
-		t.Fatal("expected error for nil window")
-	}
-	if !strings.Contains(err.Error(), "nil") {
-		t.Fatalf("unexpected error: %s", err)
-	}
-}

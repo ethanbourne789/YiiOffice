@@ -78,6 +78,31 @@ func TestSetsSecurityHeaders(t *testing.T) {
 	}
 }
 
+// TestCSPDoesNotNarrowRendererPolicies guards the regression that made every
+// opened document blank: the response header is intersected with each app's
+// <meta> policy, so a header without `blob:` in connect-src blocked the docs
+// editor's fetch() of the blob URL carrying the file bytes.
+func TestCSPDoesNotNarrowRendererPolicies(t *testing.T) {
+	rec := do(t, testRoot(), "/docs/index.html")
+	csp := rec.Header().Get("Content-Security-Policy")
+	for _, want := range []string{
+		"connect-src 'self' data: blob:",
+		"media-src 'self' data: blob:",
+		"img-src 'self' data: blob:",
+		"frame-src 'self'",
+	} {
+		if !strings.Contains(csp, want) {
+			t.Errorf("csp missing %q: %s", want, csp)
+		}
+	}
+	// The bridge still has to run: no 'unsafe-inline' scripts, no wildcard hosts.
+	for _, banned := range []string{"script-src 'self' 'unsafe-inline'", "connect-src *", "default-src *"} {
+		if strings.Contains(csp, banned) {
+			t.Errorf("csp must not contain %q: %s", banned, csp)
+		}
+	}
+}
+
 func TestUnknownAppReturns404(t *testing.T) {
 	rec := do(t, testRoot(), "/nope/index.html")
 	if rec.Code != http.StatusNotFound {

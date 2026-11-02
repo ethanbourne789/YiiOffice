@@ -109,33 +109,9 @@ func (s *SlidesService) Renamed(path string, title string) {
 }
 
 func slidesFileSave(path, content string, rm *host.RecentManager) error {
-	data, err := base64.StdEncoding.DecodeString(content)
-	if err != nil {
-		return fmt.Errorf("decode content: %w", err)
-	}
-	dir := filepath.Dir(path)
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return fmt.Errorf("create directory: %w", err)
+	return atomicBase64Save(path, content, func() {
+		if rm != nil {
+			rm.AddRecent(path)
 		}
-	}
-	tmp, err := os.CreateTemp(dir, "*.tmp")
-	if err != nil {
-		return fmt.Errorf("create temp: %w", err)
-	}
-	tmpName := tmp.Name()
-	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
-		os.Remove(tmpName)
-		return fmt.Errorf("write temp: %w", err)
-	}
-	tmp.Close()
-	if err := os.Rename(tmpName, path); err != nil {
-		os.Remove(tmpName)
-		return fmt.Errorf("rename: %w", err)
-	}
-	if rm != nil {
-		rm.AddRecent(path)
-	}
-	return nil
+	})
 }

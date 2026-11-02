@@ -11,6 +11,14 @@
     "isolatedModules": true,
     "forceConsistentCasingInFileNames": true,
     "noUnusedLocals": true,
-    "noEmit": true
+    "noEmit": true,
+    // Wails writes generated bindings outside every workspace, so the alias is
+    // declared once here instead of per package. Paths are resolved relative to
+    // this file, i.e. `@bindings/x` -> `frontend/bindings/x`.
+    // NOTE: `extends` replaces `paths` instead of merging it, so a config that
+    // declares its own `paths` block has to repeat the `@bindings/*` entry.
+    "paths": {
+      "@bindings/*": ["./bindings/*"]
+    }
   }
 }

@@ -12,7 +12,7 @@ import {
   type IStyleData,
 } from '@univerjs/core'
 import { IRenderManagerService, SHEET_VIEWPORT_KEY } from '@univerjs/engine-render'
-import { SheetSkeletonManagerService } from '@univerjs/preset-sheets-core'
+import { SheetSkeletonManagerService } from '@univerjs/sheets-ui'
 import { columnLabel, formatAddress } from '@yiioffice/xlsx-gateway/domain/cell-address'
 import type { WorkbookOperation } from '@yiioffice/xlsx-gateway/domain/workbook-dsl'
 import type { ApplyOutcome } from '@yiioffice/xlsx-gateway/domain/workbook.types'

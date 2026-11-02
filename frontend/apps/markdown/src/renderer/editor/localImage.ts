@@ -27,22 +27,58 @@ export function dirOf(path: string): string {
   return path
 }
 
-/**
- * Map an authored image src to a displayable URL. Markdown keeps the authored
- * value (usually a path relative to the .md file); the editor DOM loads it via
- * the main process's md-asset:// handler — a plain file:// subresource would be
- * blocked when the renderer page itself is served over http (dev server).
- */
 /** renderer-local: double-click on a picture asks App to open the viewer */
 export const VIEW_IMAGE_EVENT = 'markdown-view-image'
 
+/** Same-origin route that streams a local picture (internal/assets/server.go). */
+export const LOCAL_ASSET_PATH = '/md-asset'
+
+/** Display URL for an absolute path; forward slashes keep Windows drives valid. */
+function toAssetUrl(path: string): string {
+  return `${LOCAL_ASSET_PATH}?p=${encodeURIComponent(path.replace(/\\/g, '/'))}`
+}
+
+/**
+ * The authored path behind a display URL, or null when src is not one. Also
+ * understands the `md-asset://` form written by builds that predate the route,
+ * so an existing document does not turn its pictures into broken links.
+ */
+function authoredPathFromAssetUrl(src: string): string | null {
+  const prefix = `${LOCAL_ASSET_PATH}?p=`
+  if (src.startsWith(prefix)) {
+    try {
+      return decodeURIComponent(src.slice(prefix.length))
+    } catch {
+      return null
+    }
+  }
+  if (src.startsWith('md-asset://')) {
+    let path: string
+    try {
+      path = decodeURIComponent(src.slice('md-asset://'.length))
+    } catch {
+      return null
+    }
+    // Windows drive paths were prefixed with '/' to form a valid URL path
+    return /^\/[a-zA-Z]:\//.test(path) ? path.slice(1) : path
+  }
+  return null
+}
+
+/**
+ * Map an authored image src to a displayable URL. Markdown keeps the authored
+ * value (usually a path relative to the .md file); the editor DOM loads it from
+ * the app's own /md-asset route, which streams the file after checking it
+ * against the folder roots the user granted. A file:// subresource would be
+ * blocked (the page is served over http), and a custom scheme would need a
+ * webview registration that does not exist.
+ *
+ * The route is served by internal/assets/server.go, i.e. by the Go app: a bare
+ * Vite dev server has no such route, so local pictures only resolve inside the
+ * packaged app.
+ */
 export function resolveImageSrc(src: string, baseDir: string | null = imageBaseDir): string {
   if (!src) return src
-  // ':' is legal in URL path segments (RFC 3986) — restore it after encoding so
-  // Windows drive prefixes stay `C:` instead of the `C%3A` Chromium rejects
-  const encodeSegment = (seg: string) => encodeURIComponent(seg).replace(/%3A/gi, ':')
-  const toAssetUrl = (path: string) =>
-    `md-asset://${path.startsWith('/') ? '' : '/'}${path.replace(/\\/g, '/').split('/').map(encodeSegment).join('/')}`
   // a Windows drive path would also match the URL-scheme regex — check it first
   if (src.startsWith('/') || /^[a-zA-Z]:[\\/]/.test(src)) return toAssetUrl(src)
   if (/^[a-z][a-z0-9+.-]*:/i.test(src)) return src
@@ -51,15 +87,13 @@ export function resolveImageSrc(src: string, baseDir: string | null = imageBaseD
 }
 
 /**
- * Reverse of {@link resolveImageSrc}: map a display URL (md-asset://) back to
- * the authored path so DOM-parsed content (copy/paste inside the editor) never
- * bakes display URLs into the stored document / serialized markdown.
+ * Reverse of {@link resolveImageSrc}: map a display URL back to the authored
+ * path so DOM-parsed content (copy/paste inside the editor) never bakes display
+ * URLs into the stored document / serialized markdown.
  */
 export function unresolveImageSrc(src: string, baseDir: string | null = imageBaseDir): string {
-  if (!src.startsWith('md-asset://')) return src
-  let path = decodeURIComponent(src.slice('md-asset://'.length))
-  // Windows drive paths were prefixed with '/' to form a valid URL path
-  if (/^\/[a-zA-Z]:\//.test(path)) path = path.slice(1)
+  let path = authoredPathFromAssetUrl(src)
+  if (path === null) return src
   if (baseDir) {
     const base = `${baseDir.replace(/\\/g, '/').replace(/\/$/, '')}/`
     if (path.startsWith(base)) return path.slice(base.length)
@@ -154,7 +188,7 @@ export const LocalImage = Image.extend({
     return {
       ...this.parent?.(),
       // resolved at the attribute level so the renderer displays the
-      // md-asset:// URL while the stored value keeps the authored path
+      // /md-asset URL while the stored value keeps the authored path
       src: {
         default: null,
         parseHTML: (element) => unresolveImageSrc(element.getAttribute('src') ?? ''),
@@ -182,9 +216,13 @@ export const LocalImage = Image.extend({
         props: {
           handleDoubleClickOn(_view, _pos, node, _nodePos, event) {
             if (node.type.name !== 'image') return false
-            const src = (event.target as HTMLImageElement | null)?.currentSrc
+            // The authored src, not the DOM src: "Save Image As" hands this to
+            // Go, and a display URL (/md-asset?p=…) is not a path a filesystem
+            // call can open.
+            const src = String(node.attrs.src ?? '')
             if (!src) return false
             window.dispatchEvent(new CustomEvent(VIEW_IMAGE_EVENT, { detail: { src } }))
+            event.preventDefault()
             return true
           },
           handlePaste(view, event) {

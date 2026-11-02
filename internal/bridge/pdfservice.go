@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"gitee.com/ethanbourne789/yiioffice/internal/host"
 	"gitee.com/ethanbourne789/yiioffice/internal/pdfengine"
@@ -33,134 +32,29 @@ func (s *PdfService) ReadFile(path string) (string, error) {
 
 // Save atomically writes base64-decoded content to the given path.
 func (s *PdfService) Save(path string, content string) error {
-	data, err := base64.StdEncoding.DecodeString(content)
-	if err != nil {
-		return fmt.Errorf("decode content: %w", err)
+	if path == "." || path == "" {
+		return fmt.Errorf("invalid save path: %q", path)
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), "*.tmp")
-	if err != nil {
-		return fmt.Errorf("create temp: %w", err)
-	}
-	tmpName := tmp.Name()
-	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
-		os.Remove(tmpName)
-		return fmt.Errorf("write temp: %w", err)
-	}
-	tmp.Close()
-	if err := os.Rename(tmpName, path); err != nil {
-		os.Remove(tmpName)
-		return fmt.Errorf("rename: %w", err)
-	}
-	if s.rm != nil {
-		s.rm.AddRecent(path)
-	}
-	return nil
+	return atomicBase64Save(path, content, func() {
+		if s.rm != nil {
+			s.rm.AddRecent(path)
+		}
+	})
 }
 
 // SaveAs atomically writes base64-decoded content to a new path and returns it.
 func (s *PdfService) SaveAs(path string, content string) (string, error) {
-	data, err := base64.StdEncoding.DecodeString(content)
-	if err != nil {
-		return "", fmt.Errorf("decode content: %w", err)
-	}
-	dir := filepath.Dir(path)
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return "", fmt.Errorf("create directory: %w", err)
+	if err := atomicBase64Save(path, content, func() {
+		if s.rm != nil {
+			s.rm.AddRecent(path)
 		}
-	}
-	tmp, err := os.CreateTemp(dir, "*.tmp")
-	if err != nil {
-		return "", fmt.Errorf("create temp: %w", err)
-	}
-	tmpName := tmp.Name()
-	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
-		os.Remove(tmpName)
-		return "", fmt.Errorf("write temp: %w", err)
-	}
-	tmp.Close()
-	if err := os.Rename(tmpName, path); err != nil {
-		os.Remove(tmpName)
-		return "", fmt.Errorf("rename: %w", err)
-	}
-	if s.rm != nil {
-		s.rm.AddRecent(path)
+	}); err != nil {
+		return "", err
 	}
 	return path, nil
 }
 
 // --- PDF structural operations (backed by pdfengine) ---
-
-type PdfPageImagesRequest struct {
-	FilePath  string `json:"filePath"`
-	PageIndex int    `json:"pageIndex"`
-}
-
-type PdfFormRequest struct {
-	FilePath string `json:"filePath"`
-}
-
-type PdfExportImagesRequest struct {
-	FilePath      string `json:"filePath"`
-	SelectedPages []int  `json:"selectedPages"`
-	TargetPath    string `json:"targetPath"`
-}
-
-type PdfInsertPdfRequest struct {
-	FilePath string `json:"filePath"`
-	Pdf2Path string `json:"pdf2Path"`
-	Page     int    `json:"page"`
-	Position string `json:"position"`
-}
-
-type PdfSplitPdfRequest struct {
-	FilePath    string `json:"filePath"`
-	TargetPath  string `json:"targetPath"`
-	SplitString string `json:"splitString"`
-}
-
-type PdfMergePdfRequest struct {
-	FilePaths  []string `json:"filePaths"`
-	TargetPath string   `json:"targetPath"`
-	OutName    string   `json:"outName"`
-}
-
-type PdfMergePagesRequest struct {
-	FilePath      string `json:"filePath"`
-	SelectedPages []int  `json:"selectedPages"`
-	NupSpan       int    `json:"nupSpan"`
-	TargetPath    string `json:"targetPath"`
-}
-
-type PdfSplitPagesRequest struct {
-	FilePath      string `json:"filePath"`
-	SelectedPages []int  `json:"selectedPages"`
-	GridRows      int    `json:"gridRows"`
-	GridCols      int    `json:"gridCols"`
-	TargetPath    string `json:"targetPath"`
-}
-
-type PdfReplacePagesRequest struct {
-	FilePath    string `json:"filePath"`
-	ReplacePath string `json:"replacePath"`
-	Page        int    `json:"page"`
-}
-
-type PdfSetPageSizeRequest struct {
-	FilePath      string  `json:"filePath"`
-	Width         float64 `json:"width"`
-	Height        float64 `json:"height"`
-	SelectedPages []int   `json:"selectedPages"`
-}
-
-type PdfCropPagesRequest struct {
-	FilePath      string    `json:"filePath"`
-	SelectedPages []int     `json:"selectedPages"`
-	CropArea      [4]float64 `json:"cropArea"`
-	TargetPath    string    `json:"targetPath"`
-}
 
 func (s *PdfService) ExtractPages(filePath string, selectedPages []int, targetPath string) (any, error) {
 	return pdfengine.ExtractPages(context.Background(), filePath, selectedPages, targetPath)

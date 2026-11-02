@@ -6,6 +6,7 @@
  * removes only relationships no longer used by the owning XML, then collects the
  * now-unreachable resource subgraph.
  */
+import { bytesIncludes, bytesSlice, bytesToText, textToBytes } from './browser-compat'
 import type { Slide } from './types'
 import { PackageArchive, relsPathFor, resolveTarget } from './zip'
 
@@ -85,7 +86,8 @@ function mayCarryModel3dRef(path: string): boolean {
 }
 
 function hasModel3dMarker(bytes: Uint8Array): boolean {
-  return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).includes(MODEL_3D_MARKER)
+  const haystack = bytesSlice(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  return bytesIncludes(haystack, textToBytes(MODEL_3D_MARKER))
 }
 
 function currentSlideXml(slide: Slide): string {
@@ -127,7 +129,7 @@ function removeContentTypeOverrides(
     const partName = PART_NAME_ATTRIBUTE.exec(tag)?.[2]?.replace(/^\//, '')
     return partName && removedParts.has(partName) ? '' : tag
   })
-  if (next !== xml) archive.entries.set(path, Buffer.from(next, 'utf8'))
+  if (next !== xml) archive.entries.set(path, textToBytes(next))
 }
 
 function packageRelationshipGraph(archive: PackageArchive): {
@@ -193,7 +195,7 @@ function removeUnreferencedOwnedParts(
     if (closure.has(path) || !mayCarryModel3dRef(path)) continue
     const override = xmlOverrides.get(path)
     if (override === undefined && !hasModel3dMarker(bytes)) continue
-    const xml = override ?? Buffer.from(bytes).toString('utf8')
+    const xml = override ?? bytesToText(bytes)
     for (const target of model3dRefs(xml)) {
       if (closure.has(target)) retained.add(target)
     }
@@ -257,7 +259,7 @@ function removeRelationshipsAndCollectOwnedTargets(
   if (ids.size) {
     const path = relsPathFor(sourcePart)
     const xml = archive.readText(path)
-    if (xml) archive.entries.set(path, Buffer.from(stripRelationships(xml, ids), 'utf8'))
+    if (xml) archive.entries.set(path, textToBytes(stripRelationships(xml, ids)))
   }
 
   const collected = removeUnreferencedOwnedParts(archive, candidates, xmlOverrides)

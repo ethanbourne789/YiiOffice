@@ -7,7 +7,7 @@
  */
 import { InterceptorEffectEnum } from '@univerjs/core'
 import { IRenderManagerService } from '@univerjs/engine-render'
-import { SheetSkeletonManagerService } from '@univerjs/preset-sheets-core'
+import { SheetSkeletonManagerService } from '@univerjs/sheets-ui'
 import { INTERCEPTOR_POINT, SheetInterceptorService } from '@univerjs/sheets'
 import { HoverManagerService } from '@univerjs/sheets-ui'
 

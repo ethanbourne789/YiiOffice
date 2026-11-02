@@ -67,7 +67,7 @@ func TestCloseGuardSaveThenClose(t *testing.T) {
 	}
 }
 
-func TestCloseGuardSaveErrorStillAllowsClose(t *testing.T) {
+func TestCloseGuardSaveErrorPreventsClose(t *testing.T) {
 	th := NewTabHost()
 
 	g := NewCloseGuard(th, &CloseGuardConfig{
@@ -80,8 +80,8 @@ func TestCloseGuardSaveErrorStillAllowsClose(t *testing.T) {
 		},
 	})
 
-	if !g.ShouldAllowClose() {
-		t.Error("should allow close even when save fails")
+	if g.ShouldAllowClose() {
+		t.Error("should prevent close when save fails to avoid data loss")
 	}
 }
 

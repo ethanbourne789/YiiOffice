@@ -7,6 +7,7 @@
  * strCache/numCache caches, no embedded workbook attached; PowerPoint renders it
  * fine, but "Edit Data" is unavailable).
  */
+import { textToBytes } from './browser-compat'
 import type { EmuRect, Slide } from './types'
 import {
   creationIdXml,
@@ -354,7 +355,7 @@ export function addChart(
     if (m) maxNum = Math.max(maxNum, Number(m[1]))
   }
   const chartPath = `ppt/charts/chart${maxNum + 1}.xml`
-  archive.entries.set(chartPath, Buffer.from(buildChartSpaceXml(opts), 'utf8'))
+  archive.entries.set(chartPath, textToBytes(buildChartSpaceXml(opts)))
 
   // 2) [Content_Types].xml Override
   const ctPath = '[Content_Types].xml'
@@ -363,10 +364,7 @@ export function addChart(
     const override = `<Override PartName="/${chartPath}" ContentType="${CHART_CONTENT_TYPE}"/>`
     archive.entries.set(
       ctPath,
-      Buffer.from(
-        ct.replace('</Types>', () => `${override}</Types>`),
-        'utf8',
-      ),
+      textToBytes(ct.replace('</Types>', () => `${override}</Types>`)),
     )
   }
 
@@ -380,10 +378,7 @@ export function addChart(
   const relXml = `<Relationship Id="${rid}" Type="${CHART_REL_TYPE}" Target="../charts/chart${maxNum + 1}.xml"/>`
   archive.entries.set(
     relsPath,
-    Buffer.from(
-      rels.replace('</Relationships>', () => `${relXml}</Relationships>`),
-      'utf8',
-    ),
+    textToBytes(rels.replace('</Relationships>', () => `${relXml}</Relationships>`)),
   )
 
   // 4) graphicFrame fragment + append reparse

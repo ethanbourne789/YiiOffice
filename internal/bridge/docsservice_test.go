@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"gitee.com/ethanbourne789/yiioffice/internal/host"
+	"gitee.com/ethanbourne789/yiioffice/internal/platform"
 )
 
 func newTestDocsService(t *testing.T, dataDir string) *DocsService {
@@ -256,12 +257,19 @@ func TestDocsServiceConfirmDocumentReplace(t *testing.T) {
 	}
 }
 
+// The editor localisation ships zh + en, so the service must resolve to one of
+// them. Asserting a specific value made this test pass only on the author's
+// machine (it broke on any English Windows); the detection itself is covered by
+// internal/platform's locale tests.
 func TestDocsServiceGetSystemLocale(t *testing.T) {
 	rm := host.NewRecentManager(t.TempDir())
 	svc := NewDocsService(rm, nil)
 	locale := svc.GetSystemLocale()
-	if locale != "zh" {
-		t.Fatalf("expected locale zh, got %s", locale)
+	if locale != "zh" && locale != "en" {
+		t.Fatalf("expected zh or en, got %q", locale)
+	}
+	if locale != platform.SystemLocale() {
+		t.Fatalf("expected %q to match platform.SystemLocale()", locale)
 	}
 }
 

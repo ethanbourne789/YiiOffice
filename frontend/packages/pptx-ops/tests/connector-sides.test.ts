@@ -13,7 +13,7 @@ describe('addConnector rotated sides', () => {
       offset: { x: 1000000, y: 0, cx: 200000, cy: 100000 },
     })
     from.transform.rot = 90 * 60000
-    const r = runTxn(opened, {
+    const r = await runTxn(opened, {
       ops: [{ op: 'addConnector', target: { slide: 0 }, from: from.id, to: to.id }],
     })
     expect(r.applied).toBe(true)

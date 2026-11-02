@@ -9,6 +9,7 @@
  * All changes land in archive.entries: savePptx persists automatically, and the
  * main process's snapshot-style undo (shallow copy of entries) covers them.
  */
+import { textToBytes } from './browser-compat'
 import type { OpenedPptx } from './index'
 import { relsPathFor, resolveTarget, type PackageArchive } from './zip'
 import {
@@ -34,7 +35,7 @@ const NOTES_MASTER_CT =
   'application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml'
 
 function setEntry(archive: PackageArchive, path: string, xml: string): void {
-  archive.entries.set(path, Buffer.from(xml, 'utf8'))
+  archive.entries.set(path, textToBytes(xml))
 }
 
 /** Unescape XML text (for reading <a:t>). */

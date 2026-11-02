@@ -39,7 +39,7 @@ import { normalizeLengthUnits } from './units'
     record. Pre-apply resolution against the live mid-txn state is the truth; a
     numeric target.slide re-resolved after the txn drifts once a later structural
     op shifts pages. Best-effort: part-targeted / deck-level ops carry no stamp. */
-function applyStamped(op: Op, ctx: OpContext): OpRecord {
+async function applyStamped(op: Op, ctx: OpContext): Promise<OpRecord> {
   let slideId: string | undefined
   if (!op.target?.part && op.target?.slide != null) {
     try {
@@ -48,7 +48,8 @@ function applyStamped(op: Op, ctx: OpContext): OpRecord {
       // Non-standard slide addressing (op-specific semantics): leave unstamped.
     }
   }
-  const rec = lookup(op.op).apply(op, ctx)
+  // Some ops are async by nature (media/3-D inserts must render a poster frame).
+  const rec = await lookup(op.op).apply(op, ctx)
   return slideId ? { ...rec, slideId } : rec
 }
 
@@ -157,7 +158,7 @@ function flushTouchedParts(opened: OpenedPptx, ctx: OpContext): void {
   for (let i = 0; i < opened.deck.slides.length; i++) materializeSlide(opened, i)
 }
 
-export function runTxn(opened: OpenedPptx, req: TxnRequest): TxnResult {
+export async function runTxn(opened: OpenedPptx, req: TxnRequest): Promise<TxnResult> {
   if (!Array.isArray(req.ops) || req.ops.length === 0) {
     return {
       applied: false,
@@ -211,7 +212,7 @@ export function runTxn(opened: OpenedPptx, req: TxnRequest): TxnResult {
     const records: OpRecord[] = []
     for (const [i, op] of req.ops.entries()) {
       try {
-        records.push(applyStamped(op, ctx))
+        records.push(await applyStamped(op, ctx))
         hardenTargetIdentity(op, ctx)
       } catch (e) {
         restoreSnapshot(opened, snap)
@@ -240,7 +241,7 @@ export function runTxn(opened: OpenedPptx, req: TxnRequest): TxnResult {
   for (const [i, op] of req.ops.entries()) {
     if (failedIdx.has(i)) continue
     try {
-      records.push(applyStamped(op, ctx))
+      records.push(await applyStamped(op, ctx))
       hardenTargetIdentity(op, ctx)
     } catch (e) {
       failures.push({ index: i, op, error: withUsage(op, message(e)) })

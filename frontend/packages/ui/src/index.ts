@@ -35,8 +35,6 @@ export {
   type RibbonCollapseLabels,
   type RibbonDensity,
 } from './ribbon-collapse'
-export { IconSend, IconStop, type IconProps } from './icons'
-export { Markdown, type MarkdownNav } from './Markdown'
 export { isSymbolFontFamily } from './symbol-fonts'
 export {
   BUILTIN_FONT_FAMILIES,
@@ -74,7 +72,7 @@ export {
   type CropFractions,
   type ImageDialogLabels,
 } from './image-dialogs'
-export { CROP_EDGE_LABELS } from './strings-crop-edges'
+
 export { ImageViewer, type ImageViewerLabels } from './image-viewer'
 export { trapTab, useModalKeys } from './modal-keys'
 export {
@@ -94,7 +92,6 @@ export {
   type AutoSaveDefaultApi,
 } from './auto-save-pref'
 export {
-  NOTCH,
   clampZoom,
   createWheelPager,
   createZoomWheelClassifier,

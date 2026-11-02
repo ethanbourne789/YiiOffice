@@ -40,7 +40,6 @@ type Watchdog struct {
 	dataDir              string
 	onHot                func(metric ProcessMetric)
 
-	lastMetrics map[uint32]ProcessMetric
 	hotCount    map[uint32]int
 	lastReport  map[uint32]time.Time
 }
@@ -48,9 +47,8 @@ type Watchdog struct {
 // New creates a watchdog with the given config. Applies defaults for zero-values.
 func New(cfg *Config) *Watchdog {
 	w := &Watchdog{
-		lastMetrics: make(map[uint32]ProcessMetric),
-		hotCount:    make(map[uint32]int),
-		lastReport:  make(map[uint32]time.Time),
+		hotCount:   make(map[uint32]int),
+		lastReport: make(map[uint32]time.Time),
 	}
 
 	if cfg == nil {
@@ -148,11 +146,8 @@ func (w *Watchdog) sample() {
 		if !found {
 			delete(w.hotCount, pid)
 			delete(w.lastReport, pid)
-			delete(w.lastMetrics, pid)
 		}
 	}
-
-	w.lastMetrics = nil // not used across samples
 }
 
 func (w *Watchdog) reportHot(m ProcessMetric, now time.Time) {

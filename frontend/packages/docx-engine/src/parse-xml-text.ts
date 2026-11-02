@@ -89,7 +89,7 @@ export function plainText(xml: string): string {
       texts.push(' ')
       pendingGap = false
     }
-    texts.push(m[1])
+    texts.push(m[1] ?? '')
   }
   return decodeEntities(texts.join(''))
 }
@@ -99,7 +99,7 @@ export function mathTokens(xml: string): string[] {
   const tokens: string[] = []
   const re = /<m:t(?:\s[^>]*)?>([\s\S]*?)<\/m:t>/g
   let m: RegExpExecArray | null
-  while ((m = re.exec(xml)) !== null) tokens.push(decodeEntities(m[1]))
+  while ((m = re.exec(xml)) !== null) tokens.push(decodeEntities(m[1] ?? ''))
   return tokens
 }
 

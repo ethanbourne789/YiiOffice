@@ -236,12 +236,7 @@ func (s *ExportService) WriteBase64File(path string, content string) ExportResul
 
 // ListPrinters returns the names of the installed system printers.
 func (s *ExportService) ListPrinters() []PrinterInfo {
-	names := platform.ListPrinterNames()
-	out := make([]PrinterInfo, 0, len(names))
-	for _, name := range names {
-		out = append(out, PrinterInfo{Name: name, DisplayName: name})
-	}
-	return out
+	return resolversListPrinters()
 }
 
 // pageOptions builds the print options for a sheet size given in inches.

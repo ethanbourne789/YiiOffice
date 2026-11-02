@@ -79,15 +79,33 @@ func (s *HomeService) SetDocumentTheme(theme string) error {
 	return nil
 }
 
-// GetAutoSaveDefault returns the auto-save default toggle.
-func (s *HomeService) GetAutoSaveDefault() bool { return s.store.Snapshot().AutoSaveDefault }
+// AutoSaveStatus is the auto-save default setting with its last-updated timestamp.
+type AutoSaveStatus struct {
+	On        bool  `json:"on"`
+	UpdatedAt int64 `json:"updatedAt"`
+}
+
+// RenameResult reports whether a rename/create succeeded. JSON shape matches
+// frontend RenameResult ({ok, path?, error?}).
+type RenameResult struct {
+	OK    bool   `json:"ok"`
+	Path  string `json:"path,omitempty"`
+	Error string `json:"error,omitempty"`
+}
+
+// GetAutoSaveDefault returns the auto-save default toggle with its timestamp.
+func (s *HomeService) GetAutoSaveDefault() AutoSaveStatus {
+	snap := s.store.Snapshot()
+	return AutoSaveStatus{On: snap.AutoSaveDefault, UpdatedAt: snap.AutoSaveDefaultUpdated}
+}
 
 // SetAutoSaveDefault persists the auto-save default and broadcasts the change.
 func (s *HomeService) SetAutoSaveDefault(enabled bool) error {
 	if err := s.store.SetAutoSaveDefault(enabled); err != nil {
 		return err
 	}
-	platform.Emit(EventAutoSaveDefaultChanged, enabled)
+	snap := s.store.Snapshot()
+	platform.Emit(EventAutoSaveDefaultChanged, AutoSaveStatus{On: snap.AutoSaveDefault, UpdatedAt: snap.AutoSaveDefaultUpdated})
 	return nil
 }
 
@@ -198,15 +216,27 @@ func (s *HomeService) OpenPath(path string) error {
 
 // Browse opens the file dialog and returns the selected paths.
 func (s *HomeService) Browse() ([]string, error) {
+	if s.openFile == nil {
+		return nil, fmt.Errorf("file browser not configured")
+	}
 	return s.openFile()
 }
 
 // RevealPath reveals a path in the system file manager.
-func (s *HomeService) RevealPath(path string) error { return s.revealPath(path) }
+func (s *HomeService) RevealPath(path string) error {
+	if s.revealPath == nil {
+		return fmt.Errorf("revealPath not configured")
+	}
+	return s.revealPath(path)
+}
 
-// RenameFile renames a file and returns its new path.
-func (s *HomeService) RenameFile(path string, newName string) (string, error) {
-	return s.fo.Rename(path, newName)
+// RenameFile renames a file and returns a result with the new path.
+func (s *HomeService) RenameFile(path string, newName string) RenameResult {
+	newPath, err := s.fo.Rename(path, newName)
+	if err != nil {
+		return RenameResult{Error: err.Error()}
+	}
+	return RenameResult{OK: true, Path: newPath}
 }
 
 // DuplicateFile duplicates a file and returns the new path.
@@ -241,7 +271,10 @@ func (s *HomeService) AddFolderRoot() (*host.FolderRoot, error) {
 		return nil, nil
 	}
 	s.fm.AddRoot(dir, "")
-	row, _ := s.fm.FindRoot(dir)
+	row, ok := s.fm.FindRoot(dir)
+	if !ok {
+		return nil, nil
+	}
 	return &row, nil
 }
 
@@ -270,13 +303,21 @@ func (s *HomeService) ListFolder(path string) host.FolderListing {
 }
 
 // CreateFolder creates a folder under the given parent.
-func (s *HomeService) CreateFolder(parentPath string, name string) error {
-	return s.fm.CreateFolder(parentPath, name)
+func (s *HomeService) CreateFolder(parentPath string, name string) RenameResult {
+	path := filepath.Join(parentPath, name)
+	if err := s.fm.CreateFolder(parentPath, name); err != nil {
+		return RenameResult{Error: err.Error()}
+	}
+	return RenameResult{OK: true, Path: path}
 }
 
-// RenameFolder renames a folder.
-func (s *HomeService) RenameFolder(oldPath string, newName string) error {
-	return s.fm.RenameFolder(oldPath, newName)
+// RenameFolder renames a folder and returns a result with the new path.
+func (s *HomeService) RenameFolder(oldPath string, newName string) RenameResult {
+	newPath := filepath.Join(filepath.Dir(oldPath), newName)
+	if err := s.fm.RenameFolder(oldPath, newName); err != nil {
+		return RenameResult{Error: err.Error()}
+	}
+	return RenameResult{OK: true, Path: newPath}
 }
 
 // MovePaths moves items into a destination directory.

@@ -2,6 +2,7 @@ package host
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -68,7 +69,9 @@ func (rm *RecentManager) load() {
 	// Load recents
 	raw, err := os.ReadFile(rm.recentFile())
 	if err == nil {
-		json.Unmarshal(raw, &rm.recents)
+		if err := json.Unmarshal(raw, &rm.recents); err != nil {
+			fmt.Printf("error unmarshaling recent files: %v\n", err)
+		}
 	}
 	// Load starred
 	var starredData struct {
@@ -77,7 +80,9 @@ func (rm *RecentManager) load() {
 	}
 	raw, err = os.ReadFile(rm.starredFile())
 	if err == nil {
-		json.Unmarshal(raw, &starredData)
+		if err := json.Unmarshal(raw, &starredData); err != nil {
+			fmt.Printf("error unmarshaling starred files: %v\n", err)
+		}
 		rm.starred = starredData.Files
 		if len(starredData.Groups) > 0 {
 			rm.starredGroups = starredData.Groups

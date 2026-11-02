@@ -38,7 +38,6 @@ import {
   IconPaste,
   IconCut,
   IconCopy,
-  IconFormatPainter,
   IconBullets,
   IconNumbered,
   IconMultilevel,
@@ -555,15 +554,6 @@ export function Ribbon({
                 </div>
                 {fmtBtn(<IconCut size={14} />, t('ribbonCutTip'), '', () => { if (!editor) return; document.execCommand('cut') })}
                 {fmtBtn(<IconCopy size={14} />, t('ribbonCopyTip'), '', () => { if (!editor) return; document.execCommand('copy') })}
-                {fmtBtn(
-                  <IconFormatPainter size={14} />,
-                  t('ribbonFormatPainterTip'),
-                  '',
-                  () => {
-                    // format painter: capture current selection marks and apply on next click
-                    // Simplified: toggle a format painter mode
-                  },
-                )}
               </div>
               <div className="ribbon-group-label">{t('ribbonGroupClipboard')}</div>
             </div>
@@ -661,9 +651,9 @@ export function Ribbon({
                     t('ribbonSubscriptTip'),
                     formatState.vertAlign === 'sub' ? 'active' : undefined,
                     () => {
-                      const ed = editor!
-                      const isSub = ed.isActive('docTextStyle', { vertAlign: 'sub' })
-                      ed.chain().focus().setMark('docTextStyle', { vertAlign: isSub ? null : 'sub' }).run()
+                      if (!editor) return
+                      const isSub = editor.isActive('docTextStyle', { vertAlign: 'sub' })
+                      editor.chain().focus().setMark('docTextStyle', { vertAlign: isSub ? null : 'sub' }).run()
                     },
                   )}
                   {fmtBtn(
@@ -671,9 +661,9 @@ export function Ribbon({
                     t('ribbonSuperscriptTip'),
                     formatState.vertAlign === 'super' ? 'active' : undefined,
                     () => {
-                      const ed = editor!
-                      const isSuper = ed.isActive('docTextStyle', { vertAlign: 'super' })
-                      ed.chain().focus().setMark('docTextStyle', { vertAlign: isSuper ? null : 'super' }).run()
+                      if (!editor) return
+                      const isSuper = editor.isActive('docTextStyle', { vertAlign: 'super' })
+                      editor.chain().focus().setMark('docTextStyle', { vertAlign: isSuper ? null : 'super' }).run()
                     },
                   )}
 
@@ -992,9 +982,9 @@ export function Ribbon({
               <div className="ribbon-group-label">{t('ribbonGroupStyles')}</div>
             </div>
           </>
-        ) : tab === 'insert' ? (
+        ) : tab === 'insert' && editor ? (
           <InsertTab
-            editor={editor!}
+            editor={editor}
             hasDoc={hasDoc}
             dropdown={dropdown}
             setDropdown={setDrop}
@@ -1023,9 +1013,9 @@ export function Ribbon({
             annotationCount={inkCount}
             onClearAll={onInkClearAll}
           />
-        ) : tab === 'design' ? (
+        ) : tab === 'design' && editor ? (
           <DesignTab
-            editor={editor!}
+            editor={editor}
             hasDoc={hasDoc}
             dropdown={dropdown}
             setDropdown={setDrop}
@@ -1039,9 +1029,9 @@ export function Ribbon({
             onThemeFonts={onThemeFonts}
             onThemeColors={onThemeColors}
           />
-        ) : tab === 'layout' ? (
+        ) : tab === 'layout' && editor ? (
           <LayoutTab
-            editor={editor!}
+            editor={editor}
             hasDoc={hasDoc}
             dropdown={dropdown}
             setDropdown={setDrop}
@@ -1053,9 +1043,9 @@ export function Ribbon({
             mirrorMargins={mirrorMargins}
             onMirrorMargins={onMirrorMargins}
           />
-        ) : tab === 'references' ? (
+        ) : tab === 'references' && editor ? (
           <ReferencesTab
-            editor={editor!}
+            editor={editor}
             hasDoc={hasDoc}
             blocks={blocks}
             dropdown={dropdown}
@@ -1065,9 +1055,9 @@ export function Ribbon({
             onAddSource={onAddSource}
             headingPages={headingPages}
           />
-        ) : tab === 'review' ? (
+        ) : tab === 'review' && editor ? (
           <ReviewTab
-            editor={editor!}
+            editor={editor}
             hasDoc={hasDoc}
             dropdown={dropdown}
             setDropdown={setDrop}

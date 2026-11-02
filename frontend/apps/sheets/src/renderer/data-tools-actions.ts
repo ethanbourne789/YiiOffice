@@ -4,7 +4,7 @@
  * Extracted from App.tsx; the App component passes a DataToolsContext built
  * fresh per call so refs and state never go stale.
  */
-import { ILayoutService } from '@univerjs/preset-sheets-core'
+import { ILayoutService } from '@univerjs/ui'
 
 import { columnLabel } from '@yiioffice/xlsx-gateway/domain/cell-address'
 import {

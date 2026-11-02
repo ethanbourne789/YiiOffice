@@ -21,7 +21,7 @@ import type {
 } from '@yiioffice/xlsx-gateway/domain/workbook-dsl'
 import type { ChangePlan } from '@yiioffice/xlsx-gateway/domain/workbook.types'
 import { IRenderManagerService, Vector2 } from '@univerjs/engine-render'
-import { SheetSkeletonManagerService } from '@univerjs/preset-sheets-core'
+import { SheetSkeletonManagerService } from '@univerjs/sheets-ui'
 import type { WorkbookVisualObject } from '../shared/desktop-api'
 import {
   isSheetRemoved,

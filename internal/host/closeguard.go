@@ -2,6 +2,7 @@
 package host
 
 import (
+	"log"
 	"sync"
 )
 
@@ -92,7 +93,8 @@ func (g *CloseGuard) ShouldAllowClose() bool {
 		switch choice {
 		case Save:
 			if err := g.saveTab(tab); err != nil {
-				// Log but continue - the save failed but user wanted to save
+				log.Printf("CloseGuard: save failed for tab %q: %v", tab.Title, err)
+				return false // prevent close on save failure — data would be lost
 			}
 		case Cancel:
 			return false // prevent close

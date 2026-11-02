@@ -26,6 +26,7 @@ import (
 	"gitee.com/ethanbourne789/yiioffice/internal/host"
 	"gitee.com/ethanbourne789/yiioffice/internal/index"
 	"gitee.com/ethanbourne789/yiioffice/internal/platform"
+	"gitee.com/ethanbourne789/yiioffice/internal/servmode"
 	"gitee.com/ethanbourne789/yiioffice/internal/update"
 	"gitee.com/ethanbourne789/yiioffice/internal/workbook"
 	"gitee.com/ethanbourne789/yiioffice/internal/watchdog"
@@ -85,12 +86,18 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := platform.CheckWebView2(); err != nil {
-		log.Printf("warning: %v", err)
-		log.Println("WebView2 is required to run YiiOffice.")
-		log.Println("Please install WebView2 from: https://go.microsoft.com/fwlink/p/?LinkId=2124703")
-		exec.Command("cmd", "/c", "start", platform.WebView2InstallURL()).Start()
-		os.Exit(1)
+	// Server builds (`-tags server`) run as an HTTP host with no webview, so the
+	// WebView2 preflight is not only unnecessary but harmful: it would abort a
+	// headless E2E/CI host on a machine without WebView2. Everything below that
+	// touches windows, tray or native dialogs is a documented no-op there.
+	if !servmode.Enabled {
+		if err := platform.CheckWebView2(); err != nil {
+			log.Printf("warning: %v", err)
+			log.Println("WebView2 is required to run YiiOffice.")
+			log.Println("Please install WebView2 from: https://go.microsoft.com/fwlink/p/?LinkId=2124703")
+			exec.Command("cmd", "/c", "start", platform.WebView2InstallURL()).Start()
+			os.Exit(1)
+		}
 	}
 
 	dist, err := fs.Sub(embeddedAssets, "frontend/dist")
@@ -196,8 +203,22 @@ func main() {
 		Description: "YiiOffice desktop office suite",
 		Logger:      consoleLogger,
 		LogLevel:    consoleLogLevel,
+		// ServerOptions are ignored by desktop builds and take effect only with
+		// `-tags server`, where the same services are served over HTTP so the
+		// E2E suite can drive the real Go backend with Playwright
+		// (https://v3.wails.io/guides/e2e-testing/). Loopback only by default;
+		// WAILS_SERVER_HOST / WAILS_SERVER_PORT still override both values.
+		Server: application.ServerOptions{
+			Host: "127.0.0.1",
+			Port: 8080,
+		},
 		Assets: application.AssetOptions{
-			Handler: assets.New(dist),
+			// WithLocalFiles backs `<img src="/md-asset?p=…">`: markdown notes
+			// reference pictures that live next to the .md file, and a same-origin
+			// route is the only way to show them without a custom webview scheme.
+			// The authoriser is read per request, so adding a sidebar folder takes
+			// effect without a restart.
+			Handler: assets.New(dist, assets.WithLocalFiles(bridge.LocalImageFile(fm.RootPaths))),
 		},
 		// ErrorHandler catches bridge call errors (e.g. invalid args,
 		// service panics caught by the runtime) before they reach the user.
@@ -223,15 +244,19 @@ func main() {
 			// Registered first so it shuts down last (reverse order), after all
 			// frontend-facing services are done.
 			application.NewService(bridge.NewInternalService(idxLifecycle, wbEngine, cancelWd)),
+			// Local image reads are authorised against the folder roots the
+			// sidebar exposes (plus the user profile), not against "anything
+			// under home": a folder added on another drive has to stay
+			// readable, and device names / ADS / symlink escapes must not.
 			application.NewService(bridge.NewShellService(func(u string) error {
 				return platform.OpenExternal(u)
-			})),
+			}, fm.RootPaths)),
 			application.NewService(bridge.NewTabService(tabHost, detachedHost)),
 			application.NewService(homeSvc),
 			application.NewService(bridge.NewDocsService(rm, idxLifecycle)),
 			application.NewService(bridge.NewSlidesService(rm)),
 			application.NewService(bridge.NewPdfService(rm)),
-			application.NewService(bridge.NewMarkdownService(rm)),
+			application.NewService(bridge.NewMarkdownService(rm, fm.RootPaths)),
 			application.NewService(bridge.NewWorkbookService(wbEngine, rm)),
 			application.NewService(bridge.NewExportService()),
 			// Frameless main window: the tab strip is the title bar, so the

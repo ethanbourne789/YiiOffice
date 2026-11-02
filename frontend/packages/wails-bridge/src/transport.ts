@@ -23,7 +23,7 @@ export function runtime(): WailsRuntime {
 }
 
 /** Unwraps the runtime's `WailsEvent` envelope down to the emitted payload. */
-export function eventPayload(event: unknown): unknown {
+function eventPayload(event: unknown): unknown {
   if (event && typeof event === 'object' && 'data' in event && 'name' in event) {
     return (event as { data: unknown }).data
   }

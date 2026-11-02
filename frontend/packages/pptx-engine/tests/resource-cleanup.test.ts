@@ -69,12 +69,12 @@ describe('deleted resource cleanup', () => {
 
   it('removes both embedded video relationships, bytes, and poster on element deletion', async () => {
     const opened = await openPptx(await createBlankPptx())
-    const added = addMedia(opened, 0, {
+    const added = (await addMedia(opened, 0, {
       kind: 'video',
       bytes: new Uint8Array([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70]),
       ext: 'mp4',
       offset: OFF,
-    })!
+    }))!
 
     expect(mediaParts(opened).length).toBe(2)
     expect(deleteElement(opened, added.slide, added.elementId)).toBe(true)
@@ -104,11 +104,11 @@ describe('deleted resource cleanup', () => {
 
   it('collects a shared 3D model after deleting its final live placeholder', async () => {
     const opened = await openPptx(await createBlankPptx())
-    const added = addModel3d(opened, 0, {
+    const added = (await addModel3d(opened, 0, {
       bytes: new Uint8Array([0x67, 0x6c, 0x54, 0x46]),
       ext: 'glb',
       offset: OFF,
-    })!
+    }))!
     const modelPath = mediaParts(opened).find((path) => path.endsWith('.glb'))!
     const second = duplicateSlide(opened, 0)!
     const duplicateModel = second.elements.find((element) =>
@@ -125,7 +125,7 @@ describe('deleted resource cleanup', () => {
   it('collects resources owned by a deleted slide', async () => {
     const opened = await openPptx(await createBlankPptx())
     duplicateSlide(opened, 0)
-    addMedia(opened, 0, {
+    await addMedia(opened, 0, {
       kind: 'video',
       bytes: new Uint8Array([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70]),
       ext: 'mp4',
@@ -323,11 +323,11 @@ describe('superseded shape picture-fill cleanup', () => {
 describe('3D marker scan is limited to shape-tree parts', () => {
   async function withModel() {
     const opened = await openPptx(await createBlankPptx())
-    const added = addModel3d(opened, 0, {
+    const added = (await addModel3d(opened, 0, {
       bytes: new Uint8Array([0x67, 0x6c, 0x54, 0x46]),
       ext: 'glb',
       offset: OFF,
-    })!
+    }))!
     const modelPath = mediaParts(opened).find((path) => path.endsWith('.glb'))!
     return { opened, added, modelPath }
   }

@@ -1,4 +1,4 @@
-import { installBridge, on, setCurrentTabDirty } from '@yiioffice/wails-bridge'
+import { installBridge, on, setCurrentTabDirty, currentTabPath } from '@yiioffice/wails-bridge'
 installBridge()
 
 import * as pdf from '@bindings/gitee.com/ethanbourne789/yiioffice/internal/bridge/pdfservice'
@@ -21,9 +21,14 @@ import '@yiioffice/ui/markdown.css'
 import './styles.css'
 import { installScreenTips } from '@yiioffice/ui'
 
-// PDF.js worker: use the static-copy served worker
+// PDF.js worker: emitted by Vite as a hashed asset next to the bundle, so the
+// URL honours the renderer's relative base ('./'). The old hard-coded
+// '/pdf.worker.min.mjs' resolved against the origin root, which the asset
+// handler maps to the shell bundle — every document failed with
+// "Setting up fake worker failed / 404".
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { GlobalWorkerOptions } from 'pdfjs-dist/legacy/build/pdf.mjs'
-GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
+GlobalWorkerOptions.workerSrc = pdfWorkerUrl
 
 installScreenTips()
 
@@ -44,7 +49,11 @@ function toPageNumbers(indices: number[]): number[] {
 /** Create a wails-bridge-based PdfApi that uses generated bindings + events */
 function createPdfApi(): PdfApi {
   return {
-    consumePending: async () => null,
+    // The shell opens a file by creating a tab for it (HomeService.OpenPath →
+    // TabService/tabs:changed), so the renderer's "pending" file *is* its own
+    // tab's path. Returning a hard-coded null here left every opened PDF stuck
+    // on "没有要打开的文件" even though the tab and iframe existed.
+    consumePending: async () => currentTabPath(),
     readFile: async (path: string) => {
       const b64 = await pdf.ReadFile(path)
       const bin = atob(b64)
@@ -126,7 +135,7 @@ function createPdfApi(): PdfApi {
     },
     cropPages: async (req) => {
       const rect: [number, number, number, number] = [req.rect.l, req.rect.t, req.rect.r, req.rect.b]
-      const result = await pdf.CropPagesFractional(req.path, toPageNumbers(req.pages), rect)
+      const result = await pdf.CropPagesFractional(req.path, toPageNumbers(req.pages), rect[0], rect[1], rect[2], rect[3])
       if (!result.ok) return { ok: false, error: result.error ?? 'Crop failed' }
       return { ok: true }
     },
@@ -138,7 +147,6 @@ function createPdfApi(): PdfApi {
     },
     convertOffice: () => unsupported('Office conversion'),
     createDocument: () => unsupported('Document creation'),
-    generateImage: () => unsupported('Image generation'),
     listSavedSignatures: async () => [],
     addSavedSignature: async () => [],
     removeSavedSignature: async () => [],

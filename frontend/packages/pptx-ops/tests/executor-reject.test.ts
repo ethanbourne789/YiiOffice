@@ -30,7 +30,7 @@ const textOp = (target: unknown) => ({
 })
 
 describe('executor rejections', () => {
-  it('rejects non-finite and negative rect dimensions for insert operations', () => {
+  it('rejects non-finite and negative rect dimensions for insert operations', async () => {
     const invalidOffsets = [
       { x: 0, y: 0, cx: NaN, cy: 100 },
       { x: 0, y: 0, cx: Infinity, cy: 100 },
@@ -39,7 +39,7 @@ describe('executor rejections', () => {
     ]
 
     for (const offset of invalidOffsets) {
-      const r = runTxn(opened, {
+      const r = await runTxn(opened, {
         ops: [{ op: 'addElement', target: { slide: 0 }, offset, kind: 'textbox' }],
       })
       expect(r.applied).toBe(false)
@@ -49,8 +49,8 @@ describe('executor rejections', () => {
     }
   })
 
-  it('accepts finite, non-negative rect dimensions for insert operations', () => {
-    const r = runTxn(opened, {
+  it('accepts finite, non-negative rect dimensions for insert operations', async () => {
+    const r = await runTxn(opened, {
       ops: [
         {
           op: 'addElement',
@@ -64,8 +64,8 @@ describe('executor rejections', () => {
     expect(r.records).toHaveLength(1)
   })
 
-  it('rejects an unknown op with the supported-ops vocabulary', () => {
-    const r = runTxn(opened, { ops: [{ op: 'sparkle' }] })
+  it('rejects an unknown op with the supported-ops vocabulary', async () => {
+    const r = await runTxn(opened, { ops: [{ op: 'sparkle' }] })
     expect(r.applied).toBe(false)
     expect(r.failures).toHaveLength(1)
     expect(r.failures![0]!.index).toBe(0)
@@ -74,8 +74,8 @@ describe('executor rejections', () => {
     expect(r.failures![0]!.error).not.toContain('Usage:')
   })
 
-  it('rejects a missing element with the available ids', () => {
-    const r = runTxn(opened, {
+  it('rejects a missing element with the available ids', async () => {
+    const r = await runTxn(opened, {
       ops: [textOp({ slide: 0, el: 'e_DOES_NOT_EXIST' })],
     })
     expect(r.applied).toBe(false)
@@ -86,8 +86,8 @@ describe('executor rejections', () => {
     expect(r.failures![0]!.error).toContain('Usage: setText')
   })
 
-  it('rejects a missing slide id with the available slide ids', () => {
-    const r = runTxn(opened, {
+  it('rejects a missing slide id with the available slide ids', async () => {
+    const r = await runTxn(opened, {
       ops: [textOp({ slide: 's_999', el: textId })],
     })
     expect(r.applied).toBe(false)
@@ -95,8 +95,8 @@ describe('executor rejections', () => {
     expect(r.failures![0]!.error).toContain('Available:')
   })
 
-  it('rejects an out-of-range slide index with the valid range', () => {
-    const r = runTxn(opened, {
+  it('rejects an out-of-range slide index with the valid range', async () => {
+    const r = await runTxn(opened, {
       ops: [textOp({ slide: 99, el: textId })],
     })
     expect(r.applied).toBe(false)
@@ -104,9 +104,9 @@ describe('executor rejections', () => {
     expect(r.failures![0]!.error).toContain('Nothing was applied (atomic)')
   })
 
-  it('rejects an empty batch without touching the deck', () => {
+  it('rejects an empty batch without touching the deck', async () => {
     const before = opened.deck.slides.length
-    const r = runTxn(opened, { ops: [] })
+    const r = await runTxn(opened, { ops: [] })
     expect(r.applied).toBe(false)
     expect(r.failures![0]!.error).toContain('ops must be a non-empty array')
     expect(opened.deck.slides.length).toBe(before)
@@ -120,7 +120,7 @@ describe('executor rejections', () => {
       offset: { x: 0, y: 0, cx: 1828800, cy: 914400 },
       paragraphs: [{ runs: [{ text: 'Before' }] }],
     })
-    const r = runTxn(fresh, {
+    const r = await runTxn(fresh, {
       ops: [textOp({ slide: 0, el: el.id }), { op: 'sparkle' }],
     })
     expect(r.applied).toBe(false)
@@ -136,7 +136,7 @@ describe('executor rejections', () => {
       offset: { x: 0, y: 0, cx: 1828800, cy: 914400 },
       paragraphs: [{ runs: [{ text: 'Before' }] }],
     })
-    const r = runTxn(fresh, {
+    const r = await runTxn(fresh, {
       isolation: 'per_op',
       ops: [textOp({ slide: 0, el: el.id }), { op: 'sparkle' }],
     })
@@ -154,7 +154,7 @@ describe('executor rejections', () => {
       offset: { x: 0, y: 0, cx: 1828800, cy: 914400 },
       paragraphs: [{ runs: [{ text: 'Before' }] }],
     })
-    const r = runTxn(fresh, {
+    const r = await runTxn(fresh, {
       dryRun: true,
       ops: [textOp({ slide: 0, el: el.id })],
     })
@@ -164,7 +164,7 @@ describe('executor rejections', () => {
     expect(r.failures ?? []).toEqual([])
   })
 
-  it('rejects non-integer, out-of-range and non-finite addTable dims', () => {
+  it('rejects non-integer, out-of-range and non-finite addTable dims', async () => {
     const offset = { x: 0, y: 0, cx: 1828800, cy: 914400 }
     const bad: Array<[unknown, unknown]> = [
       [NaN, 2],
@@ -175,7 +175,7 @@ describe('executor rejections', () => {
       ['2', 2],
     ]
     for (const [rows, cols] of bad) {
-      const r = runTxn(opened, {
+      const r = await runTxn(opened, {
         ops: [{ op: 'addTable', target: { slide: 0 }, offset, rows, cols }],
       })
       expect(r.applied).toBe(false)
@@ -186,7 +186,7 @@ describe('executor rejections', () => {
 
   it('accepts addTable dims at the 75x75 limit', async () => {
     const fresh = await openPptx(await createBlankPptx())
-    const r = runTxn(fresh, {
+    const r = await runTxn(fresh, {
       dryRun: true,
       ops: [
         {

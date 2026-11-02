@@ -524,3 +524,61 @@ body.overlay-title-bar .tab-bar-drag-spacer {
   margin: 4px 6px;
   background: var(--border);
 }
+
+/* ================= transient toast (error feedback) ================= */
+
+.app-toast {
+  position: fixed;
+  top: 52px;
+  left: 50%;
+  transform: translate(-50%, -8px);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: rgb(35 35 37 / 92%);
+  color: #fff;
+  font-size: 13px;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 18%);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+  max-width: 60vw;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.app-toast.error {
+  background: rgb(196 49 75 / 95%);
+}
+
+.app-toast-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.app-toast.success .app-toast-icon {
+  color: #34c759;
+}
+
+/* dark mode toast shadow */
+[data-theme='dark'] .app-toast {
+  box-shadow: 0 4px 16px rgb(0 0 0 / 45%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']):not([data-theme='dark']) .app-toast {
+    box-shadow: 0 4px 16px rgb(0 0 0 / 45%);
+  }
+}

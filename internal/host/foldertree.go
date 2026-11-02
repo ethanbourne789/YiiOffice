@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
+
+	"gitee.com/ethanbourne789/yiioffice/internal/fsutil"
 )
 
 // FolderRoot is a row of the home sidebar tree. The default save folder is
@@ -49,6 +52,7 @@ type folderRootRecord struct {
 
 // FolderManager handles folder tree operations.
 type FolderManager struct {
+	mu         sync.RWMutex
 	dataDir    string
 	rootsFile  string
 	added      []folderRootRecord
@@ -69,9 +73,13 @@ func NewFolderManager(dataDir string, defaultDir func() string) *FolderManager {
 }
 
 func (fm *FolderManager) loadRoots() {
+	fm.mu.Lock()
+	defer fm.mu.Unlock()
 	raw, err := os.ReadFile(fm.rootsFile)
 	if err == nil {
-		json.Unmarshal(raw, &fm.added)
+		if err := json.Unmarshal(raw, &fm.added); err != nil {
+			fmt.Printf("error unmarshaling folder roots: %v\n", err)
+		}
 	}
 	if fm.added == nil {
 		fm.added = make([]folderRootRecord, 0)
@@ -79,8 +87,9 @@ func (fm *FolderManager) loadRoots() {
 }
 
 func (fm *FolderManager) saveRoots() {
-	data, _ := json.MarshalIndent(fm.added, "", "  ")
-	os.WriteFile(fm.rootsFile, append(data, '\n'), 0o644)
+	if err := fsutil.WriteJSONAtomic(fm.rootsFile, fm.added, 0o644); err != nil {
+		fmt.Printf("error saving folder roots: %v\n", err)
+	}
 }
 
 // defaultRootPath resolves the default save folder, creating it when the
@@ -101,11 +110,15 @@ func (fm *FolderManager) defaultRootPath() string {
 // GetRoots returns the tree rows: the default save folder first, then every
 // folder the user added.
 func (fm *FolderManager) GetRoots() []FolderRoot {
-	roots := make([]FolderRoot, 0, len(fm.added)+1)
+	fm.mu.RLock()
+	added := make([]folderRootRecord, len(fm.added))
+	copy(added, fm.added)
+	fm.mu.RUnlock()
+	roots := make([]FolderRoot, 0, len(added)+1)
 	if def := fm.defaultRootPath(); def != "" {
 		roots = append(roots, rootRow(def, false))
 	}
-	for _, r := range fm.added {
+	for _, r := range added {
 		roots = append(roots, rootRow(r.Path, true))
 	}
 	return roots
@@ -151,7 +164,9 @@ func (fm *FolderManager) AddRoot(path string, label string) {
 	if _, err := os.Stat(path); err != nil {
 		return
 	}
-	if fm.hasPath(path) {
+	fm.mu.Lock()
+	if fm.hasPathLocked(path) {
+		fm.mu.Unlock()
 		return
 	}
 	if label == "" {
@@ -159,10 +174,18 @@ func (fm *FolderManager) AddRoot(path string, label string) {
 	}
 	fm.added = append(fm.added, folderRootRecord{Path: path, Label: label})
 	fm.saveRoots()
+	fm.mu.Unlock()
 }
 
 // hasPath reports whether path is already the default root or an added root.
 func (fm *FolderManager) hasPath(path string) bool {
+	fm.mu.RLock()
+	defer fm.mu.RUnlock()
+	return fm.hasPathLocked(path)
+}
+
+// hasPathLocked checks if path exists; caller must hold fm.mu.
+func (fm *FolderManager) hasPathLocked(path string) bool {
 	if def := fm.defaultRootPath(); def != "" && strings.EqualFold(def, path) {
 		return true
 	}
@@ -196,13 +219,19 @@ func (fm *FolderManager) RootPaths() []string {
 
 // RemoveRoot removes a folder root by path. The default root is ignored.
 func (fm *FolderManager) RemoveRoot(path string) {
+	fm.mu.Lock()
+	found := false
 	for i, r := range fm.added {
 		if strings.EqualFold(r.Path, path) {
 			fm.added = append(fm.added[:i], fm.added[i+1:]...)
+			found = true
 			break
 		}
 	}
-	fm.saveRoots()
+	if found {
+		fm.saveRoots()
+	}
+	fm.mu.Unlock()
 }
 
 // ListFolder lists the contents of a directory.

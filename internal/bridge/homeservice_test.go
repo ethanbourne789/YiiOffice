@@ -142,7 +142,8 @@ func TestHomeServiceGetAutoSaveDefault(t *testing.T) {
 	tmp := t.TempDir()
 	svc := newTestHomeService(t, tmp)
 
-	if !svc.GetAutoSaveDefault() {
+	status := svc.GetAutoSaveDefault()
+	if !status.On {
 		t.Fatal("expected auto save default to be true")
 	}
 }
@@ -155,8 +156,12 @@ func TestHomeServiceSetAutoSaveDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if svc.GetAutoSaveDefault() {
+	status := svc.GetAutoSaveDefault()
+	if status.On {
 		t.Fatal("expected auto save default to be false")
+	}
+	if status.UpdatedAt == 0 {
+		t.Fatal("expected updatedAt to be set after SetAutoSaveDefault")
 	}
 }
 
@@ -526,15 +531,15 @@ func TestHomeServiceRenameFile(t *testing.T) {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
-	newPath, err := svc.RenameFile(testFile, "new.txt")
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
+	result := svc.RenameFile(testFile, "new.txt")
+	if !result.OK {
+		t.Fatalf("expected ok, got error: %s", result.Error)
 	}
 	expectedPath := filepath.Join(tmp, "new.txt")
-	if newPath != expectedPath {
-		t.Fatalf("expected path %s, got %s", expectedPath, newPath)
+	if result.Path != expectedPath {
+		t.Fatalf("expected path %s, got %s", expectedPath, result.Path)
 	}
-	if _, err := os.Stat(newPath); os.IsNotExist(err) {
+	if _, err := os.Stat(result.Path); os.IsNotExist(err) {
 		t.Fatal("expected renamed file to exist")
 	}
 }

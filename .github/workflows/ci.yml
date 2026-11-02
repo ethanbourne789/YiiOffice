@@ -2,8 +2,8 @@ name: CI
 
 # Runs the verification chain that a release must pass: Go vet+tests+build for
 # the backend, and typecheck+tests+full renderer build for the frontend.
-# E2E (Playwright) drives the shell against its Vite dev server via a
-# Playwright-browser harness (no WebView2 host required), so it runs in CI too.
+# E2E (Playwright) drives a server build of the app (`-tags server`) so the tests
+# exercise the real Go services, not a stubbed bridge.
 
 on:
   push:
@@ -64,11 +64,13 @@ jobs:
         shell: pwsh
 
   e2e:
-    name: E2E (Playwright vs Vite dev server)
+    name: E2E (Playwright vs server build)
     runs-on: windows-latest
-    # Runs Playwright against the shell Vite dev server (port 5178) with
-    # minimal bridge stubs injected by the fixture. The multi-app workspace
-    # layout is not directly supported by `wails3 dev` (single Vite root).
+    # Playwright drives a server build of the app (`-tags server`): same renderer
+    # bundles, same Go services, served over HTTP — the approach specified by
+    # https://v3.wails.io/guides/e2e-testing/. No WebView2 and no display needed.
+    # The harness launches the binary itself (one host per worker), so the
+    # `webServer` block does not apply to this project.
     needs: [go, frontend]
     steps:
       - uses: actions/checkout@v4
@@ -81,42 +83,40 @@ jobs:
             e2e/package-lock.json
       - name: Install frontend dependencies
         working-directory: frontend
-        run: npm install
+        run: npm ci
       - name: Install E2E dependencies
         working-directory: e2e
-        run: npm install
+        run: npm ci
       - name: Install Playwright Chromium
         working-directory: e2e
         run: npx playwright install chromium
-      - name: Start shell dev server (background)
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      # The suite drives a server build of the app, so the bindings, the
+      # renderer bundles and the Go binary must be current before Playwright
+      # starts (the harness launches the binary itself, one host per worker).
+      # Bindings first, with the server tag, exactly as the guide prescribes.
+      - name: Install wails3 CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0
+      - name: Generate bindings for the server build
+        run: wails3 generate bindings -ts -f '-tags=server,production' -clean=true -time-type=Date
+      - name: Build renderers
         working-directory: frontend
-        shell: pwsh
-        run: |
-          Start-Process -FilePath "npm.cmd" -ArgumentList "run","dev","-w","@yiioffice/shell","--","--port","5178","--strictPort" -WorkingDirectory "$env:GITHUB_WORKSPACE\frontend" -WindowStyle Hidden
-      # Give Vite a moment to boot, then confirm the shell serves.
-      - name: Wait for dev server
-        shell: pwsh
-        run: |
-          $deadline = (Get-Date).AddSeconds(120)
-          do {
-            try {
-              $r = Invoke-WebRequest -Uri http://localhost:5178/ -UseBasicParsing -TimeoutSec 3
-              if ($r.StatusCode -eq 200) { Write-Output "dev server up"; exit 0 }
-            } catch { Start-Sleep -Seconds 3 }
-          } while ((Get-Date) -lt $deadline)
-          Write-Error "dev server did not come up in time"
-      - name: Run Playwright E2E tests
+        run: npm run build
+      - name: Build E2E server binary
+        run: go build -tags server,production -buildvcs=false -o build/bin/YiiOffice-e2e-server.exe .
+      - name: Run Playwright E2E tests (real Go backend)
         working-directory: e2e
-        run: |
-          npx playwright test `
-            home.spec.ts home-nav.spec.ts window-behaviour.spec.ts `
-            docs-smoke.spec.ts tab-operations.spec.ts home-row-menu-layout.spec.ts `
-            headless-export.spec.ts `
-            markdown-smoke.spec.ts pdf-smoke.spec.ts sheets-smoke.spec.ts slides-smoke.spec.ts
+        run: npx playwright test --project=real
       - name: Upload Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: e2e/test-results
+          path: |
+            e2e/test-results
+            e2e/playwright-report
           if-no-files-found: ignore

@@ -11,14 +11,117 @@ import (
 	"strings"
 	"unicode"
 
+	"gitee.com/ethanbourne789/yiioffice/internal/fsutil"
 	"gitee.com/ethanbourne789/yiioffice/internal/host"
 	"gitee.com/ethanbourne789/yiioffice/internal/platform"
 )
 
-// ── URL validation ──
+// ── URL and path validation ──
 
 // maxExternalURLLength keeps clipboard/URL-bar abuse out of the shell opener.
 const maxExternalURLLength = 2048
+
+// maxLocalImageSize limits image file reads to 50 MB to prevent memory exhaustion.
+const maxLocalImageSize = 50 << 20
+
+// ValidateLocalPath authorises path against the guard's root set and returns
+// the canonical absolute path to read.
+//
+// The old rule was "must live under the user's home directory", which both
+// rejected legitimate files in a folder root the user had added on another
+// drive and waved through anything under the profile. Roots are now the set
+// the app actually exposes (see localReadRoots), and the guard additionally
+// rejects device names, alternate data streams and symlink escapes.
+//
+// Image extensions only: every caller embeds the bytes in a renderer.
+func ValidateLocalPath(guard *fsutil.Guard, path string) (string, error) {
+	if strings.TrimSpace(path) == "" {
+		return "", errors.New("empty path")
+	}
+	if guard == nil {
+		return "", errors.New("no authorised roots configured")
+	}
+	abs, err := guard.Authorize(path)
+	if err != nil {
+		return "", err
+	}
+	ext := strings.ToLower(filepath.Ext(abs))
+	switch ext {
+	case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg", ".tiff":
+	default:
+		return "", fmt.Errorf("extension not allowed: %s", ext)
+	}
+	return abs, nil
+}
+
+// localReadRoots resolves the directories a renderer may pull local file bytes
+// from: the folder roots the user configured (the default save folder plus any
+// folder added to the sidebar) and the user profile, where files opened from
+// Explorer, Downloads and Desktop live.
+//
+// Missing roots (unplugged drive, deleted folder) are dropped instead of
+// failing: fsutil.NewGuard requires existing roots, and one stale entry must
+// not disable every other root.
+func localReadRoots(configured func() []string) []string {
+	return localReadRootsWith(configured, nil)
+}
+
+// localReadRootsWith is localReadRoots plus caller-supplied extra directories.
+//
+// The extras exist for callers whose legitimate files sit outside the sidebar
+// roots: a document opened from an arbitrary folder keeps its images next to
+// itself, so that folder has to be readable too. They pass through the same
+// "must still exist and be a directory" filter, which means a stale entry (the
+// document was deleted) cannot widen the set.
+func localReadRootsWith(configured func() []string, extra []string) []string {
+	var candidates []string
+	if configured != nil {
+		candidates = append(candidates, configured()...)
+	}
+	candidates = append(candidates, extra...)
+	if home, err := os.UserHomeDir(); err == nil {
+		candidates = append(candidates, home)
+	}
+	seen := make(map[string]struct{}, len(candidates))
+	out := make([]string, 0, len(candidates))
+	for _, root := range candidates {
+		root = strings.TrimSpace(root)
+		if root == "" {
+			continue
+		}
+		if info, err := os.Stat(root); err != nil || !info.IsDir() {
+			continue
+		}
+		key := strings.ToLower(filepath.Clean(root))
+		if _, dup := seen[key]; dup {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, root)
+	}
+	return out
+}
+
+// LocalImageFile builds the authoriser behind the /md-asset route: it applies
+// the same policy as ShellService.ReadLocalImage (same roots, same extension
+// allowlist, same symlink resolution) and hands back the canonical path the
+// asset server streams.
+//
+// Two transports, one policy: the binding returns base64 for editor content,
+// the HTTP route streams for `<img src>`. Sharing this function is what keeps
+// them from drifting apart.
+//
+// The guard is rebuilt per call because the root set changes at runtime (add
+// or remove a sidebar folder); it is a handful of stat/realpath calls.
+func LocalImageFile(roots func() []string) func(string) (string, error) {
+	return func(raw string) (string, error) {
+		guard, err := fsutil.NewGuard(localReadRoots(roots))
+		if err != nil {
+			return "", err
+		}
+		return ValidateLocalPath(guard, raw)
+	}
+}
 
 // ValidateExternalURL accepts only plain http(s) URLs with no embedded credentials.
 func ValidateExternalURL(raw string) error {
@@ -230,6 +333,16 @@ func sanitizeFileName(name string) string {
 		sanitized = "document"
 	}
 	return sanitized
+}
+
+// resolversListPrinters returns the list of installed system printers as PrinterInfo.
+func resolversListPrinters() []PrinterInfo {
+	names := platform.ListPrinterNames()
+	out := make([]PrinterInfo, 0, len(names))
+	for _, name := range names {
+		out = append(out, PrinterInfo{Name: name, DisplayName: name})
+	}
+	return out
 }
 
 func replaceRunes(s string, fn func(rune) bool, replacement rune) string {

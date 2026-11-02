@@ -18,7 +18,7 @@ import type {
   FileSearchPage,
 } from '../../shared/home-api'
 import { markText } from '../../shared/text-marks'
-import { useDismissablePopover } from '@yiioffice/ui'
+import { useDismissablePopover, showToast } from '@yiioffice/ui'
 import { fileCountLabel, visiblePageCount } from './counts'
 import { searchViewState } from './search-state'
 import { useI18n } from './locale'
@@ -433,7 +433,7 @@ function FolderPicker({
     if (!parent || !name) return
     const result = await window.aiOffice.createFolder(parent, name)
     if (!result.ok) {
-      window.alert(result.error ?? t('renameFailed'))
+      showToast(result.error ?? t('renameFailed'), 'error')
       return
     }
     load(parent, true)
@@ -843,7 +843,7 @@ function DropToOpenOverlay(): ReactElement | null {
 
 // ── Main component ──────────────────────────────────────
 
-export function Home() {
+export function Home({ active = true }: { active?: boolean }) {
   const i18n = useI18n()
   const { t, lang } = i18n
   // ── Paged list state (rows loaded for the current view + filter) ──
@@ -867,6 +867,7 @@ export function Home() {
   const [searchPage, setSearchPage] = useState<FileSearchPage | null>(null)
   const [settingsRequest, setSettingsRequest] = useState<SettingsTarget | null>(null)
   const [settingsModalOpen, setSettingsModalOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   useEffect(
     () =>
       window.aiOffice.onOpenSettings?.((target) =>
@@ -1070,6 +1071,17 @@ export function Home() {
   useEffect(() => {
     reloadRef.current(false)
   }, [view, filter, groupFilter])
+
+  // Home stays mounted while an editor tab is in front, and the list only
+  // reloads when the view/filter changes — so a file opened in an editor never
+  // appeared under "Recent" until the user toggled a filter. Re-pull whenever
+  // the home tab becomes the active one.
+  const wasActive = useRef(active)
+  useEffect(() => {
+    const becameActive = active && !wasActive.current
+    wasActive.current = active
+    if (becameActive) refreshRef.current()
+  }, [active])
 
   const q = searchQuery.trim()
   useEffect(() => {
@@ -1381,7 +1393,7 @@ export function Home() {
     if (!value || value === baseName(entry)) return
     const newName = entry.ext ? `${value}.${entry.ext}` : value
     void window.aiOffice.renameFile(entry.path, newName).then((result) => {
-      if (!result.ok) window.alert(result.error ?? t('renameFailed'))
+      if (!result.ok) showToast(result.error ?? t('renameFailed'), 'error')
       refresh()
     })
   }
@@ -1412,7 +1424,7 @@ export function Home() {
     if (!pending || !name) return
     const result = await window.aiOffice.createFolder(pending.parent, name)
     if (!result.ok) {
-      window.alert(result.error ?? t('renameFailed'))
+      showToast(result.error ?? t('renameFailed'), 'error')
       return
     }
     invalidateFolders([pending.parent])
@@ -1433,7 +1445,7 @@ export function Home() {
     if (!value || value === fileName(pending.path)) return
     const result = await window.aiOffice.renameFolder(pending.path, value)
     if (!result.ok) {
-      window.alert(result.error ?? t('renameFailed'))
+      showToast(result.error ?? t('renameFailed'), 'error')
       return
     }
     if (result.path) {
@@ -1478,7 +1490,7 @@ export function Home() {
       }
     }
     refresh()
-    if (result.failed.length > 0) window.alert(result.failed[0].error)
+    if (result.failed.length > 0) showToast(result.failed[0].error, 'error')
     if (result.conflicts.length > 0) setConflict({ paths: result.conflicts, targetDir })
   }
 
@@ -2747,7 +2759,23 @@ export function Home() {
 
   return (
     <div className="home">
-      <aside className="sidebar">
+      <aside className={`sidebar${sidebarCollapsed ? ' collapsed' : ''}`}>
+        <button
+          className="sidebar-collapse-btn"
+          onClick={() => setSidebarCollapsed((v) => !v)}
+          aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <path
+              d="M9 2L4 7l5 5"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
         <div className="sidebar-logo">
           <img className="logo-icon" src={brandLogo} alt="" />
           <span className="logo-text">YiiOffice</span>

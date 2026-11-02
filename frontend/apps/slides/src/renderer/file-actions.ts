@@ -89,49 +89,60 @@ async function runSerialized<T>(pass: () => Promise<T>): Promise<T> {
 
 export async function save(getCtx: () => ActionCtx, quiet = false): Promise<boolean> {
   return runSerialized(async () => {
-    // resolved only now: a queued pass must remap selection against the tree the prior save adopted
     const ctx = getCtx()
     await flushActiveEdit(ctx)
     await ctx.flushNotes()
-    const r = await window.desktop.save()
-    if (r.ok) {
-      if (r.slides) adoptSavedSlides(ctx, r.slides)
-      if (r.path) ctx.setPath(r.path)
+    const opened = ctx.openedPptxRef.current
+    if (!opened || !ctx.path) {
+      const failed = t('appStatusSaveFailed', { error: 'No file open' })
+      ctx.setStatus(failed)
+      showToast(failed, 'error')
+      return false
+    }
+    try {
+      const { serializeToBase64 } = await import('./pptx-model')
+      const { commitSaved } = await import('@yiioffice/pptx-engine')
+      const base64 = await serializeToBase64(opened)
+      await (window.desktop as any).save({ path: ctx.path, base64 })
+      commitSaved(opened)
       ctx.setDirty(false)
       const saved = t('appStatusSaved')
       ctx.setStatus(saved)
       if (!quiet) showToast(saved)
-    } else {
-      const failed = t('appStatusSaveFailed', { error: r.error ?? t('appErrorCanceled') })
+      return true
+    } catch (err) {
+      const failed = t('appStatusSaveFailed', { error: String(err) })
       ctx.setStatus(failed)
-      // quiet suppresses the success toast only — a failed save (incl. the 30s
-      // auto-save) must surface, or edits silently stop reaching disk
       showToast(failed, 'error')
+      return false
     }
-    return r.ok
   })
 }
 
 export async function saveAs(getCtx: () => ActionCtx): Promise<void> {
-  // Same queue as save(): Save + Save As (or double Save As) write through
-  // the same main-process pipe and would interleave without it.
   await runSerialized(async () => {
     const ctx = getCtx()
     await flushActiveEdit(ctx)
     await ctx.flushNotes()
+    const opened = ctx.openedPptxRef.current
+    if (!opened) return
     const name = baseName(ctx.path ?? '') || 'presentation.pptx'
-    const r = await window.desktop.saveAs(name)
-    if (r.ok) {
-      if (r.slides) adoptSavedSlides(ctx, r.slides)
-      ctx.setPath(r.path ?? ctx.path)
-      ctx.setDirty(false)
-      const saved = t('appStatusSavedAs')
-      ctx.setStatus(saved)
-      showToast(saved)
-    } else if (r.error) {
-      // a canceled dialog returns ok:false without error — only real write
-      // failures surface, matching the docs/sheets save-as feedback
-      const failed = t('appStatusSaveFailed', { error: r.error })
+    try {
+      const { serializeToBase64 } = await import('./pptx-model')
+      const base64 = await serializeToBase64(opened)
+      const targetPath = ctx.path || `${name}`
+      const result = await (window.desktop as any).saveAs({ path: targetPath, base64 })
+      if (result) {
+        const { commitSaved } = await import('@yiioffice/pptx-engine')
+        commitSaved(opened)
+        ctx.setPath(typeof result === 'string' ? result : targetPath)
+        ctx.setDirty(false)
+        const saved = t('appStatusSavedAs')
+        ctx.setStatus(saved)
+        showToast(saved)
+      }
+    } catch (err) {
+      const failed = t('appStatusSaveFailed', { error: String(err) })
       ctx.setStatus(failed)
       showToast(failed, 'error')
     }

@@ -101,6 +101,84 @@ body.vib .home {
   padding: 18px 12px 16px;
   border-right: 1px solid var(--border);
   overflow-y: auto;
+  transition: width 0.2s ease, padding 0.2s ease;
+  position: relative;
+}
+
+/* collapsed sidebar */
+.sidebar.collapsed {
+  width: 48px;
+  padding: 12px 6px 16px;
+}
+
+.sidebar.collapsed .sidebar-logo {
+  justify-content: center;
+  padding: 0 4px;
+  margin-bottom: 12px;
+}
+
+.sidebar.collapsed .logo-text {
+  display: none;
+}
+
+.sidebar.collapsed .nav-label,
+.sidebar.collapsed .nav-count {
+  display: none;
+}
+
+.sidebar.collapsed .nav-item {
+  justify-content: center;
+  padding: 8px 4px;
+}
+
+.sidebar.collapsed .sidebar-divider {
+  margin: 8px 4px;
+}
+
+.sidebar.collapsed .folder-panel {
+  display: none;
+}
+
+.sidebar.collapsed .account-btn {
+  justify-content: center;
+  padding: 8px 4px;
+}
+
+.sidebar.collapsed .settings-label {
+  display: none;
+}
+
+/* collapse toggle button */
+.sidebar-collapse-btn {
+  position: absolute;
+  top: 12px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, transform 0.2s;
+  z-index: 5;
+}
+
+.sidebar-collapse-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.sidebar.collapsed .sidebar-collapse-btn {
+  right: 50%;
+  transform: translateX(50%);
+}
+
+.sidebar.collapsed .sidebar-collapse-btn svg {
+  transform: rotate(180deg);
 }
 
 .sidebar-logo {
@@ -1607,6 +1685,74 @@ body.vib .home {
   .recent-path,
   .recent-size {
     display: none;
+  }
+}
+
+/* Narrow window: sidebar collapses to icon-only, folder tree hidden */
+@media (max-width: 700px) {
+  .sidebar {
+    width: 48px;
+    padding: 12px 6px 16px;
+  }
+
+  .sidebar .sidebar-logo {
+    justify-content: center;
+    padding: 0 4px;
+    margin-bottom: 12px;
+  }
+
+  .sidebar .logo-text {
+    display: none;
+  }
+
+  .sidebar .nav-label,
+  .sidebar .nav-count {
+    display: none;
+  }
+
+  .sidebar .nav-item {
+    justify-content: center;
+    padding: 8px 4px;
+  }
+
+  .sidebar .sidebar-divider {
+    margin: 8px 4px;
+  }
+
+  .sidebar .folder-panel {
+    display: none;
+  }
+
+  .sidebar .account-btn {
+    justify-content: center;
+    padding: 8px 4px;
+  }
+
+  .sidebar .settings-label {
+    display: none;
+  }
+
+  .sidebar-collapse-btn {
+    display: none;
+  }
+}
+
+/* Very narrow: hide sidebar entirely */
+@media (max-width: 500px) {
+  .sidebar {
+    display: none;
+  }
+
+  .content {
+    padding: 16px 12px 24px;
+  }
+
+  .hero-title {
+    font-size: 22px;
+  }
+
+  .quick-card {
+    flex: 1 1 100%;
   }
 }
 

@@ -1,3 +1,5 @@
+import { textToBytes } from './browser-compat'
+
 /**
  * Element-level hyperlinks — <a:hlinkClick> under <p:cNvPr>.
  *
@@ -51,9 +53,8 @@ function appendRel(
   const relXml = `<Relationship Id="${rid}" Type="${type}" Target="${escapeXmlAttr(target)}"${mode}/>`
   archive.entries.set(
     relsPath,
-    Buffer.from(
+    textToBytes(
       rels.replace('</Relationships>', () => `${relXml}</Relationships>`),
-      'utf8',
     ),
   )
   return rid

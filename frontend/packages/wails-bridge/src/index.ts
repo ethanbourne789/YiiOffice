@@ -16,6 +16,11 @@ import * as runtimeModule from '@wailsio/runtime'
 ;(window as unknown as { wails?: WailsRuntime }).wails ??= runtimeModule as unknown as WailsRuntime
 import { createDesktopApi, createMarkdownApi } from './editor-api'
 import { createSlidesDesktopApi } from './slides-bridge'
+import type { HomeBridge } from './home-bridge'
+import type { TabsBridge } from './tabs-bridge'
+import type { DesktopApi, MarkdownApi } from './editor-api'
+import type { SlidesDesktopApi } from './slides-bridge'
+import type { WindowControlsApi } from './window-bridge'
 
 export { on, runtime } from './transport'
 export type { HomeBridge } from './home-bridge'
@@ -28,9 +33,9 @@ export {
   shellOpenExternal,
 } from './editor-api'
 export type { DesktopApi, MarkdownApi } from './editor-api'
-export { createSlidesDesktopApi } from './slides-bridge'
+export { createSlidesDesktopApi, registerEditHandlers } from './slides-bridge'
 export type { SlidesDesktopApi } from './slides-bridge'
-export { currentTabId, setCurrentTabDirty } from './tabs-bridge'
+export { currentTabId, currentTabPath, setCurrentTabDirty } from './tabs-bridge'
 export { createWindowControlsApi, readMaximised } from './window-bridge'
 export type { WindowControlsApi } from './window-bridge'
 export {
@@ -46,17 +51,35 @@ export {
 } from './export-bridge'
 export type { ExportResult, ExportFolder, PrinterInfo } from './export-bridge'
 
-declare global {
-  interface Window {
-    aiOffice?: unknown
-    aiOfficeTabs?: unknown
-    windowControls?: unknown
-    desktop?: unknown
-    desktopApi?: unknown
-    pdfApi?: unknown
-    markdownApi?: unknown
-    slidesDesktop?: unknown
-  }
+/**
+ * Globals published for the Electron-compatible renderers.
+ *
+ * Each app declares the `Window` members it consumes in its own `env.d.ts`/module
+ * (docs' DesktopApi, sheets' DesktopApi, slides' SlidesApi subset, shell's HomeApi, …),
+ * so the bridge does not declare them globally: a second, differently typed
+ * declaration collides with those (TS2717 "subsequent property declarations must have
+ * the same type") and wins the merge, degrading every call site to `unknown`.
+ * The bridge therefore publishes and reads them through this narrow view.
+ * `pdfApi`/`desktopApi` are installed by their own apps, not here.
+ */
+interface BridgedGlobals {
+  aiOffice: HomeBridge
+  aiOfficeTabs: TabsBridge
+  windowControls: WindowControlsApi
+  desktop: HomeBridge & DesktopApi
+  markdownApi: MarkdownApi
+  slidesDesktop: SlidesDesktopApi
+}
+
+/** Read-only view of the globals the bridge owns. */
+function bridgedGlobals(): Partial<BridgedGlobals> {
+  // The cast is unavoidable: every app augments `Window` with its own surface.
+  return window as unknown as Partial<BridgedGlobals>
+}
+
+/** Publishes the globals; `Object.assign` keeps the write typed without declaring `Window` members. */
+function publishBridgeGlobals(globals: Partial<BridgedGlobals>): void {
+  Object.assign(window, globals)
 }
 
 const EXTERNAL_ATTR = 'data-wails-external'
@@ -92,7 +115,7 @@ export function installExternalLinkGuard(): void {
  * `EnableFileDrop` is set on the window; unsupported extensions are ignored.
  */
 export function installDropOpenBridge(): void {
-  const home = (window.aiOffice as { openPath?: (path: string) => Promise<void> } | undefined) ?? null
+  const home = bridgedGlobals().aiOffice
   if (!home?.openPath) return
   try {
     on('common:WindowFilesDropped', (data) => {
@@ -112,17 +135,19 @@ export function installDropOpenBridge(): void {
  * renderer entry before React mounts.
  */
 export function installBridge(): void {
-  if (window.aiOffice) return
+  if (bridgedGlobals().aiOffice) return
   const home = createHomeApi()
-  window.aiOffice = home
-  window.desktop = {
-    ...home,
-    ...createDesktopApi(),
-  }
-  window.aiOfficeTabs = createTabsApi()
-  window.windowControls = createWindowControlsApi()
-  window.markdownApi = createMarkdownApi()
-  window.slidesDesktop = createSlidesDesktopApi()
+  publishBridgeGlobals({
+    aiOffice: home,
+    desktop: {
+      ...home,
+      ...createDesktopApi(),
+    },
+    aiOfficeTabs: createTabsApi(),
+    windowControls: createWindowControlsApi(),
+    markdownApi: createMarkdownApi(),
+    slidesDesktop: createSlidesDesktopApi(),
+  })
   installExternalLinkGuard()
   installDropOpenBridge()
 }

@@ -22,19 +22,21 @@ beforeAll(async () => {
     offset: { x: 0, y: 0, cx: 1828800, cy: 914400 },
     paragraphs: [{ runs: [{ text: 'Hello' }] }],
   })
-  videoId = addMedia(opened, 0, {
-    kind: 'video',
-    bytes: new Uint8Array([0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70]),
-    ext: 'mp4',
-    offset: { x: 0, y: 914400, cx: 1828800, cy: 914400 },
-  })!.elementId
+  videoId = (
+    await addMedia(opened, 0, {
+      kind: 'video',
+      bytes: new Uint8Array([0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70]),
+      ext: 'mp4',
+      offset: { x: 0, y: 914400, cx: 1828800, cy: 914400 },
+    })
+  )!.elementId
   // addMedia reparses the slide, so element ids are reassigned
   textId = opened.deck.slides[0]!.elements.find((e) => e.type !== 'picture')!.id
 })
 
 describe('media animations through the ops layer', () => {
-  it('addAnimation play on a video writes the media call and the media timeline node', () => {
-    const r = runTxn(opened, {
+  it('addAnimation play on a video writes the media call and the media timeline node', async () => {
+    const r = await runTxn(opened, {
       ops: [{ op: 'addAnimation', target: { slide: 0, el: videoId }, effect: 'play' }],
     })
     expect(r.applied).toBe(true)
@@ -46,16 +48,16 @@ describe('media animations through the ops layer', () => {
     expect(slide.bodySuffix).toContain('<p:video>')
   })
 
-  it('rejects media effects on a non-media element', () => {
-    const r = runTxn(opened, {
+  it('rejects media effects on a non-media element', async () => {
+    const r = await runTxn(opened, {
       ops: [{ op: 'addAnimation', target: { slide: 0, el: textId }, effect: 'mediaStop' }],
     })
     expect(r.applied).toBe(false)
     expect(r.failures![0]!.error).toMatch(/only applies to a video or audio element/)
   })
 
-  it('rejects a mismatched kind cross-check', () => {
-    const r = runTxn(opened, {
+  it('rejects a mismatched kind cross-check', async () => {
+    const r = await runTxn(opened, {
       ops: [
         {
           op: 'addAnimation',

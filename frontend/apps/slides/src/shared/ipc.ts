@@ -66,6 +66,12 @@ export interface SetEffectsPatch {
   softEdge?: number | null
 }
 
+/** A file read by the bridge: the renderer owns parsing (slides/size/theme). */
+export interface OpenFileBytes {
+  path: string
+  base64: string
+}
+
 export interface OpenResult {
   path: string
   slides: RenderSlide[]
@@ -1272,8 +1278,9 @@ export interface SlidesApi {
   /** snap the host window in/out of instant fullscreen for the slideshow
    *  (macOS simpleFullScreen — skips the animated Space transition) */
   setShowFullScreen: (on: boolean) => Promise<void>
-  openPptx: (fitWidthPx: number) => Promise<OpenResult | null>
-  openPptxPath: (path: string, fitWidthPx: number) => Promise<OpenResult | null>
+  /** Raw bytes of the open file, parsed in the renderer into an OpenResult. */
+  openPptx: (fitWidthPx: number) => Promise<OpenFileBytes | null>
+  openPptxPath: (path: string, fitWidthPx: number) => Promise<OpenFileBytes | null>
   /** Office-private faces referenced by layouts so far; the renderer registers them as FontFaces
    *  (files invisible to Chromium — DFonts/cloud fonts), so drawing uses the measuring font. */
   privateFontFaces: () => Promise<
@@ -1296,13 +1303,13 @@ export interface SlidesApi {
   fontMissing: () => Promise<string[]>
   /** The user font store changed (download/local install): re-sync private FontFaces */
   onFontsChanged: (handler: () => void) => () => void
-  consumePendingOpen: (fitWidthPx: number) => Promise<OpenResult | null>
+  consumePendingOpen: () => Promise<OpenFileBytes | null>
   /** Headless export mode: the PDF path this hidden renderer must export to, null in normal use */
   consumeHeadlessExport: () => Promise<string | null>
   /** Headless export mode: report the export outcome so the main process can quit */
   headlessExportDone: (result: { ok: boolean; error?: string }) => void
   /** New blank presentation (single blank 16:9 page, untitled) */
-  newBlank: (fitWidthPx: number) => Promise<OpenResult>
+  newBlank: (fitWidthPx: number) => Promise<{ base64: string } | null>
   /** Land generated pages: each pageMarkers entry is a marker (cloudpptx:<path>) redeemable for a one-slide pptx.
    *  mode="append" merges the new pages onto the existing deck (appendedFrom = existing page count);
    *  mode="replace_at" redoes page atIndex in place from a single marker (other pages untouched, undoable, replacedIndex = that page's index);
@@ -1673,7 +1680,8 @@ export interface SlidesApi {
   isDirty: () => Promise<boolean>
   getRecentFiles: () => Promise<string[]>
   onMenuCommand: (handler: (command: MenuCommand) => void) => () => void
-  onOpened: (handler: (result: OpenResult) => void) => () => void
+  /** File pushed by the shell (double-click / command line) — path only; the renderer reads the bytes */
+  onOpened: (handler: (path: string) => void) => () => void
   /** The file was renamed externally (shell Home list rename) — pushes the new path, the renderer updates the title bar */
   onRenamed: (handler: (newPath: string) => void) => () => void
   

@@ -10,6 +10,7 @@
 
 import { PackageArchive, relsPathFor, resolveTarget, type Relationship } from './zip'
 import { hasContentTypeOverride, maxRelationshipIdNumber } from './xml-utils'
+import { bytesToBase64, base64ToBytes, base64ToText, textToBase64, textToBytes, bytesEqual } from './browser-compat'
 
 const LAYOUT_REL = '/slideLayout'
 const NOTES_REL = '/notesSlide'
@@ -76,7 +77,7 @@ export function collectPart(
   if (parts[partPath]) return
   const bytes = archive.readBytes(partPath)
   if (!bytes) return
-  parts[partPath] = Buffer.from(bytes).toString('base64')
+  parts[partPath] = bytesToBase64(bytes)
 
   const ct = archive.readText('[Content_Types].xml')
   const override = overrideContentType(ct, partPath)
@@ -90,7 +91,7 @@ export function collectPart(
   const relsPath = relsPathFor(partPath)
   const relsXml = archive.readText(relsPath)
   if (!relsXml) return
-  parts[relsPath] = Buffer.from(relsXml, 'utf8').toString('base64')
+  parts[relsPath] = textToBase64(relsXml)
   for (const rel of archive.readRels(partPath).values()) {
     if (rel.targetMode === 'External') continue
     collectPart(archive, resolveTarget(partPath, rel.target), parts, contentTypes)
@@ -243,11 +244,11 @@ function writeParts(
     if (sourcePath.includes('/_rels/') || reusable?.has(sourcePath)) continue
     const targetPath = pathMap.get(sourcePath)
     if (!targetPath) continue
-    archive.entries.set(targetPath, new Uint8Array(Buffer.from(base64, 'base64')))
+    archive.entries.set(targetPath, base64ToBytes(base64))
 
     const sourceRels = parts[relsPathFor(sourcePath)]
     if (!sourceRels) continue
-    let relsXml = Buffer.from(sourceRels, 'base64').toString('utf8')
+    let relsXml = base64ToText(sourceRels)
     // rewrite this part's own targets to wherever their parts landed
     relsXml = relsXml.replaceAll(/Target="([^"]+)"/g, (whole, target: string) => {
       if (/^[a-z]+:/i.test(target)) return whole
@@ -255,7 +256,7 @@ function writeParts(
       const mapped = pathMap.get(absolute)
       return mapped ? `Target="${escapeAttr(relative(targetPath, mapped))}"` : whole
     })
-    archive.entries.set(relsPathFor(targetPath), new Uint8Array(Buffer.from(relsXml, 'utf8')))
+    archive.entries.set(relsPathFor(targetPath), textToBytes(relsXml))
   }
 
   ensureContentTypes(archive, contentTypes, pathMap)
@@ -278,13 +279,13 @@ function reusableParts(
     memo.set(sourcePath, false) // cycle guard
     let ok = false
     const existing = archive.readBytes(sourcePath)
-    if (existing && Buffer.from(existing).equals(Buffer.from(parts[sourcePath]!, 'base64'))) {
+    if (existing && bytesEqual(existing, base64ToBytes(parts[sourcePath]!))) {
       const relsPath = relsPathFor(sourcePath)
       const bundledRels = parts[relsPath]
       const existingRels = archive.readText(relsPath)
       if (bundledRels == null) ok = existingRels == null
       else if (existingRels != null) {
-        ok = Buffer.from(bundledRels, 'base64').toString('utf8') === existingRels
+        ok = base64ToText(bundledRels) === existingRels
         if (ok) {
           for (const rel of archive.readRels(sourcePath).values()) {
             if (rel.targetMode === 'External') continue
@@ -368,7 +369,7 @@ function ensureContentTypes(
       )
     }
   }
-  archive.entries.set(ctPath, new Uint8Array(Buffer.from(ct, 'utf8')))
+  archive.entries.set(ctPath, textToBytes(ct))
 }
 
 const PRES_PATH = 'ppt/presentation.xml'
@@ -377,7 +378,7 @@ const MASTER_REL_TYPE =
 
 function partText(parts: Readonly<Record<string, string>>, path: string): string | null {
   const base64 = parts[path]
-  return base64 == null ? null : Buffer.from(base64, 'base64').toString('utf8')
+  return base64 == null ? null : base64ToText(base64)
 }
 
 /**
@@ -419,12 +420,11 @@ function registerMaster(archive: PackageArchive, masterPath: string): boolean {
   const rid = `rId${maxRid + 1}`
   archive.entries.set(
     presRelsPath,
-    Buffer.from(
+    textToBytes(
       presRels.replace(
         '</Relationships>',
         `<Relationship Id="${rid}" Type="${MASTER_REL_TYPE}" Target="${escapeAttr(relative(PRES_PATH, masterPath))}"/></Relationships>`,
       ),
-      'utf8',
     ),
   )
   // sldMasterId ids must be unique and ≥ 2147483648
@@ -433,12 +433,11 @@ function registerMaster(archive: PackageArchive, masterPath: string): boolean {
     maxId = Math.max(maxId, Number(m[1]))
   archive.entries.set(
     PRES_PATH,
-    Buffer.from(
+    textToBytes(
       pres.replace(
         '</p:sldMasterIdLst>',
         `<p:sldMasterId id="${maxId + 1}" r:id="${rid}"/></p:sldMasterIdLst>`,
       ),
-      'utf8',
     ),
   )
   return true

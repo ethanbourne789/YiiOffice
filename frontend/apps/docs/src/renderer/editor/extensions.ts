@@ -71,7 +71,6 @@ import { noteMarkText } from '../note-format'
 import { t } from '../i18n/locale'
 import {
   ommlToMathML,
-  parseLazyMediaUrl,
   patchMathTokens,
   type ChartDisplay,
   type DiagramDisplay,
@@ -3951,17 +3950,7 @@ export const NativeTableSupport = Extension.create({
  * picture through DocProtected's img parse rule.
  */
 
-let lazyMediaHashes = new Set<string>()
-/** pictures served lazily from the open document persist by part reference */
-export function setLazyMediaHashes(hashes: Iterable<string>): void {
-  lazyMediaHashes = new Set(hashes)
-}
-const isLazyImage = (src: string): boolean => {
-  const hash = parseLazyMediaUrl(src)?.hash
-  return hash !== undefined && lazyMediaHashes.has(hash)
-}
-const persistableImage = (src: string): boolean =>
-  PERSISTABLE_IMAGE_URL.test(src) || isLazyImage(src)
+const persistableImage = (src: string): boolean => PERSISTABLE_IMAGE_URL.test(src)
 
 /** display attrs a copied picture needs to round-trip through clipboard HTML */
 /**
@@ -4038,15 +4027,12 @@ export const ImageCopyExtension = Extension.create({
       if (node.type.name !== 'docProtected' || node.attrs.blockType !== 'image') return false
       let dataUrl = node.attrs.imageDataUrl
       if (typeof dataUrl !== 'string') return false
-      if (!dataUrl.startsWith('data:image/') && !isLazyImage(dataUrl)) return false
-      const lazyPart = parseLazyMediaUrl(dataUrl)?.partPath
-      const directlyCopyable = lazyPart
-        ? /\.(?:png|jpe?g|gif)$/i.test(lazyPart)
-        : PERSISTABLE_IMAGE_URL.test(dataUrl)
+      if (!dataUrl.startsWith('data:image/')) return false
+      const directlyCopyable = PERSISTABLE_IMAGE_URL.test(dataUrl)
       // the save pipeline persists only png/jpeg/gif; display-only formats
       // (bmp/webp/svg/tiff...) are transcoded to PNG from the already-decoded
       // DOM img so the copy stays saveable — undecodable ones keep the
-      // default HTML copy (a lazy picture is read from the file by the main process)
+      // default HTML copy
       if (!directlyCopyable) {
         const dom = view.nodeDOM(sel.from) as HTMLElement | null
         const img = dom?.querySelector?.('img.doc-protected-img') as HTMLImageElement | null

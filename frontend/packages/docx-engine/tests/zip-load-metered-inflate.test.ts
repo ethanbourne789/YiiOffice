@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { crc32, deflateRawSync } from 'node:zlib'
 import { describe, expect, it } from 'vitest'
 import { assertZipInflatesWithinLimits, loadDocxZip } from '../src/zip-load'
-import { writeZip, type ZipEntry } from '../src/zip-splice'
+import { writeZip, type ZipEntry } from './helpers/zip-builder'
 
 const KB = 1024
 const MB = 1024 * KB
@@ -139,14 +139,11 @@ describe('the gate runs where Blob#stream is missing', () => {
 })
 
 describe('zip-load stays bundleable into the renderer', () => {
-  it('imports no Node builtins and nothing from zip-splice', () => {
-    // The Docs renderer bundles zip-load through parseDocx. zip-splice is built
-    // on node:fs and node:zlib and survives tree-shaking only while nothing
-    // calls it — one live import there, or one node: builtin here, fails
-    // `electron-vite build` on Vite's browser-external stubs. e2e caught exactly
-    // that; this keeps it caught.
+  it('imports no Node builtins', () => {
+    // The Docs renderer bundles zip-load through parseDocx. One `node:` import
+    // here fails the renderer build on Vite's browser-external stubs; e2e caught
+    // exactly that once, so this keeps it caught.
     const source = readFileSync(join(__dirname, '../src/zip-load.ts'), 'utf8')
     expect(source).not.toMatch(/from\s+'node:/)
-    expect(source).not.toMatch(/from '\.\/zip-splice'/)
   })
 })

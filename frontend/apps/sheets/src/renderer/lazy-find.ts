@@ -25,7 +25,7 @@ import {
   type IReplaceAllResult,
 } from '@univerjs/find-replace'
 import { IUniverInstanceService } from '@univerjs/core'
-import { FormulaDataModel } from '@univerjs/preset-sheets-core'
+import { FormulaDataModel } from '@univerjs/engine-formula'
 import { Subject, type Subscription } from 'rxjs'
 // Constants formerly from './ai/workbook-search' (module removed)
 const MAX_SCAN_CELLS = 10000

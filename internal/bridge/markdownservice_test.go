@@ -12,7 +12,9 @@ import (
 func newTestMarkdownService(t *testing.T, dataDir string) *MarkdownService {
 	t.Helper()
 	rm := host.NewRecentManager(dataDir)
-	return NewMarkdownService(rm)
+	// The test's temp dir stands in for the configured folder roots, so the
+	// fixtures each test writes are readable while the rest of the disk is not.
+	return NewMarkdownService(rm, func() []string { return []string{dataDir} })
 }
 
 func TestMarkdownServiceReadFile(t *testing.T) {
@@ -201,5 +203,102 @@ func TestMarkdownServicePickImageFailsWithoutApp(t *testing.T) {
 	_, err := svc.PickImage()
 	if err == nil {
 		t.Fatal("expected error when platform.App is nil")
+	}
+}
+
+// outsideProfileDir creates a folder beside the user profile. It is the only
+// fixture location that proves the root check is what rejects a path: files
+// under the profile are readable anyway (localReadRoots adds the home
+// directory), so a fixture there would pass for the wrong reason.
+func outsideProfileDir(t *testing.T) string {
+	t.Helper()
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("no user home directory")
+	}
+	dir, err := os.MkdirTemp(filepath.Dir(home), "yiioffice-readimage-")
+	if err != nil {
+		t.Skipf("cannot create a folder beside the user profile: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	return dir
+}
+
+// A document link is untrusted: `![](../../secret.png)` must not become an
+// arbitrary file read just because the renderer can resolve it to a path.
+func TestMarkdownServiceReadImageRejectsOutsideRoots(t *testing.T) {
+	dir := outsideProfileDir(t)
+	imgPath := filepath.Join(dir, "secret.png")
+	if err := os.WriteFile(imgPath, []byte("not for the document"), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	svc := newTestMarkdownService(t, t.TempDir())
+	if _, err := svc.ReadImage(imgPath); err == nil {
+		t.Fatal("expected ReadImage to reject a path outside the authorised roots")
+	}
+}
+
+// The image the user just picked in the native dialog has to stay readable even
+// when it lives outside every root, which is what the dialog grant is for.
+func TestMarkdownServiceReadImageAllowsDialogGrant(t *testing.T) {
+	dir := outsideProfileDir(t)
+	imgPath := filepath.Join(dir, "picked.png")
+	if err := os.WriteFile(imgPath, []byte("image bytes"), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	svc := newTestMarkdownService(t, t.TempDir())
+	svc.grantDialogPath(imgPath)
+
+	encoded, err := svc.ReadImage(imgPath)
+	if err != nil {
+		t.Fatalf("a path the user picked in a dialog must stay readable: %v", err)
+	}
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		t.Fatalf("result is not valid base64: %v", err)
+	}
+	if string(decoded) != "image bytes" {
+		t.Fatalf("unexpected bytes: %q", decoded)
+	}
+}
+
+// A note opened from outside the sidebar keeps its own images next to itself,
+// so the folder of a recent document is readable even though no root covers it.
+func TestMarkdownServiceReadImageAllowsRecentDocumentFolder(t *testing.T) {
+	dir := outsideProfileDir(t)
+	docPath := filepath.Join(dir, "note.md")
+	if err := os.WriteFile(docPath, []byte("# note"), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	imgPath := filepath.Join(dir, "assets.png")
+	if err := os.WriteFile(imgPath, []byte("image bytes"), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	svc := newTestMarkdownService(t, t.TempDir())
+	svc.rm.AddRecent(docPath)
+
+	if _, err := svc.ReadImage(imgPath); err != nil {
+		t.Fatalf("expected the recent document's folder to be readable: %v", err)
+	}
+}
+
+// ReadImage embeds bytes into the renderer, so it is image-only: reading a
+// text file through it would hand a document author any readable non-image.
+func TestMarkdownServiceReadImageRejectsNonImage(t *testing.T) {
+	tmp := t.TempDir()
+	svc := newTestMarkdownService(t, tmp)
+
+	txtPath := filepath.Join(tmp, "notes.txt")
+	if err := os.WriteFile(txtPath, []byte("plain text"), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	if _, err := svc.ReadImage(txtPath); err == nil {
+		t.Fatal("expected ReadImage to reject a non-image extension")
+	}
+	if _, err := svc.ReadImage("   "); err == nil {
+		t.Fatal("expected ReadImage to reject an empty path")
 	}
 }

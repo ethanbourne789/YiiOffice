@@ -26,7 +26,6 @@ import {
 import type { PmNode } from './pm-shared'
 import {
   mergePPrFormat,
-  parseLazyMediaUrl,
   setPPrChange,
   stripPPrChange,
   patchFieldParagraphXml,
@@ -751,20 +750,16 @@ export function pmDocToSavePlan(inputDoc: PmNode, originalBlocks: Block[]): Save
 function imageFromProtectedAttrs(node: PmNode): NewImage | null {
   if (node.attrs?.blockType !== 'image') return null
   const src = String(node.attrs?.imageDataUrl ?? '')
-  const lazy = parseLazyMediaUrl(src)
-  const m = lazy ? null : /^data:(image\/(?:png|jpeg|gif));base64,(.+)$/.exec(src)
+  const m = /^data:(image\/(?:png|jpeg|gif));base64,(.+)$/.exec(src)
   const widthPx = Number(node.attrs?.imageWidthPx)
   const heightPx = Number(node.attrs?.imageHeightPx)
-  if ((!m && !lazy) || !widthPx || !heightPx) return null
-  const image: NewImage = lazy
-    ? {
-        base64: '',
-        mime: 'image/png',
-        sourcePart: lazy.partPath,
-        widthPx,
-        heightPx,
-      }
-    : { base64: m![2], mime: m![1] as NewImage['mime'], widthPx, heightPx }
+  if (!m || !widthPx || !heightPx) return null
+  const image: NewImage = {
+    base64: m[2],
+    mime: m[1] as NewImage['mime'],
+    widthPx,
+    heightPx,
+  }
   const align = node.attrs?.imageAlign as NewImage['align'] | null
   if (align) image.align = align
   const wrap = node.attrs?.imageWrap as ImageWrap | null

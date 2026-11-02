@@ -5,6 +5,7 @@
  * are usable directly; MicroType-Express-compressed EOTs (flag 0x4) inflate through the
  * vendored MTX decoder (vendor/mtx).
  */
+import { textToBytes } from './browser-compat'
 import { XMLParser } from 'fast-xml-parser'
 import { mtxToSfnt } from './vendor/mtx'
 import { PackageArchive, resolveTarget } from './zip'
@@ -276,7 +277,7 @@ export function stripEmbeddedFonts(
       .replace(/ embedTrueTypeFonts="[^"]*"/, '')
       .replace(/ saveSubsetFonts="[^"]*"/, '')
   }
-  archive.entries.set(presPath, Buffer.from(nextPres, 'utf8'))
+  archive.entries.set(presPath, textToBytes(nextPres))
 
   const relIds = new Set(removed.flatMap((b) => b.relIds))
   const parts = new Set<string>()
@@ -291,7 +292,7 @@ export function stripEmbeddedFonts(
       if (target) parts.add(resolveTarget(presPath, target))
       return ''
     })
-    if (nextRels !== rels) archive.entries.set(relsPath, Buffer.from(nextRels, 'utf8'))
+    if (nextRels !== rels) archive.entries.set(relsPath, textToBytes(nextRels))
   }
   if (removeAll)
     for (const path of archive.entries.keys())
@@ -307,7 +308,7 @@ export function stripEmbeddedFonts(
     })
     if (removeAll)
       nextCt = nextCt.replace(/<Default\b[^>]*\bExtension=["']fntdata["'][^>]*\/>/g, '')
-    if (nextCt !== ct) archive.entries.set(ctPath, Buffer.from(nextCt, 'utf8'))
+    if (nextCt !== ct) archive.entries.set(ctPath, textToBytes(nextCt))
   }
   return true
 }
