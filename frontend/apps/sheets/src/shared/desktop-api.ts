@@ -2720,7 +2720,8 @@ export interface DesktopApi {
   printWorkbook(request: WorkbookExportPdfRequest): Promise<WorkbookPrintResult>
   listPrinters(): Promise<PrinterInfo[]>
   exportCsv(request: WorkbookExportCsvRequest): Promise<WorkbookExportCsvResult>
-  /// First Save of a CSV session: native "keep this format?" dialog.
+  /// First Save of a CSV session: "keep this format?" confirmation
+  /// (renderer modal; no native question dialog exists in this build).
   confirmCsvSave(): Promise<'csv' | 'xlsx' | 'cancel'>
   /// create_document: write a new standalone file into the default save
   /// folder (no dialog) and open it in a new tab.

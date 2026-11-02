@@ -541,6 +541,11 @@ export const en = {
   appSheetOrderReadFailed: 'Unable to read the sheet order — try again.',
   appSavingEdits: 'Saving {count} edit(s)…',
   appSaveCanceled: 'Save canceled.',
+  appCsvKeepTitle: 'Do you want to save the file in this format?',
+  appCsvKeepBody:
+    'CSV saves only the active sheet. Formatting, formulas and charts will be lost.',
+  appCsvKeepCsv: 'Save as CSV',
+  appCsvKeepXlsx: 'Save as XLSX',
   appSaved: 'Saved.',
   appSaveFailed: 'Unable to save the workbook.',
   appCfRuleUnsaveable:

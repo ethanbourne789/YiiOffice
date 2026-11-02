@@ -15,6 +15,7 @@ import {
   GetAutoSaveDefault as HomeAutoSaveDefault,
 } from '@bindings/gitee.com/ethanbourne789/yiioffice/internal/bridge/homeservice'
 import { OpenExternal, ReadLocalImage } from '@bindings/gitee.com/ethanbourne789/yiioffice/internal/bridge/shellservice'
+import { showCsvKeepFormatConfirm } from './csv-confirm'
 import type {
   DesktopApi,
   DocTheme,
@@ -271,7 +272,7 @@ export function createDesktopApi(): DesktopApi {
       )
     },
     confirmCsvSave() {
-      return Promise.resolve('cancel') // stub: needs dialog
+      return showCsvKeepFormatConfirm()
     },
 
     // --- AI create_document ---
