@@ -299,7 +299,7 @@ func main() {
 	}
 
 	win := app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:          "YiiOffice " + buildinfo.Version,
+		Title:          "YiiOffice",
 		Width:          1280,
 		Height:         800,
 		URL:            "/",
