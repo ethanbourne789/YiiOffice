@@ -2008,6 +2008,8 @@ export function App() {
   const startOcrPass = useCallback(
     (pending: number[] | null, doneBefore = 0) => {
       if (!doc) return
+      // engine-less build: no pass, no toast, not even the first page render
+      if (window.pdfApi.supportsOcr === false) return
       const live = ocrAbortRef.current
       const controller = live && !live.signal.aborted ? live : new AbortController()
       ocrAbortRef.current = controller

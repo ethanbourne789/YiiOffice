@@ -765,6 +765,10 @@ export interface PdfApi {
   /** System-OCR one rendered page image (PNG, base64); null when no engine is
       available on this platform, [] when recognition failed for this image */
   ocrPage(png: string): Promise<PdfOcrLine[] | null>
+  /** False when this build ships no OCR engine at all: the renderer skips the
+      auto-OCR pass instead of paying a page render for a guaranteed null.
+      Absent means "probe by running" (platform engines). */
+  supportsOcr?: boolean
   /** Render one existing image object to PNG (base64) for move/resize ghost previews; null if it can't be matched */
   pageImagePng(request: {
     path: string

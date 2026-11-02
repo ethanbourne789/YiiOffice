@@ -73,6 +73,9 @@ function createPdfApi(): PdfApi {
     canDrawText: async () => false,
     listPageImages: async (path: string) => pdf.ListPageImages(path, 0),
     listStaticFormFills: async () => [],
+    // pdfcpu builds ship no system-OCR engine; the flag lets the renderer skip
+    // the whole pass instead of rendering a page just to throw it away.
+    supportsOcr: false,
     ocrPage: async () => null,
     pageImagePng: async () => null,
     pagePreviewPng: async () => null,
