@@ -29,6 +29,7 @@ tasks:
             ref: .BUILD_FLAGS
           OBFUSCATED:
             ref: .OBFUSCATED
+      - task: generate:windows:syso
     preconditions:
       - sh: '{{if eq .OBFUSCATED "true"}}command -v garble >/dev/null 2>&1{{else}}true{{end}}'
         msg: "garble is required for obfuscated builds. Install it with: go install mvdan.cc/garble@v0.18.0 (requires Go 1.26+). See https://github.com/burrowers/garble/releases for version/toolchain compatibility."
@@ -38,6 +39,16 @@ tasks:
       APP_NAME: '{{.APP_NAME | default "YiiOffice"}}'
       BIN_DIR: '{{.BIN_DIR | default "build/bin"}}'
       BUILD_FLAGS: '-tags{{if eq .DEV "true"}}{{else}} production{{end}}{{if eq .OBFUSCATED "true"}},wails_obfuscated{{end}}{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}}{{if eq .DEV "true"}} -buildvcs=false -gcflags=all="-l"{{else}} -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui {{.BUILDINFO_X}}"{{end}}'
+
+  generate:windows:syso:
+    summary: Generates the Windows .syso (app icon + manifest + version info) linked into the exe
+    # The *_windows_amd64.syso name is only picked up by windows/amd64 Go builds,
+    # so leaving it in the repo root is inert for other platforms.
+    dir: build
+    platforms: [windows]
+    run: once
+    cmds:
+      - wails3 generate syso -arch amd64 -icon windows/icon.ico -manifest windows/wails.exe.manifest -info windows/info.json -out ../wails_windows_amd64.syso
 
   package:windows:
     summary: Builds the Windows NSIS installer

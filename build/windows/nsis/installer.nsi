@@ -1,4 +1,4 @@
-; YiiOffice Windows Installer
+﻿; YiiOffice Windows Installer
 ; Per-user installation, no UAC required
 ;
 ; This file is the installer the build pipeline actually compiles:
@@ -26,26 +26,40 @@ SetCompressor lzma
 Name "${APP_NAME}"
 OutFile "..\..\..\dist\${APP_NAME}_${APP_VERSION}_setup.exe"
 
-; Install directory. A per-user install (RequestExecutionLevel user) has to
-; live under the user profile: "$LOCALAPPDATA" is writable without elevation,
-; whereas a fixed drive root (previously "D:\YiiOffice") fails on machines
-; without that drive and needs rights the installer does not have.
-InstallDir "$LOCALAPPDATA\${APP_NAME}"
+; Install directory: default to D:\YiiOffice. Non-system drive roots are
+; writable by standard users, so this works with RequestExecutionLevel user;
+; .onInit falls back to $LOCALAPPDATA on machines without a D: drive.
+InstallDir "D:\${APP_NAME}"
 
 ; Remember the chosen directory across upgrades
 InstallDirRegKey HKCU "Software\${APP_NAME}" ""
 
 !include "MUI2.nsh"
+!include "LogicLib.nsh"
+
+; Installer/uninstaller icon (setup exe shows the app logo)
+!define MUI_ICON "..\icon.ico"
+!define MUI_UNICON "..\icon.ico"
 
 ; Pages. The MUI page macros must precede MUI_LANGUAGE, otherwise makensis
 ; warns that the language table is inserted after the pages.
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
+
+; Finish page: a checked "Run YiiOffice" checkbox launches the app on Close
+!define MUI_FINISHPAGE_RUN "$INSTDIR\${APP_EXE}"
+!define MUI_FINISHPAGE_RUN_TEXT "$(RUN_APP_TEXT)"
+!define MUI_FINISHPAGE_RUN_CHECKED
+!insertmacro MUI_PAGE_FINISH
+
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 
 !insertmacro MUI_LANGUAGE "English"
 !insertmacro MUI_LANGUAGE "SimpChinese"
+
+LangString RUN_APP_TEXT ${LANG_ENGLISH} "Run ${APP_NAME}"
+LangString RUN_APP_TEXT ${LANG_SIMPCHINESE} "运行 ${APP_NAME}"
 
 ; Sections
 Section "MainSection"
@@ -114,6 +128,9 @@ Section "MainSection"
   CreateShortCut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}"
   CreateShortCut "$SMPROGRAMS\${APP_NAME}\Uninstall.lnk" "$INSTDIR\uninstall.exe"
 
+  ; Desktop shortcut
+  CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}"
+
   ; Uninstaller
   WriteUninstaller "$INSTDIR\uninstall.exe"
 SectionEnd
@@ -140,6 +157,9 @@ Section "Uninstall"
   DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_UNINSTALL_KEY}"
   DeleteRegKey HKCU "Software\${APP_NAME}"
 
+  ; Remove desktop shortcut
+  Delete "$DESKTOP\${APP_NAME}.lnk"
+
   ; Remove files
   RMDir /r "$INSTDIR"
   RMDir "$SMPROGRAMS\${APP_NAME}"
@@ -148,4 +168,8 @@ SectionEnd
 ; Functions
 Function .onInit
   InitPluginsDir
+  ; No D: drive (or not writable) -> fall back to the per-user profile dir
+  ${IfNot} ${FileExists} "D:\*.*"
+    StrCpy $INSTDIR "$LOCALAPPDATA\${APP_NAME}"
+  ${EndIf}
 FunctionEnd

@@ -7,6 +7,7 @@
 # Wails
 /build/bin/
 /build/windows/*.syso
+/wails_windows_amd64.syso
 # NOTE: build/windows/nsis/ is *source* (hand-maintained installer scripts),
 # not build output — it must stay tracked, otherwise a fresh clone cannot
 # build the installer. Wails' own generated template lives nowhere: the
