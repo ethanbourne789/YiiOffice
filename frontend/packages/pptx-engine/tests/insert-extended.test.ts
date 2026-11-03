@@ -488,9 +488,41 @@ describe('addMedia / addModel3d', () => {
     expect(reopened.archive.readBytes(part!)).toEqual(glb)
   })
 
-  it('solidPng produces a decodable png signature', async () => {
+  it('solidPng produces a PNG whose IDAT inflates back to the exact pixels', async () => {
+    // End-to-end compression check: the pako-backed deflate in
+    // browser-compat.loadDeflate must emit a valid zlib stream that
+    // round-trips to the raw scanlines PNG decoders will read.
+    const { inflate } = await import('pako')
     const png = await solidPng(4, 3, [10, 20, 30])
     expect([...png.slice(0, 8)]).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+
+    const idat: Uint8Array[] = []
+    let off = 8
+    while (off + 8 <= png.length) {
+      const len = (((png[off]! << 24) | (png[off + 1]! << 16) | (png[off + 2]! << 8) | png[off + 3]!) >>> 0)
+      const type = String.fromCharCode(png[off + 4]!, png[off + 5]!, png[off + 6]!, png[off + 7]!)
+      if (type === 'IDAT') idat.push(png.subarray(off + 8, off + 8 + len))
+      if (type === 'IEND') break
+      off += 8 + len + 4
+    }
+    expect(idat.length).toBeGreaterThan(0)
+
+    const compressed = new Uint8Array(idat.reduce((n, c) => n + c.length, 0))
+    let co = 0
+    for (const chunk of idat) {
+      compressed.set(chunk, co)
+      co += chunk.length
+    }
+    const raw = inflate(compressed)
+    // 3 rows of [filter byte = 0, then 4 × RGB(10, 20, 30)]
+    expect(raw.length).toBe(3 * (1 + 4 * 3))
+    for (let y = 0; y < 3; y++) {
+      const row = y * 13
+      expect(raw[row]).toBe(0)
+      for (let x = 0; x < 4; x++) {
+        expect([raw[row + 1 + x * 3], raw[row + 2 + x * 3], raw[row + 3 + x * 3]]).toEqual([10, 20, 30])
+      }
+    }
   })
 })
 

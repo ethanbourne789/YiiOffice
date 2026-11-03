@@ -12,11 +12,14 @@ import {
   type XNode,
 } from './xml-utils'
 import { autoColorOf, colorFrom, lineTwipsOf, onOffOf, stripHash } from './parse-xml-text'
+import { tagAttr } from './parse-fields'
+import type { BuildContext } from './parse-shared'
 import {
   EA_LANG_DEFAULT_FONT,
   autoSpaceOf,
   cellMarginsOf,
   charIndentsOf,
+  emptyParaSizeHalfPoints,
   indentTwipsOf,
   mergeCharIndents,
   mergedBorderLinesOf,
@@ -30,6 +33,8 @@ import {
 import { w14TextOutlineOf } from './parse-drawing-geometry'
 import type {
   DocDefaults,
+  FormulaDisplay,
+  ParaFormat,
   Run,
   StyleDisplay,
   StyleInfo,
@@ -655,4 +660,193 @@ function styleDisplayOf(
     }
   }
   return Object.keys(display).length > 0 ? display : undefined
+}
+
+/**
+ * Effective heading level 1-9 (Word TOC/outline semantics): direct pPr
+ * w:outlineLvl wins (9 = body text), then the style's level, then a built-in
+ * HeadingN styleId the document never defined.
+ */
+export function headingLevelOf(
+  pPr: XNode | undefined,
+  styleId: string | undefined,
+  ctx: BuildContext,
+): number | undefined {
+  const direct = pPr ? attrsOf(findChild(pPr, 'w:outlineLvl') ?? {})['w:val'] : undefined
+  if (direct !== undefined) {
+    const lvl = parseInt(direct, 10)
+    return lvl >= 0 && lvl <= 8 ? lvl + 1 : undefined
+  }
+  if (!styleId) return undefined
+  const info = ctx.styles.get(styleId)
+  if (info) return info.headingLevel
+  const m = /^Heading([1-9])$/i.exec(styleId)
+  return m ? parseInt(m[1], 10) : undefined
+}
+
+/** heading level owed to a direct w:outlineLvl alone (the style contributes none) */
+export function outlineOnlyHeading(
+  pPr: XNode | undefined,
+  styleId: string | undefined,
+  ctx: BuildContext,
+): boolean {
+  if (!pPr || !findChild(pPr, 'w:outlineLvl')) return false
+  return headingLevelOf(undefined, styleId, ctx) === undefined
+}
+
+const defaultParaVanishCache = new WeakMap<Map<string, StyleInfo>, boolean>()
+
+/** Default paragraph style's w:vanish (cached per styles map): inherited by style-less paragraphs */
+/** w:cs face of a run without its own: character style, paragraph style (or the
+ * default one), then docDefaults — an empty theme cs slot there already resolved
+ * to the script-table face (Word: Arabic under minorBidi "" + bidi ar-SA = Arial) */
+export function inheritedCsFont(
+  rStyleId: string | undefined,
+  pStyleId: string | undefined,
+  ctx: BuildContext,
+): string | undefined {
+  const styles = ctx.styles
+  const para = pStyleId ? styles?.get(pStyleId) : defaultParaStyle(styles)
+  return (
+    (rStyleId ? styles?.get(rStyleId)?.display?.csFont : undefined) ??
+    para?.display?.csFont ??
+    ctx.docDefaults?.csFont
+  )
+}
+
+const defaultParaStyleCache = new WeakMap<Map<string, StyleInfo>, StyleInfo | null>()
+function defaultParaStyle(styles?: Map<string, StyleInfo>): StyleInfo | undefined {
+  if (!styles) return undefined
+  let s = defaultParaStyleCache.get(styles)
+  if (s === undefined) {
+    s = [...styles.values()].find((i) => i.isDefault && i.type === 'paragraph') ?? null
+    defaultParaStyleCache.set(styles, s)
+  }
+  return s ?? undefined
+}
+
+export function defaultParaVanish(styles?: Map<string, StyleInfo>): boolean | undefined {
+  if (!styles) return undefined
+  let v = defaultParaVanishCache.get(styles)
+  if (v === undefined) {
+    v = false
+    for (const info of styles.values()) {
+      if (info.isDefault && info.type === 'paragraph') {
+        v = info.display?.vanish === true
+        break
+      }
+    }
+    defaultParaVanishCache.set(styles, v)
+  }
+  return v || undefined
+}
+
+/** parse a w:p as editable text content (paragraph / heading / listItem) */
+/** Word's built-in text size when neither docDefaults nor the default style sets one */
+const WORD_DEFAULT_SIZE_HALF_POINTS = 20
+
+/**
+ * Twips per "character" for a paragraph's character-unit indents (Word for Mac
+ * probe, 2026-09-02). The special indents follow the first text run — its w:sz
+ * plus its w:spacing letter spacing; an empty run does not count and the
+ * paragraph mark never does (a run-less paragraph falls back to its mark, then
+ * its style). Left/right follow the default paragraph style's size, whatever
+ * the paragraph's own style or runs say. Under a linesAndChars document grid
+ * every character advances by charSpace/4096 pt more, and so do both units
+ * (snapToGrid off included).
+ */
+export function normalSizeHalfPoints(ctx: BuildContext): number {
+  return (
+    ctx.defaultParaStyle?.display?.sizeHalfPoints ??
+    ctx.docDefaults?.sizeHalfPoints ??
+    WORD_DEFAULT_SIZE_HALF_POINTS
+  )
+}
+
+/** an oMathPara follows its m:jc (Word default centerGroup, emitted explicitly so the
+ *  paragraph style's alignment cannot win); a bare math-only paragraph is inline maths
+ *  in Word and follows the paragraph's own w:jc (default left) */
+export function mathParaAlign(paragraphXml: string, pPr: string): FormulaDisplay['align'] {
+  if (paragraphXml.includes('<m:oMathPara')) {
+    const jc = tagAttr(paragraphXml, 'm:jc', 'm:val')
+    return jc === 'left' || jc === 'right' || jc === 'center' ? jc : 'centerGroup'
+  }
+  const jc = tagAttr(pPr, 'w:jc', 'w:val')
+  return jc === 'center' ? 'center' : jc === 'right' || jc === 'end' ? 'right' : 'left'
+}
+
+/** display maths size: first w:sz inside the OMML (m:r or m:ctrlPr), else the paragraph
+ *  mark, else the paragraph style, else Normal */
+export function mathSizeHalfPoints(
+  omml: string,
+  pPr: string,
+  styleId: string | undefined,
+  ctx: BuildContext,
+): number {
+  const explicit = parseInt(
+    tagAttr(omml, 'w:sz', 'w:val') ?? tagAttr(pPr, 'w:sz', 'w:val') ?? '',
+    10,
+  )
+  if (Number.isFinite(explicit)) return Math.max(1, explicit)
+  return (
+    (styleId ? ctx.styles.get(styleId)?.display?.sizeHalfPoints : undefined) ??
+    normalSizeHalfPoints(ctx)
+  )
+}
+
+/** size of the paragraph's first text run: explicit w:sz, else its character style, else
+ *  the paragraph mark of an empty paragraph, else the paragraph style, else Normal */
+export function paraTextSizeHalfPoints(
+  ctx: BuildContext,
+  runs: Run[],
+  pNode: XNode,
+  pPr: XNode | undefined,
+  styleId: string | undefined,
+): number {
+  const styleSize = styleId
+    ? ctx.styles.get(styleId)?.display?.sizeHalfPoints
+    : ctx.defaultParaStyle?.display?.sizeHalfPoints
+  const first = runs.find((r) => r.text !== '')
+  return (
+    first?.sizeHalfPoints ??
+    (first?.styleId ? ctx.styles.get(first.styleId)?.display?.sizeHalfPoints : undefined) ??
+    (first ? undefined : emptyParaSizeHalfPoints(pNode, pPr)) ??
+    styleSize ??
+    normalSizeHalfPoints(ctx)
+  )
+}
+
+/** style-chain autoSpace/wordWrap off reach the paragraph (the default style
+ *  covers pStyle-less ones): the renderer reads both per paragraph */
+export function inheritStyleBreakFlags(
+  format: ParaFormat | undefined,
+  style: StyleInfo | undefined,
+): ParaFormat | undefined {
+  const d = style?.display
+  let out = format
+  if (out?.autoSpace === undefined && d?.autoSpace === false) out = { ...out, autoSpace: false }
+  if (out?.wordWrap === undefined && d?.wordWrap === false) out = { ...out, wordWrap: false }
+  if (out?.overflowPunct === undefined && d?.overflowPunct === false) {
+    out = { ...out, overflowPunct: false }
+  }
+  if (out?.eastAsiaLang === undefined && d?.eastAsiaLang) {
+    out = { ...out, eastAsiaLang: d.eastAsiaLang }
+  }
+  return out
+}
+
+/** style-chain w:tabs reach the paragraph as display-only stops; a direct stop
+ *  (or w:val="clear") at the same position replaces the inherited one */
+export function inheritStyleTabStops(
+  format: ParaFormat | undefined,
+  style: StyleInfo | undefined,
+): ParaFormat | undefined {
+  const styleStops = style?.display?.tabStops
+  if (!styleStops?.length) return format
+  const direct = format?.tabStops ?? []
+  const inherited = styleStops
+    .filter((s) => s.val !== 'clear' && !direct.some((d) => d.pos === s.pos))
+    .map((s) => ({ ...s, inherited: true as const }))
+  if (inherited.length === 0) return format
+  return { ...(format ?? {}), tabStops: [...direct, ...inherited].sort((a, b) => a.pos - b.pos) }
 }

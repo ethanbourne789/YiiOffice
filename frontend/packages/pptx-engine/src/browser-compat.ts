@@ -168,18 +168,13 @@ export function randomUUID(): string {
 // --- Deflate ---
 
 /**
- * Sync deflate for PNG IDAT chunks. Uses pako if available,
- * otherwise a minimal DEFLATE implementation for solid-color PNG.
+ * Sync deflate for PNG IDAT chunks, backed by pako 3.x.
  *
- * Import note: this re-exports from pako. Add pako as a dependency:
- * npm install pako --save
+ * pako 3 ships ESM/CJS dual builds with named exports and its own types
+ * (dist/pako.d.ts), so the dynamic import is typechecked against the real
+ * API: `deflate(input, options?)` returns a fresh Uint8Array.
  */
 export async function loadDeflate(): Promise<(data: Uint8Array) => Uint8Array> {
-  const pako = (await import('pako')) as unknown as {
-    deflate(data: Uint8Array, options?: { level?: number }): Uint8Array
-  }
-  return (data: Uint8Array) => {
-    const result = pako.deflate(data)
-    return new Uint8Array(result)
-  }
+  const { deflate } = await import('pako')
+  return (data: Uint8Array) => deflate(data)
 }
