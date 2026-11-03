@@ -50,6 +50,8 @@ e2e/playwright-report/
 .icon-backup/
 # Playwright run output from a test invocation that did not run inside e2e/
 /test-results/
+# genoffice site-asset tool state (regenerated on next tool run)
+site/assets/.genoffice-assets.json
 
 # OS
 .DS_Store
