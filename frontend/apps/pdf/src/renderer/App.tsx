@@ -1275,7 +1275,8 @@ export function App() {
     })()
   }, [openPath])
 
-  /** pdf-lib cannot write encrypted files, including owner-protected files that open without a password. */
+  /** Encrypted files (including owner-protected files that open without a password) are
+      read-only: this build has no PDF writer, so it cannot rewrite them. */
   const readOnly = status === 'ready' && (passwordRef.current !== undefined || documentEncrypted)
 
   useEffect(() => {
@@ -5075,9 +5076,11 @@ export function App() {
     [imageEdits],
   )
 
-  // ── Live page preview: pdfium re-renders the touched region without the moved/
+  // ── Live page preview: would re-render the touched region without the moved/
   // resized/deleted images, without deleted saved annotations and without the text
-  // runs being edited, so the original vanishes immediately instead of at save ──
+  // runs being edited, so the original would vanish immediately instead of at save.
+  // This build has no native re-renderer (pagePreviewPng resolves null), so these
+  // requests are skipped without changing the preview ──
 
   /** The open draft's erase probe; keyed on the run, so typing doesn't re-request */
   const draftProbe = useMemo(

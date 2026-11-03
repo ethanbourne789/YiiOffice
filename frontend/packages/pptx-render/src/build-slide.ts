@@ -72,7 +72,7 @@ import {
 export interface BuildOptions {
   /** Target canvas width (px); height follows the slide aspect ratio. */
   fitWidthPx: number
-  /** Font metrics provider (heuristic by default; the frontend injects exact opentype metrics). */
+  /** Font metrics provider (heuristic by default; an exact provider can be injected, but no caller does yet). */
   metrics?: FontMetricsProvider
   /** Image/fill mediaRef → dataUrl. */
   media?: MediaResolver

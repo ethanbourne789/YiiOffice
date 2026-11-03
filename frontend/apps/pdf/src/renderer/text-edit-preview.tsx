@@ -37,7 +37,7 @@ export const hexToRgb = (hex: string): [number, number, number] => [
   parseInt(hex.slice(5, 7), 16) / 255,
 ]
 
-/** Text-edit colors travel as 0-255 RGB (PDFium fill color), unlike markups' 0-1 floats */
+/** Text-edit colors travel as 0-255 RGB (PDF fill color), unlike markups' 0-1 floats */
 export const hexTo255 = (hex: string): [number, number, number] => [
   parseInt(hex.slice(1, 3), 16),
   parseInt(hex.slice(3, 5), 16),

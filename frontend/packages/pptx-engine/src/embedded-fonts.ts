@@ -17,7 +17,7 @@ export type EmbeddedFontStyle = 'regular' | 'bold' | 'italic' | 'boldItalic'
 export interface EmbeddedFontFace {
   typeface: string
   style: EmbeddedFontStyle
-  /** Single-face sfnt bytes (TTF/OTF), ready for opentype.js / FontFace */
+  /** Single-face sfnt bytes (TTF/OTF), ready for a font parser / FontFace */
   sfnt: Uint8Array
 }
 

@@ -2,17 +2,18 @@
  * 2.3 Text metrics (fidelity linchpin) — font metrics abstraction layer.
  *
  * The key to fidelity is owning the font metrics: don't rely on browser Canvas
- * measureText (untestable, inconsistent across environments); instead parse real
- * font files with opentype.js to get exact advance width / ascent / descent, so
- * any environment (including node unit tests) yields deterministic wrapping and
- * line-height results.
+ * measureText (untestable, inconsistent across environments); instead take exact
+ * advance width / ascent / descent from a parsed font face handed in by the
+ * caller, so any environment (including node unit tests) yields deterministic
+ * wrapping and line-height results.
  *
  * Design: FontMetricsProvider interface + two implementations:
- *   1. OpentypeMetrics — real fonts (opentype.Font), pixel-accurate.
+ *   1. OpentypeMetrics — metrics from an injected font face, pixel-accurate.
+ *      No font parser is bundled: the provider is structural, and no app
+ *      currently supplies one, so production runs use the heuristic below.
  *   2. HeuristicMetrics — deterministic fallback without font files (advance
  *      estimated by character class), keeping wrapping logic unit-testable and
- *      cross-environment consistent; once the frontend loads real fonts it
- *      switches to exact metrics automatically.
+ *      cross-environment consistent.
  */
 
 export interface RunStyle {
@@ -125,7 +126,8 @@ export function isWideChar(code: number): boolean {
  * Estimate advance by character class (ratio relative to font size).
  * EAW fullwidth ≈ 1.0em, general Latin ≈ 0.5em, narrow chars smaller. Bold adds a bit.
  * These factors are only for the deterministic no-real-font fallback and don't aim
- * for pixel accuracy; real typesetting is handled by OpentypeMetrics.
+ * for pixel accuracy; exact typesetting is handled by OpentypeMetrics when a font
+ * face is injected.
  */
 function charAdvanceEm(code: number): number {
   if (isWideChar(code)) return 1.0
@@ -187,23 +189,23 @@ export class HeuristicMetrics implements FontMetricsProvider {
   }
 }
 
-// ── Exact metrics via opentype.js ───────────────────────────────────
+// ── Exact metrics via an injected font face ─────────────────────────
 
-/** Minimal interface of opentype.Font (avoids a hard type dependency; the frontend injects the real instance). */
+/** Minimal font-face interface (structural, so no font-parser dependency; no app injects one today). */
 export interface OpentypeFontLike {
   unitsPerEm: number
   ascender: number
   descender: number
   /** hhea lineGap (external leading, font units); part of the single-spacing line height */
   lineGap?: number
-  /** options matches opentype.js Font.getAdvanceWidth (kerning defaults to true) */
+  /** options matches Font.getAdvanceWidth (kerning defaults to true) */
   getAdvanceWidth(text: string, fontSize: number, options?: { kerning?: boolean }): number
   /** Optional: char → glyph index (0 = missing glyph). Used for the missing-glyph heuristic fallback. */
   charToGlyphIndex?(char: string): number
 }
 
 /**
- * Exact metrics using fonts already loaded via opentype.js.
+ * Exact metrics using an already-parsed font face.
  * fontResolver: returns the font instance for family+bold+italic (undefined if not found → caller falls back).
  */
 export class OpentypeMetrics implements FontMetricsProvider {

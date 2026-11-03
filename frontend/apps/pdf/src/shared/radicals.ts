@@ -4,8 +4,9 @@
     Licensed under Unicode License v3; see LICENSE-UNICODE.txt.
     pdf.js sometimes extracts text through a font cmap that yields radical-block
     codepoints (U+2E80-2FDF, and occasionally CJK strokes U+31C0-31E3) where the
-    page really draws the unified character - PDFium extracts the real one. NFKC
-    only decomposes the Kangxi block (U+2F00-2FD5); the Radicals Supplement has no
+    page really draws the unified character - a PDFium-class extractor would
+    return the real one, but this build has none, so pdf.js output is what we see.
+    NFKC only decomposes the Kangxi block (U+2F00-2FD5); the Radicals Supplement has no
     decompositions at all, so both processes fold through this table before
     comparing or writing text back. */
 export const RADICAL_EQUIV: Record<string, string> = {

@@ -122,9 +122,9 @@ export interface AnnotDeleteInput {
   contents?: string
 }
 
-/** Reply target: a note (Text) annotation saved in the file. The object number is only a
-    lookup hint — pdfium stages that run before pdf-lib may renumber objects — so the
-    parent is confirmed by rect + contents at write time. */
+/** Reply target: a note (Text) annotation saved in the file. Object numbers can shift
+    between stages, so objNum is only a lookup hint: the parent is confirmed by
+    rect + contents at write time. */
 export interface NoteReplyTarget {
   objNum: number
   rect: [number, number, number, number]
@@ -195,8 +195,9 @@ export type DrawingInput =
 
 /**
  * Stamp layer (watermark/header/footer/page numbers all go through it).
- * The renderer rasterizes the bitmap via canvas (with rotation and fonts, bypassing
- * pdf-lib's lack of CJK support); the main process only embeds and positions it.
+ * The renderer rasterizes the bitmap via canvas (rotation and fonts, because
+ * vector text cannot draw CJK without embedding a font); a content-stream writer
+ * would only embed and position it, and this build does not implement one.
  */
 export interface StampInput {
   pageIndex: number
@@ -216,9 +217,11 @@ export interface MetadataInput {
 }
 
 /**
- * Content-stream text replacement (pdfium). The renderer only knows pdf.js text items;
- * the main process re-locates the actual text objects by rect intersection and verifies
- * against oldText, because one pdf.js item may span many objects (CJK is often one per glyph).
+ * Content-stream text replacement. This build has no content-stream editor — pdfcpu
+ * cannot rewrite text objects — so the renderer never submits one; the contract below
+ * is kept for the engine API. An engine only knows pdf.js text items, so it must
+ * re-locate the actual text objects by rect intersection and verify against oldText,
+ * because one pdf.js item may span many objects (CJK is often one per glyph).
  */
 export interface TextEditInput {
   pageIndex: number
@@ -347,9 +350,11 @@ export const EDIT_FONTS = [
 export type ImageLayer = 'belowText' | 'aboveText'
 
 /**
- * Content-stream image operations (pdfium). Existing images are addressed by their
- * bounds as reported by listPageImages — the main process re-matches the actual object
- * by rect at save time (fail-soft, like text edits), since object indices shift.
+ * Content-stream image operations. This build has no content-stream editor, so the
+ * renderer never submits one; the contract below is kept for the engine API.
+ * Existing images are addressed by their bounds as reported by listPageImages — an
+ * engine re-matches the actual object by rect at save time (fail-soft, like text
+ * edits), since object indices shift.
  */
 export type ImageEditInput =
   | {
@@ -538,7 +543,7 @@ export interface SavePdfRequest {
   textEdits?: TextEditInput[]
   /** New searchable text objects, applied in the same content-stream stage as textEdits. */
   textInserts?: TextInsertInput[]
-  /** Content-stream image operations, applied right after textEdits (same pdfium stage) */
+  /** Content-stream image operations, applied right after textEdits (same content-stream stage) */
   imageEdits?: ImageEditInput[]
   /** Permanent redactions are accepted only for an explicitly authorized Save As copy. */
   redactions?: RedactionInput[]
@@ -740,7 +745,7 @@ export interface PdfApi {
   consumePending(): Promise<string | null>
   /** Read pdf bytes. Only paths granted to this view are allowed */
   readFile(path: string): Promise<ArrayBuffer>
-  /** Write markups/form values/page ops back to the original file (pdf-lib, content streams untouched); path grants same as readFile. With targetPath set (Save As), the original is only read and the result goes to targetPath */
+  /** Persist markups/form values/page ops. This build has no PDF writer, so the implementation rejects the call; the request shape is kept for the engine contract. Path grants are the same as readFile, and with targetPath set (Save As) the original is only read and the result would go to targetPath */
   save(request: SavePdfRequest): Promise<SavePdfResult>
   /** Creates a redacted working copy on first apply; subsequent applies save that copy in place. */
   requestRedactionCopy(path: string): Promise<boolean>

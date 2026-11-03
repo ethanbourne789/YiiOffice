@@ -4,9 +4,9 @@
  * Pure functions — input (paragraph text + run font/size + available width +
  * line-height rule + docGrid grid), output (line count + per-line heights + total block height).
  *
- * Design aligned with packages/pptx-render/src/metrics.ts (dual track: precise
- * opentype / heuristic fallback). F1 runs on heuristics first with the interface
- * ready, so we can switch seamlessly to OpentypeMetrics once font files load.
+ * Design aligned with packages/pptx-render/src/metrics.ts (dual track: exact
+ * via an injected font face / heuristic fallback). F1 runs on the heuristic
+ * today; OpentypeMetrics is available but nothing loads font faces yet.
  *
  * Line-breaking rules:
  *   - Latin text breaks greedily by word (breakable at whitespace)
@@ -533,7 +533,7 @@ export function simsunGapLineFactor(fontFamily: string): number | null {
   return null
 }
 
-// ─── opentype.js precise metrics (interface ready; F1 falls back to heuristics) ─────
+// ─── exact metrics via an injected font face (not wired; F1 uses heuristics) ───
 
 export interface OpentypeFontLike {
   unitsPerEm: number

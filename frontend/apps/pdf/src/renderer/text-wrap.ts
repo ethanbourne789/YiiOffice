@@ -124,7 +124,8 @@ export function wrapText(
 
 /** pdf.js sometimes extracts CJK through a font cmap that yields radical-block
     codepoints (U+2E80-2FDF, e.g. U+2F83 for U+81EA, U+2EE6 for U+9E1F) where the page
-    really draws unified ideographs — and PDFium extracts those. Fold each radical to
+    really draws unified ideographs — a PDFium-class extractor would return those, but
+    this build only has pdf.js. Fold each radical to
     its unified equivalent (visually identical) so block drafts edit and write back
     real ideographs: retained radical variants between two folded edits would
     otherwise reach the rebuild font as undrawable characters. NFKC alone is not

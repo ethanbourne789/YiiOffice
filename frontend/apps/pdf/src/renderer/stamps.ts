@@ -57,8 +57,9 @@ function toBase64(canvas: HTMLCanvasElement): string {
 
 /**
  * Watermark bitmap: full-page transparent canvas with text rotated around the center.
- * Uses a bitmap because pdf-lib's built-in fonts lack CJK, and embedding fonts would
- * bundle several MB of font data.
+ * Rendered as a bitmap rather than vector text because vector text cannot draw CJK
+ * without embedding a font (several MB of font data per document), and this build
+ * has no PDF writer that could embed one.
  */
 export function renderWatermark(cfg: WatermarkConfig, pw: number, ph: number): string | null {
   const text = cfg.text.trim()

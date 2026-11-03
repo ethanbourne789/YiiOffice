@@ -4,7 +4,7 @@
  * Layering (approach A: data-driven + thin adapters):
  *   coords      2.1 EMU→px coordinate system + viewport
  *   fill        2.2 fill/stroke resolution
- *   metrics     2.3 font metrics (opentype.js exact / heuristic fallback)
+ *   metrics     2.3 font metrics (injected font face / heuristic fallback)
  *   text-layout 2.3 text layout (wrapping/line spacing/autofit/vertical alignment)
  *   build-slide aggregation: Slide → RenderTree (fidelity is locked at this layer; unit-testable without canvas)
  *

@@ -2564,8 +2564,9 @@ button {
   background: var(--pdf-imgedit-ghost-bg);
 }
 
-/* Live-preview patch: the touched region re-rendered by pdfium without the
-   moved/resized/deleted images (document content, so it also inverts at night) */
+/* Live-preview patch: the touched region re-rendered by a native engine without the
+   moved/resized/deleted images (not available in this build, so the layer stays
+   empty; document content, so it also inverts at night) */
 .pdf-page-livepreview {
   position: absolute;
   pointer-events: none;
