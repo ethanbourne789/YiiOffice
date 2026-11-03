@@ -54,7 +54,6 @@
 
         <nav class="nav__links" aria-label="主导航">
           <a class="nav__link" href="#editors">编辑器</a>
-          <a class="nav__link" href="#capabilities">通用能力</a>
           <a class="nav__link" href="#start">快速开始</a>
           <a class="nav__link" href="#faq">常见问题</a>
         </nav>
@@ -418,7 +417,6 @@
                 打开、编辑、保存都在你自己的磁盘上。程序不会替你上传、同步或备份 ——
                 文件存哪儿、叫什么名字，始终由你决定。
               </p>
-              <a class="editorial__link" href="#capabilities">看看联网边界在哪</a>
             </div>
 
             <div class="facts">
@@ -461,61 +459,6 @@
       </section>
 
       <!-- ------------------------------------------------------ capabilities -->
-      <section class="section section--ruled" id="capabilities">
-        <div class="wrap">
-          <div class="section__head reveal">
-            <p class="eyebrow">通用能力</p>
-            <h2 class="h2">在编辑器之外，把难的部分做掉。</h2>
-            <p class="lede">
-              保存不坏文件、崩溃不丢内容、搜索能命中中文 —— 这些不显眼的地方，才是每天真正依赖的部分。
-            </p>
-          </div>
-
-          <div class="caps">
-            <article class="cap reveal">
-              <h3 class="h3">原子写入</h3>
-              <p>所有落盘都走「临时文件 + rename」，崩溃或断电不会留下半个损坏的文件。</p>
-            </article>
-
-            <article class="cap reveal">
-              <h3 class="h3">本地全文搜索</h3>
-              <p>
-                Go 侧 SQLite（FTS5）索引，覆盖文件名、路径与正文；中文走 bigram + unigram 双路分词，
-                两字词也能命中长串；fsnotify 以 400ms 去抖做增量更新，文件夹增删实时联动，无需重启。
-              </p>
-            </article>
-
-            <article class="cap reveal">
-              <h3 class="h3">多标签宿主</h3>
-              <p>标签由 Go 侧统一托管，切换只做显示与隐藏，编辑器状态整份保留；标签可分离为独立窗口，关闭前有未保存拦截。</p>
-            </article>
-
-            <article class="cap reveal">
-              <h3 class="h3">无界面导出</h3>
-              <p>
-                <code>--headless-export</code> 不弹窗口就能转 PDF，<code>--json</code>
-                输出一行结构化结果，方便脚本与批处理调用。
-              </p>
-            </article>
-
-            <article class="cap reveal">
-              <h3 class="h3">zip 炸弹防护</h3>
-              <p>
-                <code>zip-gate</code> 在解包前拒绝解压体积超出声明值的压缩包，
-                DOCX / PPTX 引擎共用同一道防线。
-              </p>
-            </article>
-
-            <article class="cap reveal">
-              <h3 class="h3">服务器模式与 Docker</h3>
-              <p>
-                <code>-tags server</code> 构建纯 HTTP 服务（无 GUI，默认 8080 端口），可打包为
-                distroless 镜像部署；同一套代码，桌面与服务两种形态。
-              </p>
-            </article>
-          </div>
-        </div>
-      </section>
 
       <!-- ------------------------------------------------------------- stack -->
       <section class="section section--ruled" id="stack">
@@ -732,27 +675,6 @@ task e2e</pre>
                   内容流级别的编辑超出其能力边界，相应入口已隐藏。查看、导航与页面操作不受影响。
                 </div>
               </details>
-              <details>
-                <summary>中文能搜到吗？</summary>
-                <div class="faq__body">
-                  能。FTS5 的 <code>unicode61</code> 不切分连续中文，所以索引额外产出 bigram 与
-                  unigram 两路 token，两字词和单字查询都能命中。
-                </div>
-              </details>
-              <details>
-                <summary>能部署到服务器上吗？</summary>
-                <div class="faq__body">
-                  可以。<code>task build:server</code> 或 <code>task build:docker</code> 产出 HTTP 服务形态，
-                  默认监听 8080；绑定到非回环地址时启动会告警，请置于可信网络或反向代理之后。
-                </div>
-              </details>
-              <details>
-                <summary><code>wails3 dev</code> 起来了，编辑器标签却白屏？</summary>
-                <div class="faq__body">
-                  先确认 Vite dev server（:5178）活着 —— 编辑器标签都挂在它上面，端口被占或渲染端崩掉就会白屏；
-                  重新运行 <code>wails3 dev</code> 即可拉起。
-                </div>
-              </details>
             </div>
           </div>
         </div>
@@ -805,7 +727,6 @@ task e2e</pre>
             <h4>产品</h4>
             <a href="#editors">编辑器</a>
             <a href="#principles">设计原则</a>
-            <a href="#capabilities">通用能力</a>
             <a href="#start">快速开始</a>
           </div>
 

@@ -54,7 +54,6 @@
 
         <nav class="nav__links" aria-label="Main navigation">
           <a class="nav__link" href="#editors">Editors</a>
-          <a class="nav__link" href="#capabilities">Capabilities</a>
           <a class="nav__link" href="#start">Quick start</a>
           <a class="nav__link" href="#faq">FAQ</a>
         </nav>
@@ -427,7 +426,6 @@
                 syncs or backs up anything for you — where a file lives and what it is called stays
                 your decision.
               </p>
-              <a class="editorial__link" href="#capabilities">See where the network boundary is</a>
             </div>
 
             <div class="facts">
@@ -473,63 +471,6 @@
       </section>
 
       <!-- ------------------------------------------------------ capabilities -->
-      <section class="section section--ruled" id="capabilities">
-        <div class="wrap">
-          <div class="section__head reveal">
-            <p class="eyebrow">Capabilities</p>
-            <h2 class="h2">The hard parts, handled outside the editors.</h2>
-            <p class="lede">
-              Saves that never corrupt, crashes that never lose content, search that actually hits
-              Chinese text — the unglamorous parts are what you rely on every day.
-            </p>
-          </div>
-
-          <div class="caps">
-            <article class="cap reveal">
-              <h3 class="h3">Atomic writes</h3>
-              <p>Every save goes through a temporary file plus <code>rename</code>, so a crash or power cut cannot leave half a file behind.</p>
-            </article>
-
-            <article class="cap reveal">
-              <h3 class="h3">Local full-text search</h3>
-              <p>
-                A Go-side SQLite (FTS5) index over names, paths and extracted text; CJK goes through
-                bigram + unigram streams, so two-character words match inside longer runs. fsnotify
-                applies 400 ms-debounced incremental updates — folder changes sync live, no restart.
-              </p>
-            </article>
-
-            <article class="cap reveal">
-              <h3 class="h3">Multi-tab host</h3>
-              <p>Tabs are managed centrally by a Go-side host; switching preserves editor state whole, tabs detach into their own windows, and closing is guarded against unsaved changes.</p>
-            </article>
-
-            <article class="cap reveal">
-              <h3 class="h3">Headless export</h3>
-              <p>
-                <code>--headless-export</code> converts to PDF without a window, and
-                <code>--json</code> emits one structured line for scripts and batch jobs.
-              </p>
-            </article>
-
-            <article class="cap reveal">
-              <h3 class="h3">Zip-bomb defence</h3>
-              <p>
-                <code>zip-gate</code> rejects archives whose parts inflate past what they declare
-                before anything materialises them — one defence shared by the DOCX and PPTX engines.
-              </p>
-            </article>
-
-            <article class="cap reveal">
-              <h3 class="h3">Server mode &amp; Docker</h3>
-              <p>
-                <code>-tags server</code> builds a pure HTTP server (no GUI, port 8080 by default)
-                and packages it as a distroless image — one codebase, two shapes.
-              </p>
-            </article>
-          </div>
-        </div>
-      </section>
 
       <!-- ------------------------------------------------------------- stack -->
       <section class="section section--ruled" id="stack">
@@ -751,29 +692,6 @@ task e2e</pre>
                   operations all work.
                 </div>
               </details>
-              <details>
-                <summary>Does Chinese text search work?</summary>
-                <div class="faq__body">
-                  Yes. The index emits bigram and unigram streams for CJK, working around the fact
-                  that FTS5 <code>unicode61</code> does not segment continuous Chinese text.
-                </div>
-              </details>
-              <details>
-                <summary>Can it be deployed on a server?</summary>
-                <div class="faq__body">
-                  Yes. <code>task build:server</code> or <code>task build:docker</code> produces the
-                  HTTP shape, listening on port 8080 by default; binding to a non-loopback address
-                  prints a startup warning, so keep it behind a trusted network or a reverse proxy.
-                </div>
-              </details>
-              <details>
-                <summary><code>wails3 dev</code> started, but an editor tab shows a white page?</summary>
-                <div class="faq__body">
-                  Check that the Vite dev server (:5178) is alive — every editor tab loads from it,
-                  so a blocked port or a crashed renderer shows a blank tab. Re-running
-                  <code>wails3 dev</code> brings it back.
-                </div>
-              </details>
             </div>
           </div>
         </div>
@@ -827,7 +745,6 @@ task e2e</pre>
             <h4>Product</h4>
             <a href="#editors">Editors</a>
             <a href="#principles">Principles</a>
-            <a href="#capabilities">Capabilities</a>
             <a href="#start">Quick start</a>
           </div>
 
