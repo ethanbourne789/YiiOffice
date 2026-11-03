@@ -75,10 +75,8 @@ func (g *Guard) Authorize(raw string) (string, error) {
 			return "", err
 		}
 	}
-	canonical := abs
-	if resolved, err := filepath.EvalSymlinks(abs); err == nil {
-		canonical = resolved
-	} else if !os.IsNotExist(err) {
+	canonical, err := resolveExistingPrefix(abs)
+	if err != nil {
 		return "", fmt.Errorf("resolve: %w", err)
 	}
 	key := canonicalKey(filepath.Clean(canonical))
@@ -88,6 +86,47 @@ func (g *Guard) Authorize(raw string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("path outside authorised roots: %s", raw)
+}
+
+// resolveExistingPrefix canonicalises path as far as the filesystem allows:
+// the longest existing prefix is symlink-resolved (and, on Windows, expanded
+// from 8.3 short form to long form), then the non-existent remainder — e.g. a
+// save-as target whose file is not yet written — is re-joined verbatim.
+//
+// Authorize needs this because roots are canonicalised through EvalSymlinks,
+// which always yields the long form; comparing an unresolved short-form path
+// against them would falsely reject legitimate paths (GitHub's Windows runners
+// expose TEMP in short form). It also closes a symlink escape: without this, a
+// non-existent path under a symlinked directory inside a root would be allowed
+// and the caller would then follow the symlink out of the root.
+func resolveExistingPrefix(path string) (string, error) {
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		return resolved, nil
+	} else if !os.IsNotExist(err) {
+		return "", err
+	}
+	var missing []string
+	cur := path
+	for {
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			// No existing component found (e.g. a path on a non-existent
+			// volume); fall back to the cleaned absolute input.
+			return filepath.Clean(path), nil
+		}
+		missing = append(missing, filepath.Base(cur))
+		cur = parent
+		resolved, err := filepath.EvalSymlinks(cur)
+		if err == nil {
+			for i := len(missing) - 1; i >= 0; i-- {
+				resolved = filepath.Join(resolved, missing[i])
+			}
+			return resolved, nil
+		}
+		if !os.IsNotExist(err) {
+			return "", err
+		}
+	}
 }
 
 // checkWindowsName rejects names Win32 resolves to something other than the
