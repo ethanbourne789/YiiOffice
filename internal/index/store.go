@@ -72,9 +72,22 @@ func NewFileIndexStore(dbPath string) (*FileIndexStore, error) {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
 
+	// Serialize all database access through a single connection. The index
+	// workload is short write transactions (Upsert/Remove) interleaved with
+	// scans from the indexer loop, the watcher flush loop, and search
+	// bindings; multiple pooled connections would let those collide and fail
+	// with SQLITE_BUSY. No code path holds one connection while requesting
+	// another, so a limit of 1 cannot deadlock. busy_timeout additionally
+	// covers a second process (e.g. a stray CLI) touching the same file.
+	db.SetMaxOpenConns(1)
+
 	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("pragma wal: %w", err)
+	}
+	if _, err := db.Exec("PRAGMA busy_timeout=5000"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("pragma busy_timeout: %w", err)
 	}
 
 	s := &FileIndexStore{db: db}

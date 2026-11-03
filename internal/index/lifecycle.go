@@ -46,10 +46,18 @@ func Init(dataDir string, rootPaths []string) (*Lifecycle, error) {
 		lc.watcher = w
 	}
 
-	// Trigger initial background scan
+	// Trigger the initial background scan and only publish Ready once that
+	// first scan has actually completed. Marking Ready right after Refresh()
+	// returned would let search run against an empty or half-built index.
+	// If shutdown wins the race, done closes and we leave the status at
+	// "initializing" instead of ever reporting Ready.
 	go func() {
 		indexer.Refresh()
-		SetIndexStatus(true, "")
+		select {
+		case <-indexer.FirstScanDone():
+			SetIndexStatus(true, "")
+		case <-indexer.done:
+		}
 	}()
 
 	return lc, nil

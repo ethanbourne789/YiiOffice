@@ -210,6 +210,27 @@ func main() {
 		platform.RevealPath,
 	)
 
+	// Re-register the extensions the user enabled so a moved/upgraded
+	// executable refreshes its stored open-command path (HKCU, no UAC).
+	homeSvc.RefreshEnabledAssociations()
+
+	// Server mode exposes every bridge binding and authorised local file
+	// read over plain HTTP with no authentication layer. The compiled-in
+	// bind address is loopback-only; WAILS_SERVER_HOST can widen it (the
+	// Docker image deliberately sets 0.0.0.0 for container networking), so
+	// a non-loopback bind is logged loudly at startup rather than silently
+	// honoured. Keep docker/Dockerfile.server and docs/e2e-test-strategy.md
+	// in sync if this behaviour changes.
+	if servmode.Enabled {
+		if host := os.Getenv("WAILS_SERVER_HOST"); !servmode.IsLoopbackHost(host) {
+			platform.Logger().Warn("SERVER MODE BOUND TO NON-LOOPBACK ADDRESS",
+				"host", host,
+				"port", os.Getenv("WAILS_SERVER_PORT"),
+				"risk", "unauthenticated HTTP access to all bindings and authorised local files",
+				"mitigation", "run only on a trusted network or behind an authenticating reverse proxy")
+		}
+	}
+
 	app := application.New(application.Options{
 		Name:        "YiiOffice",
 		Description: "YiiOffice desktop office suite",

@@ -30,6 +30,8 @@ type Watcher struct {
 	debounce      time.Duration
 	flushInterval time.Duration
 	done          chan struct{}
+	stopped       bool
+	wg            sync.WaitGroup
 }
 
 // NewWatcher creates a watcher feeding ix. debounce is the per-path
@@ -108,18 +110,32 @@ func addDirTree(dst map[string]struct{}, root string) {
 
 // Start launches the event and flush loops.
 func (w *Watcher) Start() {
-	go w.eventLoop()
-	go w.flushLoop()
+	w.wg.Add(2)
+	go func() {
+		defer w.wg.Done()
+		w.eventLoop()
+	}()
+	go func() {
+		defer w.wg.Done()
+		w.flushLoop()
+	}()
 }
 
-// Stop ends the loops and closes the underlying filesystem watcher.
+// Stop ends the loops, waits for any in-flight flush (which may still be
+// calling IndexOne/RemoveIndexed on the store), then closes the underlying
+// filesystem watcher. Safe to call more than once; only the first call does
+// the work, so the done channel is closed exactly once.
 func (w *Watcher) Stop() {
-	select {
-	case <-w.done:
-		return // already stopped
-	default:
-		close(w.done)
+	w.mu.Lock()
+	if w.stopped {
+		w.mu.Unlock()
+		return
 	}
+	w.stopped = true
+	close(w.done)
+	w.mu.Unlock()
+
+	w.wg.Wait()
 	_ = w.fw.Close()
 }
 

@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/wailsapp/wails/v3/pkg/updater"
-	"github.com/wailsapp/wails/v3/pkg/updater/providers/github"
 )
 
 // releaseServer serves a GitHub/Gitee-shaped release payload at
@@ -27,12 +26,13 @@ func releaseServer(t *testing.T, body string) *httptest.Server {
 }
 
 // check runs one provider check against base with platform/arch pinned, so the
-// test does not depend on the host that runs it.
+// test does not depend on the host that runs it. It goes through newProvider,
+// i.e. the same Gitee-compat HTTP client the production updater uses.
 func check(t *testing.T, base, currentVersion string) (*updater.Release, error) {
 	t.Helper()
-	provider, err := github.New(github.Config{Repository: repository, BaseURL: base})
+	provider, err := newProvider(base)
 	if err != nil {
-		t.Fatalf("github.New: %v", err)
+		t.Fatalf("newProvider: %v", err)
 	}
 	rel, err := provider.Check(context.Background(), updater.CheckRequest{
 		CurrentVersion: currentVersion,

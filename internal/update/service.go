@@ -4,6 +4,8 @@ package update
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/updater"
@@ -30,13 +32,25 @@ type Service struct {
 	updater *updater.Updater
 }
 
+// newProvider builds the GitHub-shaped release provider for base. The HTTP
+// client carries the Gitee compatibility transport (see giteecompat.go): the
+// v3.1.0 provider reads the asset "url" field, which Gitee omits in favour
+// of browser_download_url.
+func newProvider(base string) (*github.Provider, error) {
+	return github.New(github.Config{
+		Repository: repository,
+		BaseURL:    base,
+		HTTPClient: &http.Client{
+			Timeout:   30 * time.Second,
+			Transport: giteeCompatTransport{base: http.DefaultTransport},
+		},
+	})
+}
+
 // New configures the application-wide updater with the Gitee release feed.
 // It must be called after application.New (which allocates app.Updater).
 func New(app *application.App, currentVersion string) (*Service, error) {
-	provider, err := github.New(github.Config{
-		Repository: repository,
-		BaseURL:    giteeAPIBase,
-	})
+	provider, err := newProvider(giteeAPIBase)
 	if err != nil {
 		return nil, fmt.Errorf("update provider: %w", err)
 	}

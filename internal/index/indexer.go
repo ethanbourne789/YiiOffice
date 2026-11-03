@@ -18,6 +18,14 @@ type FileIndexer struct {
 	refreshCh chan struct{}
 	done      chan struct{}
 	running   bool
+	stopped   bool
+	wg        sync.WaitGroup
+
+	// firstScan is closed after the first full scan completes without being
+	// aborted by Stop. firstScanOnce guards both the run-completion and the
+	// Stop-time unblock paths so the channel is closed exactly once.
+	firstScan     chan struct{}
+	firstScanOnce sync.Once
 }
 
 // NewFileIndexer creates an indexer for the given roots.
@@ -30,6 +38,7 @@ func NewFileIndexer(store *FileIndexStore, roots []string) *FileIndexer {
 		roots:     roots,
 		refreshCh: make(chan struct{}, 1),
 		done:      make(chan struct{}),
+		firstScan: make(chan struct{}),
 	}
 }
 
@@ -40,23 +49,43 @@ func (ix *FileIndexer) SetRoots(roots []string) {
 	ix.roots = roots
 }
 
-// Refresh schedules a full index refresh (debounced).
+// Refresh schedules a full index refresh (debounced). The token push, the
+// running check, and the loop start happen under one mutex so a refresh can
+// never be lost between a loop exiting and a new loop being scheduled.
 func (ix *FileIndexer) Refresh() {
+	ix.mu.Lock()
+	defer ix.mu.Unlock()
 	select {
 	case ix.refreshCh <- struct{}{}:
 	default:
 	}
-	ix.mu.Lock()
-	wasRunning := ix.running
-	ix.mu.Unlock()
-	if !wasRunning {
+	if !ix.running && !ix.stopped {
+		ix.running = true
+		ix.wg.Add(1)
 		go ix.loop()
 	}
 }
 
-// Stop shuts down the indexer gracefully.
+// FirstScanDone returns a channel closed after the first full scan has
+// completed. A scan aborted by Stop does not close it; callers that gate
+// readiness on it must also watch for shutdown.
+func (ix *FileIndexer) FirstScanDone() <-chan struct{} {
+	return ix.firstScan
+}
+
+// Stop shuts down the indexer: it signals the loop, which aborts any
+// in-flight scan early, and waits for the loop goroutine to exit. Safe to
+// call more than once; only the first call closes the done channel.
 func (ix *FileIndexer) Stop() {
+	ix.mu.Lock()
+	if ix.stopped {
+		ix.mu.Unlock()
+		return
+	}
+	ix.stopped = true
 	close(ix.done)
+	ix.mu.Unlock()
+	ix.wg.Wait()
 }
 
 // RunOnce performs a single index refresh synchronously (for testing).
@@ -64,10 +93,11 @@ func (ix *FileIndexer) RunOnce() {
 	ix.run()
 }
 
+// loop consumes refresh tokens until Stop. It deliberately stays alive
+// between scans: exit is driven only by done, so a token pushed concurrently
+// with a scan completing is always picked up on the next iteration.
 func (ix *FileIndexer) loop() {
-	ix.mu.Lock()
-	ix.running = true
-	ix.mu.Unlock()
+	defer ix.wg.Done()
 
 	for {
 		select {
@@ -78,14 +108,6 @@ func (ix *FileIndexer) loop() {
 			return
 		case <-ix.refreshCh:
 			ix.run()
-			select {
-			case <-ix.refreshCh:
-			default:
-				ix.mu.Lock()
-				ix.running = false
-				ix.mu.Unlock()
-				return
-			}
 		}
 	}
 }
@@ -152,6 +174,11 @@ func (ix *FileIndexer) run() {
 	for _, task := range tasks {
 		task := task
 		g.Go(func() error {
+			select {
+			case <-ix.done:
+				return nil // shutdown: skip remaining walk tasks
+			default:
+			}
 			res := ScanDir(task)
 			mu.Lock()
 			allFiles = append(allFiles, res.Files...)
@@ -202,12 +229,23 @@ func (ix *FileIndexer) run() {
 		}
 	}
 
-	// 5. Index changed files
+	// 5. Index changed files. Text extraction dominates this loop, so the
+	// done channel is polled per file: a Stop during a large first scan
+	// aborts quickly instead of blocking Shutdown (and store.Close) until
+	// every file has been processed.
 	for _, f := range changed {
+		select {
+		case <-ix.done:
+			return
+		default:
+		}
 		if err := ix.indexFile(f); err != nil {
 			platform.Logger().Warn("index: failed to index file", "path", f.Path, "error", err)
 		}
 	}
+
+	// Completed without shutdown: the first full scan is done.
+	ix.firstScanOnce.Do(func() { close(ix.firstScan) })
 }
 
 func (ix *FileIndexer) indexFile(sf ScannedFile) error {
