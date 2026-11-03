@@ -3,6 +3,7 @@
 
 export {
     DocumentEntry,
+    FileAssocEntry,
     FileInfo,
     FolderEntry,
     FolderListing,

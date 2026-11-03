@@ -131,6 +131,16 @@ export function GetDocumentTheme(): $CancellablePromise<string> {
 }
 
 /**
+ * GetFileAssocStatus reports the live per-extension association state, read
+ * from the registry so the UI reconciles with what Windows actually holds.
+ */
+export function GetFileAssocStatus(): $CancellablePromise<host$0.FileAssocEntry[]> {
+    return $Call.ByID(445133489).then(($result: any) => {
+        return $$createType8($result);
+    });
+}
+
+/**
  * GetLanguage returns the current UI language (e.g. "zh").
  */
 export function GetLanguage(): $CancellablePromise<string> {
@@ -149,7 +159,7 @@ export function GetTheme(): $CancellablePromise<string> {
  */
 export function ListFolder(path: string): $CancellablePromise<host$0.FolderListing> {
     return $Call.ByID(660427882, path).then(($result: any) => {
-        return $$createType7($result);
+        return $$createType9($result);
     });
 }
 
@@ -196,6 +206,14 @@ export function NewSlide(): $CancellablePromise<void> {
 }
 
 /**
+ * OpenDefaultAppSettings opens the Windows default-apps page; the user must
+ * confirm YiiOffice there — no program may write the hash-protected choice.
+ */
+export function OpenDefaultAppSettings(): $CancellablePromise<void> {
+    return $Call.ByID(1553514059);
+}
+
+/**
  * OpenPath routes a file into the appropriate editor tab.
  */
 export function OpenPath(path: string): $CancellablePromise<void> {
@@ -222,8 +240,16 @@ export function PickDefaultSaveDir(): $CancellablePromise<string> {
  */
 export function Recents(offset: number, limit: number): $CancellablePromise<host$0.DocumentEntry[]> {
     return $Call.ByID(3234937562, offset, limit).then(($result: any) => {
-        return $$createType9($result);
+        return $$createType11($result);
     });
+}
+
+/**
+ * RefreshEnabledAssociations re-registers every extension the user enabled so
+ * a moved/upgraded executable refreshes its stored open-command path.
+ */
+export function RefreshEnabledAssociations(): $CancellablePromise<void> {
+    return $Call.ByID(2461495686);
 }
 
 /**
@@ -270,7 +296,7 @@ export function RevealPath(path: string): $CancellablePromise<void> {
  */
 export function SearchFiles(query: $models.FileSearchQuery): $CancellablePromise<$models.FileSearchPage | null> {
     return $Call.ByID(4034234489, query).then(($result: any) => {
-        return $$createType11($result);
+        return $$createType13($result);
     });
 }
 
@@ -293,6 +319,15 @@ export function SetDefaultApp(): $CancellablePromise<void> {
  */
 export function SetDocumentTheme(theme: string): $CancellablePromise<void> {
     return $Call.ByID(1078654092, theme);
+}
+
+/**
+ * SetFileAssocEnabled toggles the per-user "Open with" registration for one
+ * extension and persists the intent. The default-program choice itself is
+ * Windows' UserChoice and stays with the user.
+ */
+export function SetFileAssocEnabled(ext: string, enabled: boolean): $CancellablePromise<void> {
+    return $Call.ByID(2749524880, ext, enabled);
 }
 
 /**
@@ -321,7 +356,7 @@ export function SetTheme(theme: string): $CancellablePromise<void> {
  */
 export function Starred(): $CancellablePromise<host$0.DocumentEntry[]> {
     return $Call.ByID(4235624813).then(($result: any) => {
-        return $$createType9($result);
+        return $$createType11($result);
     });
 }
 
@@ -339,7 +374,7 @@ export function StarredGroups(): $CancellablePromise<string[]> {
  */
 export function StatPaths(paths: string[]): $CancellablePromise<host$0.FileInfo[]> {
     return $Call.ByID(2758891496, paths).then(($result: any) => {
-        return $$createType13($result);
+        return $$createType15($result);
     });
 }
 
@@ -374,10 +409,12 @@ const $$createType3 = $models.RenameResult.createFrom;
 const $$createType4 = $Create.Array($$createType0);
 const $$createType5 = $models.AutoSaveStatus.createFrom;
 const $$createType6 = $Create.Map($Create.Any, $Create.Any);
-const $$createType7 = host$0.FolderListing.createFrom;
-const $$createType8 = host$0.DocumentEntry.createFrom;
-const $$createType9 = $Create.Array($$createType8);
-const $$createType10 = $models.FileSearchPage.createFrom;
-const $$createType11 = $Create.Nullable($$createType10);
-const $$createType12 = host$0.FileInfo.createFrom;
-const $$createType13 = $Create.Array($$createType12);
+const $$createType7 = host$0.FileAssocEntry.createFrom;
+const $$createType8 = $Create.Array($$createType7);
+const $$createType9 = host$0.FolderListing.createFrom;
+const $$createType10 = host$0.DocumentEntry.createFrom;
+const $$createType11 = $Create.Array($$createType10);
+const $$createType12 = $models.FileSearchPage.createFrom;
+const $$createType13 = $Create.Nullable($$createType12);
+const $$createType14 = host$0.FileInfo.createFrom;
+const $$createType15 = $Create.Array($$createType14);

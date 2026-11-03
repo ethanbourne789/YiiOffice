@@ -54,6 +54,43 @@ export class DocumentEntry {
 }
 
 /**
+ * FileAssocEntry is the reconciled association state of one extension, read
+ * live from the registry so the UI never shows a stale switch.
+ */
+export class FileAssocEntry {
+    "ext": string;
+    "registered": boolean;
+    "isDefault": boolean;
+    "defaultApp": string;
+
+    /** Creates a new FileAssocEntry instance. */
+    constructor($$source: Partial<FileAssocEntry> = {}) {
+        if (!("ext" in $$source)) {
+            this["ext"] = "";
+        }
+        if (!("registered" in $$source)) {
+            this["registered"] = false;
+        }
+        if (!("isDefault" in $$source)) {
+            this["isDefault"] = false;
+        }
+        if (!("defaultApp" in $$source)) {
+            this["defaultApp"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FileAssocEntry instance from a string or object.
+     */
+    static createFrom($$source: any = {}): FileAssocEntry {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new FileAssocEntry($$parsedSource as Partial<FileAssocEntry>);
+    }
+}
+
+/**
  * FileInfo is a stat result for a single path.
  */
 export class FileInfo {

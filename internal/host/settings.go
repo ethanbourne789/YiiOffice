@@ -20,6 +20,10 @@ type Settings struct {
 	AutoSaveDefault        bool   `json:"autoSaveDefault"`
 	AutoSaveDefaultUpdated int64  `json:"autoSaveDefaultUpdated"`
 	DefaultSaveDir         string `json:"defaultSaveDir"`
+	// FileAssocEnabled records the user's intent per extension (".docx" ->
+	// true). The registry stays the source of truth for display; this map
+	// only tells startup which ProgIDs to refresh when the exe path moved.
+	FileAssocEnabled map[string]bool `json:"fileAssocEnabled"`
 }
 
 var (
@@ -100,6 +104,16 @@ func (s *SettingsStore) SetDefaultSaveDir(dir string) error {
 	return s.update(func(d *Settings) { d.DefaultSaveDir = dir })
 }
 
+// SetFileAssocEnabled persists the file-association intent for one extension.
+func (s *SettingsStore) SetFileAssocEnabled(ext string, enabled bool) error {
+	return s.update(func(d *Settings) {
+		if d.FileAssocEnabled == nil {
+			d.FileAssocEnabled = map[string]bool{}
+		}
+		d.FileAssocEnabled[ext] = enabled
+	})
+}
+
 func (s *SettingsStore) update(mutate func(*Settings)) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -128,6 +142,9 @@ func mergeDefaults(loaded Settings) Settings {
 	}
 	if loaded.DefaultSaveDir != "" {
 		out.DefaultSaveDir = loaded.DefaultSaveDir
+	}
+	if loaded.FileAssocEnabled != nil {
+		out.FileAssocEnabled = loaded.FileAssocEnabled
 	}
 	return out
 }

@@ -363,6 +363,50 @@ func (s *HomeService) SetDefaultApp() {
 	platform.OpenExternal(s.dam.SetDefaultApp())
 }
 
+// GetFileAssocStatus reports the live per-extension association state, read
+// from the registry so the UI reconciles with what Windows actually holds.
+func (s *HomeService) GetFileAssocStatus() []host.FileAssocEntry {
+	return s.dam.GetFileAssocStatus()
+}
+
+// SetFileAssocEnabled toggles the per-user "Open with" registration for one
+// extension and persists the intent. The default-program choice itself is
+// Windows' UserChoice and stays with the user.
+func (s *HomeService) SetFileAssocEnabled(ext string, enabled bool) error {
+	exePath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("resolve executable: %w", err)
+	}
+	if err := host.SetExtensionAssoc(ext, exePath, enabled); err != nil {
+		return err
+	}
+	return s.store.SetFileAssocEnabled(host.NormalizeExt(ext), enabled)
+}
+
+// OpenDefaultAppSettings opens the Windows default-apps page; the user must
+// confirm YiiOffice there — no program may write the hash-protected choice.
+func (s *HomeService) OpenDefaultAppSettings() {
+	platform.OpenExternal(s.dam.SetDefaultApp())
+}
+
+// RefreshEnabledAssociations re-registers every extension the user enabled so
+// a moved/upgraded executable refreshes its stored open-command path.
+func (s *HomeService) RefreshEnabledAssociations() {
+	exePath, err := os.Executable()
+	if err != nil {
+		platform.Logger().Warn("resolve executable for associations", "error", err)
+		return
+	}
+	for ext, enabled := range s.store.Snapshot().FileAssocEnabled {
+		if !enabled {
+			continue
+		}
+		if err := host.RegisterExtension(ext, exePath); err != nil {
+			platform.Logger().Warn("refresh file association", "ext", ext, "error", err)
+		}
+	}
+}
+
 // --- Search ---
 
 // SearchFiles runs a full-text search and returns the paged results.

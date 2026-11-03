@@ -143,3 +143,182 @@ func TestRegisterAssociationsRejectsEmptyExe(t *testing.T) {
 		t.Fatal("expected an error for an empty executable path")
 	}
 }
+
+// throwawayRoot creates a per-test HKCU tree that is removed afterwards, so
+// none of these tests touch the real Software\Classes entries.
+func throwawayRoot(t *testing.T, name string) string {
+	root := "Software\\YiiOfficeTest-" + name + "-" + t.Name()
+	t.Cleanup(func() {
+		if err := deleteTree(root); err != nil {
+			t.Logf("cleanup %s: %v", root, err)
+		}
+	})
+	return root
+}
+
+func TestRegisterUnregisterExtensionRoundtrip(t *testing.T) {
+	root := throwawayRoot(t, "roundtrip")
+	exe := filepath.Join(t.TempDir(), "yiioffice.exe")
+
+	if err := registerOneFor(root, ".docx", exe); err != nil {
+		t.Fatalf("registerOneFor: %v", err)
+	}
+	if !extensionRegisteredFor(root, ".docx") {
+		t.Fatal("extension should be registered after registerOneFor")
+	}
+
+	// A foreign value in the same OpenWithProgids list must survive.
+	extKey, _, err := registry.CreateKey(registry.CURRENT_USER, root+"\\.docx\\OpenWithProgids", registry.SET_VALUE)
+	if err != nil {
+		t.Fatalf("create foreign value: %v", err)
+	}
+	if err := extKey.SetStringValue("OtherProgID.Other", ""); err != nil {
+		t.Fatalf("write foreign value: %v", err)
+	}
+	extKey.Close()
+
+	if err := unregisterExtensionFor(root, ".docx"); err != nil {
+		t.Fatalf("unregisterExtensionFor: %v", err)
+	}
+	if extensionRegisteredFor(root, ".docx") {
+		t.Fatal("extension should be unregistered")
+	}
+	if _, err := registry.OpenKey(registry.CURRENT_USER, root+"\\"+ProgID(".docx"), registry.QUERY_VALUE); err != registry.ErrNotExist {
+		t.Fatalf("progid subtree should be gone, got %v", err)
+	}
+	extKey, err = registry.OpenKey(registry.CURRENT_USER, root+"\\.docx\\OpenWithProgids", registry.QUERY_VALUE)
+	if err != nil {
+		t.Fatalf("open-with list should remain: %v", err)
+	}
+	defer extKey.Close()
+	if _, _, err := extKey.GetStringValue("OtherProgID.Other"); err != nil {
+		t.Errorf("foreign value must not be deleted: %v", err)
+	}
+	if _, _, err := extKey.GetStringValue(ProgID(".docx")); err != registry.ErrNotExist {
+		t.Errorf("own value should be gone, got %v", err)
+	}
+}
+
+func TestUnregisterExtensionIsIdempotent(t *testing.T) {
+	root := throwawayRoot(t, "idem")
+	if err := unregisterExtensionFor(root, ".docx"); err != nil {
+		t.Fatalf("unregister on a clean tree: %v", err)
+	}
+	exe := filepath.Join(t.TempDir(), "yiioffice.exe")
+	if err := registerOneFor(root, ".docx", exe); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	if err := unregisterExtensionFor(root, ".docx"); err != nil {
+		t.Fatalf("first unregister: %v", err)
+	}
+	if err := unregisterExtensionFor(root, ".docx"); err != nil {
+		t.Fatalf("second unregister: %v", err)
+	}
+}
+
+func TestRegisterExtensionRefreshesCommandPath(t *testing.T) {
+	root := throwawayRoot(t, "refresh")
+	oldExe := filepath.Join(t.TempDir(), "old", "yiioffice.exe")
+	newExe := filepath.Join(t.TempDir(), "new", "yiioffice.exe")
+
+	if err := registerOneFor(root, ".xlsx", oldExe); err != nil {
+		t.Fatalf("register old: %v", err)
+	}
+	if err := registerOneFor(root, ".xlsx", newExe); err != nil {
+		t.Fatalf("register new: %v", err)
+	}
+	key, err := registry.OpenKey(registry.CURRENT_USER, root+"\\"+ProgID(".xlsx")+"\\shell\\open\\command", registry.QUERY_VALUE)
+	if err != nil {
+		t.Fatalf("open command: %v", err)
+	}
+	defer key.Close()
+	command, _, err := key.GetStringValue("")
+	if err != nil {
+		t.Fatalf("read command: %v", err)
+	}
+	if want := `"` + newExe + `" "%1"`; command != want {
+		t.Errorf("command = %q, want %q", command, want)
+	}
+}
+
+func TestRegisterExtensionAcceptsSpacesAndUnicode(t *testing.T) {
+	root := throwawayRoot(t, "spaces")
+	exe := `C:\Users\测试 用户\Program Files\Yii Office\yiioffice.exe`
+	if err := registerOneFor(root, ".md", exe); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	key, err := registry.OpenKey(registry.CURRENT_USER, root+"\\"+ProgID(".md")+"\\shell\\open\\command", registry.QUERY_VALUE)
+	if err != nil {
+		t.Fatalf("open command: %v", err)
+	}
+	defer key.Close()
+	command, _, err := key.GetStringValue("")
+	if err != nil {
+		t.Fatalf("read command: %v", err)
+	}
+	if want := `"` + exe + `" "%1"`; command != want {
+		t.Errorf("command = %q, want %q", command, want)
+	}
+}
+
+func TestReadUserChoiceFor(t *testing.T) {
+	root := throwawayRoot(t, "userchoice")
+	if got := readUserChoiceFor(root, ".docx"); got != "" {
+		t.Errorf("missing UserChoice should read as empty, got %q", got)
+	}
+	key, _, err := registry.CreateKey(registry.CURRENT_USER, root+"\\.docx\\UserChoice", registry.SET_VALUE)
+	if err != nil {
+		t.Fatalf("create userchoice: %v", err)
+	}
+	if err := key.SetStringValue("ProgId", "SomeApp.docx.1"); err != nil {
+		t.Fatalf("write progid: %v", err)
+	}
+	key.Close()
+	if got := readUserChoiceFor(root, ".docx"); got != "SomeApp.docx.1" {
+		t.Errorf("readUserChoiceFor = %q, want %q", got, "SomeApp.docx.1")
+	}
+}
+
+func TestCapabilitiesRoundtrip(t *testing.T) {
+	appRoot := throwawayRoot(t, "caps")
+	regApps := appRoot + "\\RegisteredApplications"
+	exe := filepath.Join(t.TempDir(), "yiioffice.exe")
+
+	if err := registerCapabilitiesFor(appRoot, regApps, exe); err != nil {
+		t.Fatalf("registerCapabilitiesFor: %v", err)
+	}
+	capKey, err := registry.OpenKey(registry.CURRENT_USER, appRoot+"\\Capabilities", registry.QUERY_VALUE)
+	if err != nil {
+		t.Fatalf("open capabilities: %v", err)
+	}
+	if name, _, err := capKey.GetStringValue("ApplicationName"); err != nil || name != "YiiOffice" {
+		t.Errorf("ApplicationName = %q (err %v)", name, err)
+	}
+	capKey.Close()
+	faKey, err := registry.OpenKey(registry.CURRENT_USER, appRoot+"\\Capabilities\\FileAssociations", registry.QUERY_VALUE)
+	if err != nil {
+		t.Fatalf("open file associations: %v", err)
+	}
+	if v, _, err := faKey.GetStringValue(ProgID(".docx")); err != nil || v != ".docx" {
+		t.Errorf("FileAssociations[%s] = %q (err %v)", ProgID(".docx"), v, err)
+	}
+	faKey.Close()
+	raKey, err := registry.OpenKey(registry.CURRENT_USER, regApps, registry.QUERY_VALUE)
+	if err != nil {
+		t.Fatalf("open registered applications: %v", err)
+	}
+	if v, _, err := raKey.GetStringValue("YiiOffice"); err != nil || v != appRoot+"\\Capabilities" {
+		t.Errorf("RegisteredApplications entry = %q (err %v)", v, err)
+	}
+	raKey.Close()
+
+	if err := unregisterCapabilitiesFor(appRoot, regApps); err != nil {
+		t.Fatalf("unregisterCapabilitiesFor: %v", err)
+	}
+	if _, err := registry.OpenKey(registry.CURRENT_USER, appRoot+"\\Capabilities", registry.QUERY_VALUE); err != registry.ErrNotExist {
+		t.Errorf("capabilities tree should be gone, got %v", err)
+	}
+	if err := unregisterCapabilitiesFor(appRoot, regApps); err != nil {
+		t.Fatalf("second unregister should be idempotent: %v", err)
+	}
+}
