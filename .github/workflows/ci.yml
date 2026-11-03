@@ -100,7 +100,7 @@ jobs:
       # starts (the harness launches the binary itself, one host per worker).
       # Bindings first, with the server tag, exactly as the guide prescribes.
       - name: Install wails3 CLI
-        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
       - name: Generate bindings for the server build
         run: wails3 generate bindings -ts -f '-tags=server,production' -clean=true -time-type=Date
       - name: Build renderers

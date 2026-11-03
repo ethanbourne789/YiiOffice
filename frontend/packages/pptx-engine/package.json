@@ -22,11 +22,12 @@
   "dependencies": {
     "@yiioffice/zip-gate": "*",
     "fast-xml-parser": "^5.3.4",
-    "jszip": "^3.10.1"
+    "jszip": "^3.10.1",
+    "pako": "^3.0.3"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
     "pptxgenjs": "^4.0.1",
-    "vitest": "^5.0.5"
+    "vitest": "^5.1.0"
   }
 }

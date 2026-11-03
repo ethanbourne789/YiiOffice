@@ -68,7 +68,8 @@ export function ExtractPagesToFile(filePath: string, pages: number[], suggestedN
 
 /**
  * InsertBlankPage inserts one blank page before `page` (1-based) and returns the
- * path of the new document.
+ * path of the new document. The rewrite is in place, so the document must be
+ * granted for writing.
  */
 export function InsertBlankPage(filePath: string, page: number): $CancellablePromise<any> {
     return $Call.ByID(3689860903, filePath, page);
@@ -130,7 +131,9 @@ export function MergePdfFromDialog(filePath: string, suggestedName: string): $Ca
 }
 
 /**
- * ReadFile reads a PDF file and returns its base64-encoded content.
+ * ReadFile reads a PDF file and returns its base64-encoded content. The path
+ * must be granted (dialog pick or Home open funnel) or inside the authorised
+ * roots.
  */
 export function ReadFile(path: string): $CancellablePromise<string> {
     return $Call.ByID(4254534709, path);

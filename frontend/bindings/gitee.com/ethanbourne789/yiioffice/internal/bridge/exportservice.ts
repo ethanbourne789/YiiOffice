@@ -60,6 +60,8 @@ export function MergePdfParts(parts: string[], outPath: string, suggestedName: s
 /**
  * PickExportFolder opens a folder picker for "Export as Images" and returns the
  * chosen directory together with a temp PDF path the renderer may write to.
+ * Both are granted: the directory subtree (image exports write files into it)
+ * and the temp PDF path (TakeTempPdf reads it back).
  */
 export function PickExportFolder(title: string): $CancellablePromise<$models.ExportFolder> {
     return $Call.ByID(1443772892, title).then(($result: any) => {
@@ -85,6 +87,8 @@ export function RenderPdfBase64(html: string, widthIn: number, heightIn: number)
 
 /**
  * TakeTempPdf reads a temp PDF written for an image export and deletes it.
+ * Only paths handed out by PickExportFolder (or otherwise granted) are
+ * accepted, so this cannot become a way to read and delete arbitrary files.
  */
 export function TakeTempPdf(path: string): $CancellablePromise<string> {
     return $Call.ByID(1885918800, path);
@@ -92,6 +96,8 @@ export function TakeTempPdf(path: string): $CancellablePromise<string> {
 
 /**
  * WriteBase64File writes base64-encoded bytes to path and returns the path.
+ * The path must be granted (inside a picked export folder, or a file the user
+ * opened/picked this session); arbitrary paths are rejected.
  */
 export function WriteBase64File(path: string, content: string): $CancellablePromise<$models.ExportResult> {
     return $Call.ByID(1653670099, path, content).then(($result: any) => {

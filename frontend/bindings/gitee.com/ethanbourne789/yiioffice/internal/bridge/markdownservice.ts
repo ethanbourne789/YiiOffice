@@ -27,6 +27,10 @@ export function ExportDocx(base64Data: string, suggestedName: string, mode: stri
 
 /**
  * ExportPdf renders HTML to a PDF via Edge headless.
+ * 
+ * outPath must be a path the user already chose this session (a save-dialog
+ * result or an opened file); anything else is rejected instead of being
+ * written silently. An empty outPath opens the dialog, which grants the path.
  */
 export function ExportPdf(html: string, suggestedName: string, outPath: string): $CancellablePromise<$models.ExportPdfResult> {
     return $Call.ByID(924889096, html, suggestedName, outPath).then(($result: any) => {
@@ -35,14 +39,17 @@ export function ExportPdf(html: string, suggestedName: string, outPath: string):
 }
 
 /**
- * PickImage opens a native file dialog for image selection and returns the path.
+ * PickImage opens a native file dialog for image selection and returns the
+ * path. The dialog helper records the grant used by later reads and writes.
  */
 export function PickImage(): $CancellablePromise<string> {
     return $Call.ByID(875161258);
 }
 
 /**
- * ReadFile reads a markdown file and returns its text content.
+ * ReadFile reads a markdown file and returns its text content. The path must
+ * have been granted (dialog pick or Home open funnel) or sit inside the
+ * authorised roots, so a crafted document cannot name any file it likes.
  */
 export function ReadFile(path: string): $CancellablePromise<string> {
     return $Call.ByID(413181830, path);
@@ -87,9 +94,10 @@ export function SaveImage(path: string, content: string): $CancellablePromise<st
 /**
  * SaveImageAs reads the source image (local path or data: URL) and writes it via a save dialog.
  * 
- * A local source is authorised exactly like ReadImage: "Save Image As" is
- * reachable from a document link, so it must not become a way to copy an
- * arbitrary file to a destination the user will later trust.
+ * A local source is authorised exactly like ReadImage inside
+ * saveImageSourceAs: "Save Image As" is reachable from a document link, so it
+ * must not become a way to copy an arbitrary file to a destination the user
+ * will later trust.
  */
 export function SaveImageAs(src: string): $CancellablePromise<$models.SaveImageAsResult> {
     return $Call.ByID(956285114, src).then(($result: any) => {

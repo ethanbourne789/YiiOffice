@@ -12,7 +12,7 @@
   "devDependencies": {
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@vitejs/plugin-react": "^6.1.2",
+    "@vitejs/plugin-react": "^6.2.1",
     "@yiioffice/docx-engine": "*",
     "@yiioffice/font-metrics": "*",
     "@yiioffice/i18n": "*",
@@ -20,7 +20,7 @@
     "@yiioffice/wails-bridge": "*",
     "@yiioffice/zip-gate": "*",
     "pdf-lib": "^1.17.1",
-    "pdfjs-dist": "^6.4.299",
+    "pdfjs-dist": "^6.5.438",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "typescript": "^7.0.2",

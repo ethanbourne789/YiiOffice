@@ -44,7 +44,8 @@ export function DisplayName(): $CancellablePromise<string> {
 }
 
 /**
- * ExportCsv writes CSV content to a new path.
+ * ExportCsv writes CSV content to a granted path (a save-dialog result or a
+ * path inside a picked export folder).
  */
 export function ExportCsv(path: string, content: string): $CancellablePromise<string> {
     return $Call.ByID(4119424685, path, content);
@@ -60,7 +61,8 @@ export function ExportPdf(fileName: string, html: string): $CancellablePromise<$
 }
 
 /**
- * FilesRead reads a file and returns its base64-encoded content.
+ * FilesRead reads a granted or root-covered file and returns its
+ * base64-encoded content.
  */
 export function FilesRead(path: string): $CancellablePromise<string> {
     return $Call.ByID(4129155892, path);
@@ -92,7 +94,9 @@ export function ListPrinters(): $CancellablePromise<$models.PrinterInfo[]> {
 }
 
 /**
- * OpenFile opens a workbook at path and returns its metadata.
+ * OpenFile opens a workbook at path and returns its metadata. The path must be
+ * granted (a dialog pick or the Home open funnel) or resolve inside the
+ * authorised roots; the grant also covers the later Save back over it.
  */
 export function OpenFile(path: string): $CancellablePromise<workbook$0.FileInfo | null> {
     return $Call.ByID(815908831, path).then(($result: any) => {
