@@ -105,6 +105,19 @@ export interface DefaultAppStatus {
   manualOnly: boolean
 }
 
+/**
+ * Live file-association state of one extension, read from the registry so the
+ * settings UI reconciles with what Windows actually holds (Windows only).
+ * `registered` = YiiOffice is in the extension's "Open with" list;
+ * `defaultApp` = the ProgId the user chose in UserChoice ("" when none).
+ */
+export interface FileAssocEntry {
+  ext: string
+  registered: boolean
+  isDefault: boolean
+  defaultApp: string
+}
+
 export interface HomeApi {
   /** unified recents across document types, newest first (paged) */
   recents(query?: RecentQuery): Promise<RecentPage>
@@ -199,6 +212,12 @@ export interface HomeApi {
   getDefaultAppStatus(): Promise<DefaultAppStatus>
   /** claim the Office types (mac/linux) or open the system Default Apps page (win); resolves to the refreshed status */
   setDefaultApp(): Promise<DefaultAppStatus>
+  /** per-extension "Open with"/default state, read live from the registry (Settings → File associations) */
+  getFileAssocStatus(): Promise<FileAssocEntry[]>
+  /** toggle YiiOffice's ProgID registration for one extension (HKCU, idempotent) */
+  setFileAssocEnabled(ext: string, enabled: boolean): Promise<void>
+  /** open the Windows default-apps page; the user confirms the choice there (UserChoice is hash-protected) */
+  openDefaultAppSettings(): Promise<void>
   /** theme switched anywhere (broadcast from the main process) */
   onThemeChanged(handler: (theme: UiTheme) => void): () => void
   /** document page theme switched anywhere (broadcast from the main process) */

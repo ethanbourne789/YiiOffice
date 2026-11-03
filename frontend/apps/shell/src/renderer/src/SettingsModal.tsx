@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Dropdown } from '@yiioffice/ui'
-import type { DefaultAppStatus } from '../../shared/home-api'
+import { SegmentedControl } from '@yiioffice/ui'
+import type { FileAssocEntry } from '../../shared/home-api'
 import { useI18n } from './locale'
 import type { StringKey } from './locale'
 import type { DocTheme, UiTheme } from '../../shared/home-api'
@@ -33,10 +33,11 @@ const DOC_THEME_OPTIONS = [
 
 
 
-export type SectionId = 'general' | 'about'
+export type SectionId = 'general' | 'fileassoc' | 'about'
 
 const SECTIONS: readonly { id: SectionId; labelKey: StringKey }[] = [
   { id: 'general', labelKey: 'setSecGeneral' },
+  { id: 'fileassoc', labelKey: 'setSecFileAssoc' },
   { id: 'about', labelKey: 'setSecAbout' },
 ]
 
@@ -52,6 +53,26 @@ function SectionIcon({ id }: { id: SectionId }) {
         />
         <circle cx="11.5" cy="5" r="1.7" stroke="currentColor" strokeWidth="1.3" />
         <circle cx="4.5" cy="11" r="1.7" stroke="currentColor" strokeWidth="1.3" />
+      </svg>
+    )
+  }
+  if (id === 'fileassoc') {
+    // document + link: opening a file with this app
+    return (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path
+          d="M4 2.5h5l2.5 2.5v8.5h-7.5z"
+          stroke="currentColor"
+          strokeWidth="1.3"
+          strokeLinejoin="round"
+        />
+        <path d="M9 2.5V5h2.5" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+        <path
+          d="M1.5 8.5h3M14.5 8.5h-3"
+          stroke="currentColor"
+          strokeWidth="1.3"
+          strokeLinecap="round"
+        />
       </svg>
     )
   }
@@ -113,9 +134,8 @@ export function SettingsModal({
   const [saveDir, setSaveDir] = useState('')
   
   const [autoSaveOn, setAutoSaveOn] = useState(false)
-  const [defaultApp, setDefaultApp] = useState<DefaultAppStatus | null>(null)
-  const [defaultAppBusy, setDefaultAppBusy] = useState(false)
-  const [defaultAppFailed, setDefaultAppFailed] = useState(false)
+  const [fileAssoc, setFileAssoc] = useState<FileAssocEntry[]>([])
+  const [assocBusy, setAssocBusy] = useState<Record<string, boolean>>({})
   const [appVersion, setAppVersion] = useState('')
 
   useEffect(() => {
@@ -133,8 +153,8 @@ export function SettingsModal({
     void window.aiOffice.getAutoSaveDefault?.().then((v) => {
       if (alive) setAutoSaveOn(v.on)
     })
-    void window.aiOffice.getDefaultAppStatus?.().then((st) => {
-      if (alive) setDefaultApp(st)
+    void window.aiOffice.getFileAssocStatus?.().then((list) => {
+      if (alive && list) setFileAssoc(list)
     })
     void window.aiOffice.getAppVersion?.().then((v) => {
       if (alive && v) setAppVersion(v)
@@ -170,37 +190,33 @@ export function SettingsModal({
     })
   }
 
-  // Windows only opens the system page; re-read ownership when the user comes back
+  // The registry is the source of truth; re-read it when the window regains
+  // focus (e.g. returning from the system settings) so the switches never lie.
   useEffect(() => {
-    if (!defaultApp?.manualOnly) return
     const refresh = () => {
-      void window.aiOffice.getDefaultAppStatus?.().then(setDefaultApp)
+      void window.aiOffice.getFileAssocStatus?.().then((list) => {
+        if (list) setFileAssoc(list)
+      })
     }
     window.addEventListener('focus', refresh)
     return () => window.removeEventListener('focus', refresh)
-  }, [defaultApp?.manualOnly])
+  }, [])
 
-  const claimDefaultApp = () => {
-    setDefaultAppBusy(true)
-    setDefaultAppFailed(false)
+  const toggleAssoc = (ext: string, enabled: boolean) => {
+    setAssocBusy((m) => ({ ...m, [ext]: true }))
     void window.aiOffice
-      .setDefaultApp()
-      .then((st) => {
-        setDefaultApp(st)
-        if (!st.manualOnly && st.state !== 'default') setDefaultAppFailed(true)
+      .setFileAssocEnabled?.(ext, enabled)
+      .then(() => window.aiOffice.getFileAssocStatus?.())
+      .then((list) => {
+        if (list) setFileAssoc(list)
       })
-      .catch(() => setDefaultAppFailed(true))
-      .finally(() => setDefaultAppBusy(false))
+      .catch(() => {})
+      .finally(() => setAssocBusy((m) => ({ ...m, [ext]: false })))
   }
 
-  const defaultAppDesc = (() => {
-    if (!defaultApp) return ''
-    if (defaultAppFailed) return t('setDefaultAppFailed')
-    if (defaultApp.state === 'default') return t('setDefaultAppIs')
-    if (defaultApp.state === 'other' && defaultApp.others.length > 0)
-      return t('setDefaultAppOther', { app: defaultApp.others.join(', ') })
-    return t('setDefaultAppDesc')
-  })()
+  const openSystemDefaultApps = () => {
+    void window.aiOffice.openDefaultAppSettings?.()
+  }
 
   return (
     <div
@@ -245,8 +261,8 @@ export function SettingsModal({
                   <div className="set-field-text">
                     <label className="set-field-label">{t('language')}</label>
                   </div>
-                  <Dropdown
-                    className="set-dd"
+                  <SegmentedControl
+                    className="set-seg"
                     value={lang}
                     ariaLabel={t('language')}
                     options={LANG_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
@@ -257,8 +273,8 @@ export function SettingsModal({
                   <div className="set-field-text">
                     <label className="set-field-label">{t('theme')}</label>
                   </div>
-                  <Dropdown
-                    className="set-dd"
+                  <SegmentedControl
+                    className="set-seg"
                     value={theme}
                     ariaLabel={t('theme')}
                     options={THEME_OPTIONS.map((opt) => ({
@@ -272,8 +288,8 @@ export function SettingsModal({
                   <div className="set-field-text">
                     <label className="set-field-label">{t('documentTheme')}</label>
                   </div>
-                  <Dropdown
-                    className="set-dd"
+                  <SegmentedControl
+                    className="set-seg"
                     value={docTheme}
                     ariaLabel={t('documentTheme')}
                     options={DOC_THEME_OPTIONS.map((opt) => ({
@@ -283,25 +299,6 @@ export function SettingsModal({
                     onPick={(v) => applyDocumentTheme(v as DocTheme)}
                   />
                 </div>
-                {defaultApp && defaultApp.state !== 'unsupported' && (
-                  <div className="set-field">
-                    <div className="set-field-text">
-                      <div className="set-field-stack">
-                        <div className="set-field-label">{t('setDefaultApp')}</div>
-                        <div className="set-field-desc">{defaultAppDesc}</div>
-                      </div>
-                    </div>
-                    <button
-                      className="set-btn"
-                      disabled={defaultAppBusy || defaultApp.state === 'default'}
-                      onClick={claimDefaultApp}
-                    >
-                      {defaultApp.manualOnly
-                        ? t('setDefaultAppOpenSettings')
-                        : t('setDefaultAppSet')}
-                    </button>
-                  </div>
-                )}
                 <Field
                   label={t('saveLocation')}
                   value={saveDir || '—'}
@@ -332,6 +329,51 @@ export function SettingsModal({
                   />
                 </div>
                 
+              </>
+            )}
+            {section === 'fileassoc' && (
+              <>
+                <h3 className="set-pane-title">{t('setSecFileAssoc')}</h3>
+                <p className="set-assoc-desc">{t('fileAssocDesc')}</p>
+                {fileAssoc.map((entry) => (
+                  <div className="set-field" key={entry.ext}>
+                    <div className="set-field-text">
+                      <div className="set-field-stack">
+                        <div className="set-field-label">{entry.ext}</div>
+                        <div className="set-field-desc">
+                          {entry.registered
+                            ? t('fileAssocRegistered')
+                            : t('fileAssocNotRegistered')}
+                          {' · '}
+                          {entry.isDefault
+                            ? t('fileAssocIsDefault')
+                            : entry.defaultApp
+                              ? t('fileAssocDefaultOther', { app: entry.defaultApp })
+                              : t('fileAssocDefaultUnknown')}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      className="set-switch"
+                      role="switch"
+                      aria-checked={entry.registered}
+                      aria-label={t('fileAssocSwitchLabel', { ext: entry.ext })}
+                      disabled={Boolean(assocBusy[entry.ext])}
+                      onClick={() => toggleAssoc(entry.ext, !entry.registered)}
+                    />
+                  </div>
+                ))}
+                <div className="set-field">
+                  <div className="set-field-text">
+                    <div className="set-field-stack">
+                      <div className="set-field-label">{t('setDefaultApp')}</div>
+                      <div className="set-field-desc">{t('fileAssocSetDefaultHint')}</div>
+                    </div>
+                  </div>
+                  <button className="set-btn" onClick={openSystemDefaultApps}>
+                    {t('fileAssocSetDefault')}
+                  </button>
+                </div>
               </>
             )}
             {section === 'about' && (

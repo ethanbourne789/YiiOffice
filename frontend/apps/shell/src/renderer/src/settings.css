@@ -220,6 +220,19 @@
   color: var(--text-secondary);
 }
 
+/* ── segmented choices in settings rows ───────── */
+.set-seg {
+  flex-shrink: 0;
+}
+
+/* intro paragraph of the file-associations pane */
+.set-assoc-desc {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
 /* on/off switch (analytics toggle) */
 .set-switch {
   position: relative;

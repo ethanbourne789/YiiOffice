@@ -14,6 +14,7 @@ import {
   GetDefaultAppStatus,
   GetDefaultSaveDir,
   GetDocumentTheme,
+  GetFileAssocStatus,
   GetLanguage,
   GetTheme,
   ListFolder,
@@ -23,6 +24,7 @@ import {
   NewPdf,
   NewSheet,
   NewSlide,
+  OpenDefaultAppSettings,
   OpenPath,
   OpenTrash,
   PickDefaultSaveDir,
@@ -36,6 +38,7 @@ import {
   SetAutoSaveDefault,
   SetDefaultApp,
   SetDocumentTheme,
+  SetFileAssocEnabled,
   SetLanguage,
   SetStarredGroup,
   SetTheme,
@@ -46,6 +49,14 @@ import {
   UnstarPaths,
 } from '@bindings/gitee.com/ethanbourne789/yiioffice/internal/bridge/homeservice'
 import { FileSearchQuery } from '@bindings/gitee.com/ethanbourne789/yiioffice/internal/bridge/models'
+
+/** Live association state of one extension (mirrors host.FileAssocEntry). */
+export interface FileAssocEntry {
+  ext: string
+  registered: boolean
+  isDefault: boolean
+  defaultApp: string
+}
 
 /** A row of the home lists (mirrors host.DocumentEntry on the Go side). */
 export interface RecentEntry {
@@ -232,6 +243,11 @@ export interface HomeBridge {
   // Default app
   getDefaultAppStatus(): Promise<any>
   setDefaultApp(): Promise<void>
+
+  // File associations (Windows, HKCU only)
+  getFileAssocStatus(): Promise<FileAssocEntry[]>
+  setFileAssocEnabled(ext: string, enabled: boolean): Promise<void>
+  openDefaultAppSettings(): Promise<void>
 
   // File search
   searchFiles(query: { q: string; ext?: string; offset?: number; limit?: number }): Promise<any>
@@ -480,6 +496,17 @@ export function createHomeApi(): HomeBridge {
     },
     async setDefaultApp() {
       await SetDefaultApp()
+    },
+
+    // File associations (mirrors host.FileAssocEntry on the Go side)
+    async getFileAssocStatus() {
+      return (await GetFileAssocStatus()) as FileAssocEntry[]
+    },
+    async setFileAssocEnabled(ext, enabled) {
+      await SetFileAssocEnabled(ext, enabled)
+    },
+    async openDefaultAppSettings() {
+      await OpenDefaultAppSettings()
     },
 
     // File search

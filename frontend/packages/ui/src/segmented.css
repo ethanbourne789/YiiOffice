@@ -1,0 +1,55 @@
+/* Segmented control (gs-seg): gray track, selected segment = raised card.
+ * Mirrors the shell's .filter-pills language (see home.css) at settings-row
+ * size. Token colors only, so light and dark themes both hold. */
+
+.gs-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--bg-hover-subtle);
+}
+
+.gs-seg-radio {
+  padding: 4px 12px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.gs-seg-radio:hover:not(:disabled):not([aria-checked='true']) {
+  color: var(--text-primary);
+}
+
+.gs-seg-radio[aria-checked='true'] {
+  background: var(--surface);
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: var(--shadow-btn-hover);
+}
+
+.gs-seg-radio:focus-visible {
+  outline: 2px solid var(--accent, var(--color-btn-primary));
+  outline-offset: 1px;
+}
+
+.gs-seg-radio:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.gs-seg[aria-disabled='true'] .gs-seg-radio {
+  opacity: 0.55;
+  cursor: default;
+}

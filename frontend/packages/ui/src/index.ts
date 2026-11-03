@@ -14,6 +14,7 @@ export {
   type PopoverDismissOptions,
 } from './popover-dismiss'
 export { Dropdown, type DropdownOption } from './dropdown'
+export { SegmentedControl, type SegmentedOption } from './segmented'
 export {
   FindPanel,
   type FindFocusRequest,
