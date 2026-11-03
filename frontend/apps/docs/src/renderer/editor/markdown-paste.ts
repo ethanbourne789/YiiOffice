@@ -10,9 +10,16 @@
  * lone "1." must not be reformatted, so conversion requires an unambiguous
  * Markdown construct (heading, fence, link, emphasis, table) or a repeated
  * one (several list/quote lines).
+ *
+ * The converter is the marked instance bundled with @tiptap/markdown — the same
+ * parser the markdown app already ships — so docs does not carry a second copy
+ * of marked. No extensions are registered: this path only needs marked's HTML
+ * output, which the shared paste pipeline then sanitises and schema-parses.
  */
-import { marked } from 'marked'
+import { MarkdownManager } from '@tiptap/markdown'
 import { sanitizeMarkdownHtml } from './sanitize-markdown-html'
+
+const markdownConverter = new MarkdownManager({ extensions: [] })
 
 /// Constructs that essentially never appear in prose accidentally.
 const STRONG_SIGNALS: readonly RegExp[] = [
@@ -46,9 +53,14 @@ export function markdownPasteHtml(text: string): string | null {
   const normalized = text.replace(/\r\n?/g, '\n')
   if (!looksLikeMarkdown(normalized)) return null
   try {
-    return sanitizeMarkdownHtml(
-      marked.parse(normalized, { gfm: true, breaks: false, async: false }),
-    )
+    const html = markdownConverter.instance.parse(normalized, {
+      gfm: true,
+      breaks: false,
+      async: false,
+    })
+    // async is false, so marked returns a string; anything else is a contract break
+    if (typeof html !== 'string') return null
+    return sanitizeMarkdownHtml(html)
   } catch {
     return null
   }
