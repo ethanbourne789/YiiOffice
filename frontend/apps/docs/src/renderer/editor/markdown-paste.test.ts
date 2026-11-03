@@ -125,3 +125,66 @@ describe('markdownPasteHtml sanitisation', () => {
     expect(body.querySelector('a')?.getAttribute('href')).toBe('https://example.com')
   })
 })
+
+/**
+ * GFM edge cases pinned against the marked@18 baseline that shipped before the
+ * @tiptap/markdown switch. All of these are DOM-equivalent to the baseline; the raw
+ * HTML differs only in serialisation (`&` vs `&amp;` inside href, numeric vs
+ * literal emoji, whitespace around block HTML). If these ever fail, the parser
+ * changed semantics - do not relax them.
+ */
+describe('markdownPasteHtml GFM edge cases', () => {
+  // bare URLs and entity-only text carry no strong signal, so each fixture
+  // includes one (heading / `**bold**`) to reach the converter; that is also
+  // what production paste sees when such lines accompany real Markdown.
+  it('autolinks a bare URL and an email address', () => {
+    const body = convert('## Links\n\nsee https://example.com/a?b=1&c=2 and mail@example.com now')
+    const anchors = Array.from(body.querySelectorAll('a'))
+    expect(anchors).toHaveLength(2)
+    expect(anchors[0].getAttribute('href')).toBe('https://example.com/a?b=1&c=2')
+    expect(anchors[0].textContent).toBe('https://example.com/a?b=1&c=2')
+    expect(anchors[1].getAttribute('href')).toBe('mailto:mail@example.com')
+    expect(anchors[1].textContent).toBe('mail@example.com')
+  })
+
+  it('leaves a bare URL without any other Markdown signal alone', () => {
+    expect(markdownPasteHtml('see https://example.com/a?b=1&c=2 now')).toBeNull()
+  })
+
+  it('autolinks a bare www host', () => {
+    const body = convert('## Links\n\nvisit www.example.com and http://example.com/x_y_.')
+    expect(Array.from(body.querySelectorAll('a')).map((a) => a.getAttribute('href'))).toEqual([
+      'http://www.example.com',
+      // GFM autolink stops before trailing "_.", which stays literal text
+      'http://example.com/x_y',
+    ])
+    expect(body.textContent).toContain('http://example.com/x_y_.')
+  })
+
+  it('passes raw details/summary markup through with its block content', () => {
+    const body = convert('<details><summary>Title</summary>\n\nBody **bold**\n\n</details>')
+    const details = body.querySelector('details')
+    expect(details).not.toBeNull()
+    expect(details?.querySelector('summary')?.textContent).toBe('Title')
+    expect(details?.querySelector('strong')?.textContent).toBe('bold')
+  })
+
+  it('decodes entities while keeping a literal less-than as text', () => {
+    const body = convert(
+      '## Entities\n\nA &amp; B &lt; C &copy; D &#128512; E and 5 &gt; 3, 2 < 3',
+    )
+    expect(body.textContent).toContain('A & B < C © D ')
+    expect(body.textContent).toContain(String.fromCodePoint(0x1f600))
+    expect(body.textContent).toContain('5 > 3, 2 < 3')
+    // "2 < 3" must stay text: only the heading and the paragraph may exist
+    expect(body.querySelectorAll('*')).toHaveLength(2)
+  })
+
+  it('keeps a table nested inside a list item', () => {
+    const body = convert('- item\n\n  | a | b |\n  | --- | --- |\n  | 1 | 2 |')
+    const table = body.querySelector('li table')
+    expect(table).not.toBeNull()
+    expect(table?.querySelectorAll('thead th')).toHaveLength(2)
+    expect(table?.querySelector('tbody td')?.textContent).toBe('1')
+  })
+})
