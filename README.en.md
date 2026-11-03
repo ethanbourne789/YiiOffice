@@ -1,5 +1,6 @@
 # YiiOffice
 **A local-first, open-source Office suite — reads and writes real Word, Excel, PowerPoint and PDF files. No sign-in, no uploads, no ads.**
+
 ![Wails](https://img.shields.io/badge/Wails-v3.1.0-4493F1?logo=go&logoColor=white)
 ![Go](https://img.shields.io/badge/Go-1.27-00ADD8?logo=go&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
@@ -10,8 +11,13 @@
 ![No Ads](https://img.shields.io/badge/no%20ads-%E2%9C%93-brightgreen)
 ![Local First](https://img.shields.io/badge/local--first-%E2%9C%93-brightgreen)
 <p align="center"><a href="README.md">简体中文</a> · <b>English</b></p>
+
+<p align="center"><a href="https://gitee.com/ethanbourne789/yiioffice">Gitee mirror</a></p>
+
 ***
+
 ## Vision
+
 > **A local-first Office with no ads and no sign-in — native support for Word, Excel, PowerPoint and PDF.**
 
 Office software today either locks your files in the cloud, forces an account, fills the sidebar with upsells, or drags a whole collaboration stack behind a single "open a document". YiiOffice goes the other way: **double-click a file and it opens, every feature works offline, and nothing is registered, uploaded or advertised.**
@@ -28,7 +34,9 @@ Four principles follow from that:
 **About the runtime:** this repository is the **Wails v3 edition** of YiiOffice — a Go backend plus the system WebView2. The build is a single native exe, so installers and memory use stay far smaller than a bundled-Chromium approach; the trade-off is that rendering depends on the WebView2 version on the user's machine, which is why the project targets Windows.
 
 ***
+
 ## Features
+
 ### The shell
 One window hosting every editor as a tab — the first thing you see when the app opens:
 - **Home**: recent files, starred files, folder tree (multiple roots, expandable subfolders), filter by file type
@@ -53,8 +61,11 @@ One window hosting every editor as a tab — the first thing you see when the ap
 - **Server mode and Docker**: `-tags server` builds a pure HTTP server (no GUI, port 8080 by default) and packages it as a distroless Docker image
 - **Update channel**: new releases are checked on Gitee (with a built-in Gitee API compatibility layer); installers ship a SHA-256 sidecar
 - **Two languages**: the UI ships in English and Chinese, strings live in `@yiioffice/i18n`
+
 ***
+
 ## Stack
+
 | Layer | Choice |
 |-------|--------|
 | Desktop runtime | **Wails v3.1.0** (Go backend + system WebView2), Task for build orchestration, NSIS packaging |
@@ -67,8 +78,11 @@ One window hosting every editor as a tab — the first thing you see when the ap
 | Code editing | CodeMirror 6 (Markdown / JSON source views) |
 | Rendering support | Mermaid, KaTeX, marked, opentype.js font metrics |
 | Tooling | npm workspaces (monorepo), Vitest 5, Playwright, GitHub Actions CI |
+
 ***
+
 ## Quick start
+
 ### Requirements
 | Dependency | Version / notes |
 |------------|-----------------|
@@ -93,7 +107,9 @@ task build:server             # server-mode binary (pure HTTP, no GUI)
 task build:docker             # distroless Docker image
 task run:docker               # run the image, exposing port 8080
 ```
+
 ***
+
 ## Repository layout
 ```
 YiiOffice-WailsV3/
@@ -118,29 +134,41 @@ YiiOffice-WailsV3/
 ├── build/                        # NSIS scripts, icons and other build assets
 └── .github/workflows/ci.yml      # CI: Go + frontend + E2E pipeline
 ```
+
 ***
+
 ## Architecture notes
+
 **1. Go service layer + typed bindings.**
+
 The frontend calls Go services through typed interfaces emitted by `wails3 generate bindings -ts`, with `wails-bridge` as a thin wrapper; the same services behave identically in the desktop and server shapes.
 
 **2. One window, one Go-side tab host.**
+
 Tabs are managed centrally by the Go `TabService`; editors open as tabs, can be detached into their own windows, and closing is guarded against unsaved changes.
 
 **3. One codebase, two shapes.**
+
 `-tags server` switches to a pure HTTP server (no WebView2, no native windows) reusing the exact renderer bundles and Go services — which is precisely what the E2E suite drives.
 
 **4. Patch-preserving saves and atomic writes.**
+
 DOCX / PPTX saves are paragraph- and element-level patches: parse the original, rewrite only the edited nodes, splice them back. Everything hits disk through atomic writes (temporary file plus `rename`).
 
 **5. The PDF capability boundary.**
+
 The PDF engine is pdfcpu, which works on page structure rather than content streams. Annotations, text/image editing, form design, signatures, OCR and Office conversion are therefore **not offered** — their entry points are removed from the UI and rejected by the API, instead of leaving buttons that fail on click.
 
 **6. Local index with incremental watching.**
+
 `internal/index` scans the roots, extracts text (Office / PDF / plain text / code) and writes it into a SQLite FTS5 virtual table; CJK produces bigram and unigram token streams. fsnotify applies 400 ms-debounced single-file updates, and folder changes in the sidebar sync to the watcher live without a restart.
 
 **7. Security boundaries.**
+
 File access goes through IPC path grants (`pathgrants`); archives pass the `zip-gate` size check before inflation; server builds warn when bound to a non-loopback address.
+
 ***
+
 ## Tests and gates
 ```bash
 go vet ./... && go test ./internal/...  # backend vet + unit tests
@@ -150,24 +178,43 @@ npm --prefix frontend run build         # full renderer build
 task e2e                                # Playwright E2E against the real Go backend
 ```
 CI (GitHub Actions) runs the Go, frontend and E2E stages in order on every push / PR.
+
 ***
+
 ## FAQ
+
 **Do I need an account or a network connection?**
+
 No. There is no account system and no upload; editing, saving, search and conversion all happen locally. Update checks never run on their own — they start only when triggered from the settings UI.
+
 **Can MS Office / WPS open the files after saving?**
+
 Yes. Saves are OOXML patches: only edited nodes change, the remaining bytes stay as they were, so structures and extended properties Office relies on are preserved.
+
 **Can I annotate or edit text in a PDF?**
+
 No. The PDF engine here is pdfcpu, which manipulates page structure (merge, split, crop, page replacement and so on). Content-stream editing is beyond its capability boundary, so those entry points are hidden. Viewing, navigation and page operations all work.
+
 **Does Chinese text search work?**
+
 Yes. The index emits bigram and unigram streams for CJK, working around the fact that FTS5 `unicode61` does not segment continuous CJK text.
+
 **Can it be deployed on a server?**
+
 Yes. `task build:server` or `task build:docker` produces the HTTP shape, listening on port 8080 by default; binding to a non-loopback address prints a startup warning, so keep it behind a trusted network or a reverse proxy.
+
 **What do the Windows builds produce?**
+
 `task package:windows` builds the NSIS installer (`dist/YiiOffice_<version>_setup.exe`) together with a `.sha256` sidecar for release integrity checks.
+
 ***
+
 ## Acknowledgements
 YiiOffice builds on [Wails](https://wails.io/) · [Univer](https://github.com/dream-num/univer) · [Tiptap](https://tiptap.dev/) / [ProseMirror](https://prosemirror.net/) · [Konva](https://konvajs.org/) · [pdf.js](https://github.com/mozilla/pdf.js) · [pdfcpu](https://github.com/pdfcpu/pdfcpu) · [excelize](https://github.com/xuri/excelize) · [CodeMirror](https://codemirror.net/) · [Mermaid](https://mermaid.js.org/) · [KaTeX](https://katex.org/) · [marked](https://marked.js.org/) · [SQLite (modernc)](https://modernc.org/sqlite) · [fsnotify](https://github.com/fsnotify/fsnotify) · [GenOffice](https://genoffice.ai/)
+
 ***
+
 ## License
 [Apache License 2.0](LICENSE). The YiiOffice name and logo are trademarks of their owner; Apache-2.0 does not grant trademark rights (section 6). Forks should use their own branding.
+
 <p align="center"><a href="README.md">简体中文</a> · <b>English</b></p>

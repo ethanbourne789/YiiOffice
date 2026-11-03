@@ -1,5 +1,6 @@
 # YiiOffice
 **本地优先的开源 Office 套件 —— 原生读写 Word、Excel、PPT、PDF，不登录、不上传、无广告。**
+
 ![Wails](https://img.shields.io/badge/Wails-v3.1.0-4493F1?logo=go&logoColor=white)
 ![Go](https://img.shields.io/badge/Go-1.27-00ADD8?logo=go&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
@@ -10,8 +11,12 @@
 ![No Ads](https://img.shields.io/badge/no%20ads-%E2%9C%93-brightgreen)
 ![Local First](https://img.shields.io/badge/local--first-%E2%9C%93-brightgreen)
 <p align="center"><b>简体中文</b> · <a href="README.en.md">English</a></p>
+<p align="center"><a href="https://gitee.com/ethanbourne789/yiioffice">Gitee 镜像</a></p>
+
 ***
+
 ## 愿景
+
 > **一个本地、无广告、无登录的 Office —— 原生支持 Word、Excel、PPT、PDF。**
 
 今天的办公软件，要么把文件锁在云里，要么逼你注册账号，要么在侧边栏塞满推销，要么为了「打开一份文档」背上整套在线协作栈。YiiOffice 想做的恰恰相反：**文件双击就开，断网一个功能不少，不注册、不登录、不看广告、不上传任何数据。**
@@ -28,7 +33,9 @@
 **关于运行时**：本仓库是 YiiOffice 的 **Wails v3 版** —— Go 后端 + 系统 WebView2 渲染。编译产物是单个原生 exe，安装包和内存占用远小于自带 Chromium 的方案；代价是渲染效果依赖用户机器的 WebView2 版本，因此项目锁定 Windows 平台。
 
 ***
+
 ## 功能
+
 ### Shell 工作台
 单窗口、多标签的统一宿主，是打开应用后看到的第一个界面：
 - **首页**：最近文件、星标文件、文件夹树（多根目录、子目录展开）、按文件类型筛选
@@ -53,8 +60,11 @@
 - **服务器模式与 Docker**：`-tags server` 构建纯 HTTP 服务（无 GUI，默认 8080 端口），可一键打包为 distroless Docker 镜像部署
 - **更新通道**：从 Gitee Releases 检查新版本（内置 Gitee API 兼容层），安装包随附 SHA-256 校验文件
 - **多语言**：界面中英双语，文案集中在 `@yiioffice/i18n`
+
 ***
+
 ## 技术栈
+
 | 层 | 选型 |
 | ---- | ---- |
 | 桌面运行时 | **Wails v3.1.0**（Go 后端 + 系统 WebView2），Task 构建编排，NSIS 打包 |
@@ -67,8 +77,11 @@
 | 代码编辑 | CodeMirror 6（Markdown / JSON 源码视图） |
 | 渲染辅助 | Mermaid、KaTeX、marked、opentype.js 字体度量 |
 | 工程化 | npm workspaces（monorepo）、Vitest 5、Playwright、GitHub Actions CI |
+
 ***
+
 ## 快速开始
+
 ### 环境要求
 | 依赖 | 版本 / 说明 |
 | ---- | ----------- |
@@ -93,7 +106,9 @@ task build:server             # 服务器模式二进制（纯 HTTP，无 GUI）
 task build:docker             # distroless Docker 镜像
 task run:docker               # 运行镜像，映射 8080 端口
 ```
+
 ***
+
 ## 项目结构
 ```
 YiiOffice-WailsV3/
@@ -118,29 +133,41 @@ YiiOffice-WailsV3/
 ├── build/                        # NSIS 脚本、图标等构建资产
 └── .github/workflows/ci.yml      # CI：Go + 前端 + E2E 三段流水线
 ```
+
 ***
+
 ## 架构要点
+
 **1. Go 服务层 + 类型化 bindings。**
+
 前端通过 `wails3 generate bindings -ts` 生成的类型化接口直接调用 Go 服务，`wails-bridge` 做薄封装；同一套服务在桌面形态和 server 形态下行为一致。
 
 **2. 单窗口 + Go 侧标签宿主。**
+
 标签由 Go 侧 `TabService` 统一托管，编辑器以标签页打开；标签可分离为独立窗口再收回，关闭前做未保存拦截。
 
 **3. 一套代码，两种形态。**
+
 `-tags server` 切换为纯 HTTP 服务（无 WebView2、无原生窗口），渲染包与 Go 服务完全复用；E2E 套件正是用 server 构建驱动真实后端。
 
 **4. 补丁式保存 + 原子写入。**
+
 DOCX / PPTX 保存是段落级 / 元素级补丁：解析原文 → 只改动被编辑的节点 → 回写未变部分；落盘统一走原子写入（临时文件 + rename）。
 
 **5. PDF 的能力边界。**
+
 PDF 引擎是 pdfcpu，它操作页面结构而非内容流。因此批注、文字/图片编辑、表单设计、签名、OCR、Office 转换等能力**不提供**，对应入口从界面移除、API 显式拒绝，而不是留下点了报错的按钮。
 
 **6. 本地索引与增量监听。**
+
 `internal/index` 扫描根目录、抽取正文（Office / PDF / 文本 / 代码）、写入 SQLite FTS5 虚表；CJK 生成 bigram + unigram 双流 token；fsnotify 以 400ms 去抖做单文件增量更新，侧栏文件夹增删实时联动索引，无需重启。
 
 **7. 安全边界。**
+
 文件访问经 IPC 路径授权（`pathgrants`）；压缩包解包前过 `zip-gate` 体积校验；server 模式绑定非回环地址时启动告警。
+
 ***
+
 ## 测试与门禁
 ```bash
 go vet ./... && go test ./internal/...  # 后端静态检查与单元测试
@@ -150,24 +177,43 @@ npm --prefix frontend run build         # 全量渲染端构建
 task e2e                                # Playwright E2E（真实 Go 后端，server 构建）
 ```
 CI（GitHub Actions）在每次 push / PR 上依次跑 Go、前端、E2E 三段流水线。
+
 ***
+
 ## 常见问题
+
 **Q：需要联网或注册账号吗？**
+
 A：都不需要。没有账号体系，也不会上传文件；编辑、保存、搜索、格式转换都在本机完成。更新检查不自动发起，只在设置里手动触发。
+
 **Q：保存后 MS Office / WPS 能正常打开吗？**
+
 A：能。保存走 OOXML 补丁回写，只改动被编辑的节点，其余字节保持不变，不会破坏 Office 能识别的结构与扩展属性。
+
 **Q：PDF 能加批注、改文字吗？**
+
 A：不能。本项目的 PDF 引擎是 pdfcpu，只能操作页面结构（合并、拆分、裁剪、页面替换等）；内容流级别的编辑超出其能力边界，相应入口已隐藏。查看、导航与页面操作不受影响。
+
 **Q：中文能搜到吗？**
+
 A：能。FTS5 的 `unicode61` 不切分连续中文，所以索引额外产出 bigram 与 unigram 两路 token，两字词和单字查询都能命中。
+
 **Q：能部署到服务器上吗？**
+
 A：可以。`task build:server` 或 `task build:docker` 产出 HTTP 服务形态，默认监听 8080；绑定到非回环地址时启动会告警，请自行置于可信网络或反向代理之后。
+
 **Q：安装包能打出哪些？**
+
 A：`task package:windows` 生成 NSIS 安装包（`dist/YiiOffice_<版本>_setup.exe`），同时写出 `.sha256` 校验文件供发布完整性核对。
+
 ***
+
 ## 致谢
 YiiOffice 建立在这些开源项目之上：[Wails](https://wails.io/) · [Univer](https://github.com/dream-num/univer) · [Tiptap](https://tiptap.dev/) / [ProseMirror](https://prosemirror.net/) · [Konva](https://konvajs.org/) · [pdf.js](https://github.com/mozilla/pdf.js) · [pdfcpu](https://github.com/pdfcpu/pdfcpu) · [excelize](https://github.com/xuri/excelize) · [CodeMirror](https://codemirror.net/) · [Mermaid](https://mermaid.js.org/) · [KaTeX](https://katex.org/) · [marked](https://marked.js.org/) · [SQLite (modernc)](https://modernc.org/sqlite) · [fsnotify](https://github.com/fsnotify/fsnotify) · [GenOffice](https://genoffice.ai/)
+
 ***
+
 ## 许可证
 [Apache License 2.0](LICENSE)。YiiOffice 名称与标识为其权利人的商标，Apache-2.0 不授予商标使用权（见许可证第 6 节）；衍生项目请使用自己的品牌。
+
 <p align="center"><b>简体中文</b> · <a href="README.en.md">English</a></p>
