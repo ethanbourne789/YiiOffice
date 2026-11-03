@@ -6,7 +6,7 @@
     <title>YiiOffice — 本地优先的开源 Office 套件</title>
     <meta
       name="description"
-      content="YiiOffice 是本地优先的开源 Office 套件：原生读写 Word、Excel、PPT、PDF 与 Markdown，双击就开，断网不少功能，不登录、不上传、无广告。"
+      content="YiiOffice 是本地优先的开源 Office 套件：Go + Wails v3 构建的单文件原生 exe，原生读写 Word、Excel、PPT、PDF 与 Markdown，双击就开，断网不少功能，不登录、不上传、无广告。"
     />
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0a0a0b" media="(prefers-color-scheme: dark)" />
@@ -14,7 +14,7 @@
     <meta property="og:title" content="YiiOffice — 本地优先的开源 Office 套件" />
     <meta
       property="og:description"
-      content="原生读写 Word、Excel、PPT、PDF 与 Markdown。不登录、不上传、无广告。"
+      content="原生读写 Word、Excel、PPT、PDF 与 Markdown。单个原生 exe，不登录、不上传、无广告。"
     />
     <meta property="og:url" content="https://ethanbourne789.github.io/YiiOffice/" />
     <meta property="og:site_name" content="YiiOffice" />
@@ -122,15 +122,21 @@
               <div class="dl__menu">
                 <a
                   class="dl__item"
-                  href="https://github.com/ethanbourne789/YiiOffice/releases/download/YiiOffice/YiiOffice.Setup.0.13.0.exe"
+                  href="https://github.com/ethanbourne789/YiiOffice/releases/latest"
                   rel="noopener"
                 >
-                  Windows 安装包 <small>v0.13.0 · 136 MB</small>
+                  Windows 安装包 <small>v0.13.0 · NSIS + SHA-256</small>
                 </a>
-                <a class="dl__item" href="#start">从源码构建 <small>macOS / Linux</small></a>
                 <a
                   class="dl__item"
-                  href="https://gitee.com/ethanbourne789/yiioffice"
+                  href="https://github.com/ethanbourne789/YiiOffice/releases"
+                  rel="noopener"
+                >
+                  便携版 zip <small>v0.13.0 · 解压即用</small>
+                </a>
+                <a
+                  class="dl__item"
+                  href="https://gitee.com/ethanbourne789/yiioffice/releases"
                   rel="noopener"
                 >
                   Gitee 镜像 <small>国内更快</small>
@@ -142,7 +148,7 @@
           </div>
 
           <p class="hero__meta">
-            也可从源码构建 macOS 与 Linux · 免费开源，<a
+            Go + Wails v3 构建的单个原生 exe · Windows 10/11 · 免费开源，<a
               href="https://github.com/ethanbourne789/YiiOffice/blob/main/LICENSE"
               rel="noopener"
               >Apache-2.0</a
@@ -282,7 +288,7 @@
                     src="assets/screens/pdf-light.webp"
                     width="1599"
                     height="960"
-                    alt="PDF 编辑器：季度评审报告的页面视图、缩略图导航与编辑工具栏。"
+                    alt="PDF 阅读器：页面视图、缩略图导航与页面操作工具栏。"
                     loading="lazy"
                   />
                   <img
@@ -290,7 +296,7 @@
                     src="assets/screens/pdf-dark.webp"
                     width="1599"
                     height="960"
-                    alt="暗色主题 —— PDF 编辑器的报告页面。"
+                    alt="暗色主题 —— PDF 阅读器的同一份文档。"
                     loading="lazy"
                   />
                 </figure>
@@ -328,7 +334,7 @@
             <p class="eyebrow">编辑器</p>
             <h2 class="h2">从一份文件，到一次交付。</h2>
             <p class="lede">
-              每个编辑器都能独立启动，也能作为标签页挂在同一个工作台里。切换标签只做显示与隐藏 ——
+              每个编辑器都作为标签页挂在同一个工作台里，由 Go 侧标签宿主统一托管。切换标签只做显示与隐藏 ——
               滚动位置、光标和撤销栈都原样留着。
             </p>
           </div>
@@ -338,40 +344,42 @@
               <div class="card__ico" style="background: var(--c-docs)" aria-hidden="true">W</div>
               <h3 class="h3">文档</h3>
               <p>
-                分页与多页视图、标尺与页面设置，页眉页脚、页码分节，样式库、脚注尾注、批注与文档比较。
-                公式、查找替换、字数统计、文档保护都在。
+                Word 式功能区（开始 / 插入 / 绘图 / 设计 / 布局 / 引用 / 审阅 / 视图），格式刷与选择性粘贴，
+                中西文分设字体，图片裁剪、去背景与旋转翻转，查找替换、字数统计、缩放与阅读模式；
+                保存走段落级补丁，未编辑的内容原样保留。
               </p>
-              <p class="card__tags">.docx · .docm</p>
+              <p class="card__tags">.docx · Tiptap 3 + docx-engine</p>
             </article>
 
             <article class="card reveal">
               <div class="card__ico" style="background: var(--c-sheets)" aria-hidden="true">X</div>
               <h3 class="h3">表格</h3>
               <p>
-                公式与函数库带参数提示，条件格式、数据验证、排序筛选齐备；透视表、图表、分级显示与合并计算，
-                外加工作表保护与分页打印。
+                公式与函数库、条件格式、数据验证、排序筛选、表格、批注与绘图，查找替换一应俱全；
+                读写与保存经 Go 侧 OOXML 补丁网关（excelize），存完 Office 照常打开。
               </p>
-              <p class="card__tags">.xlsx · .xlsm · .csv</p>
+              <p class="card__tags">.xlsx · .xlsm · .csv · .tsv · Univer 1.3</p>
             </article>
 
             <article class="card reveal">
               <div class="card__ico" style="background: var(--c-slides)" aria-hidden="true">S</div>
               <h3 class="h3">演示</h3>
               <p>
-                母版与版式、文本形状图片与图表编辑，动画与切换含 Morph；放映、演讲者视图与自定义放映，
-                备注批注与非破坏性裁剪。
+                功能区式编辑（插入 / 绘图 / 设计 / 切换 / 动画 / 放映 / 审阅），文本、形状、图片与表格编辑，
+                切换与动画效果；EMU→px 高保真渲染，元素级补丁保存，只重写被改动的节点。
               </p>
-              <p class="card__tags">.pptx</p>
+              <p class="card__tags">.pptx · Konva 10 + pptx-engine</p>
             </article>
 
             <article class="card reveal">
               <div class="card__ico" style="background: var(--c-pdf)" aria-hidden="true">P</div>
               <h3 class="h3">PDF</h3>
               <p>
-                直接在页面上改文字与图片，批注标注、大纲导航、页面操作、表单设计与填写，
-                还有密文涂黑、签名与图章、密码保护。
+                查看与导航（缩略图、跳页、缩放、适应模式）；页面操作：合并、拆分、提取页面、插入 PDF、
+                替换页面、N-up、网格切分、裁剪、设置页大小、导出页面图片、插入空白页。
+                批注与内容流编辑超出引擎边界，对应入口直接隐藏，不放点了报错的按钮。
               </p>
-              <p class="card__tags">.pdf</p>
+              <p class="card__tags">.pdf · pdf.js 6 + pdfcpu</p>
             </article>
 
             <article class="card reveal">
@@ -379,21 +387,22 @@
               <h3 class="h3">Markdown</h3>
               <p>
                 所见即所得与源码双视图，表格、代码块、图片都能用；Mermaid 图表与 KaTeX 公式直接渲染，
-                导出 DOCX、PDF 或图片。
+                JSON 与纯文本也有各自的编辑模式。
               </p>
-              <p class="card__tags">.md · .txt</p>
+              <p class="card__tags">.md · .txt · .json · Tiptap + CodeMirror 6</p>
             </article>
 
             <article class="card reveal">
               <div class="card__ico" style="background: var(--c-conv)" aria-hidden="true">
                 <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M3 5.5h8.5M9 3l2.5 2.5L9 8M13 10.5H4.5M7 8L4.5 10.5 7 13" /></svg>
               </div>
-              <h3 class="h3">格式转换</h3>
+              <h3 class="h3">导出</h3>
               <p>
-                PDF 转成可编辑的 Word、Excel 或 PowerPoint，HTML 转成 DOCX ——
-                转换在本机完成，不上传文件，不消耗任何额度。
+                Docs / Sheets / Slides / Markdown 可导出 PDF，Docs 另可导出 HTML 与 DOCX；
+                命令行 <code>--headless-export</code> 不弹窗口完成转换，<code>--json</code>
+                输出一行结构化结果，全部在本机进行，不上传、不消耗额度。
               </p>
-              <p class="card__tags">pdf → docx · html → docx</p>
+              <p class="card__tags">pdf · html · docx · 无界面 CLI</p>
             </article>
           </div>
         </div>
@@ -419,7 +428,7 @@
                   <h3 class="h3">断网也能用</h3>
                   <p>
                     编辑、保存、搜索、格式转换全部在本机跑。默认的出网行为只有一处：加载文档里引用的网络图片；
-                    幻灯片缺字体时的下载入口，也只在构建时注入字体 CDN 地址后才会打开。
+                    更新检查也不自动发起，只在设置里手动触发。
                   </p>
                 </div>
               </div>
@@ -440,7 +449,8 @@
                 <div>
                   <h3 class="h3">没有账号，没有广告</h3>
                   <p>
-                    不用注册、不收集使用数据、不检查更新。界面里没有藏着的付费入口 ——
+                    不用注册、不收集使用数据，界面里没有藏着的付费入口；
+                    引擎给不了的功能直接移除入口，而不是留下点了报错的按钮 ——
                     主界面上就是你自己的文件列表。
                   </p>
                 </div>
@@ -464,20 +474,20 @@
           <div class="caps">
             <article class="cap reveal">
               <h3 class="h3">原子写入</h3>
-              <p>所有保存都走「临时文件 + rename」，崩溃或断电不会留下半个损坏的文件。</p>
+              <p>所有落盘都走「临时文件 + rename」，崩溃或断电不会留下半个损坏的文件。</p>
             </article>
 
             <article class="cap reveal">
               <h3 class="h3">本地全文搜索</h3>
               <p>
-                基于 <code>node:sqlite</code> 的 FTS5，覆盖文件名、路径与正文；
-                中文走 bigram + unigram 双路分词，两字词也能命中长串。
+                Go 侧 SQLite（FTS5）索引，覆盖文件名、路径与正文；中文走 bigram + unigram 双路分词，
+                两字词也能命中长串；fsnotify 以 400ms 去抖做增量更新，文件夹增删实时联动，无需重启。
               </p>
             </article>
 
             <article class="cap reveal">
               <h3 class="h3">多标签宿主</h3>
-              <p>每个标签独立一个 <code>WebContentsView</code>，切换只做显示与隐藏，编辑器状态整份保留。</p>
+              <p>标签由 Go 侧统一托管，切换只做显示与隐藏，编辑器状态整份保留；标签可分离为独立窗口，关闭前有未保存拦截。</p>
             </article>
 
             <article class="cap reveal">
@@ -489,13 +499,19 @@
             </article>
 
             <article class="cap reveal">
-              <h3 class="h3">中英双语</h3>
-              <p>界面文案集中在 <code>@yiioffice/i18n</code>，中英可切换，文案层与业务代码解耦。</p>
+              <h3 class="h3">zip 炸弹防护</h3>
+              <p>
+                <code>zip-gate</code> 在解包前拒绝解压体积超出声明值的压缩包，
+                DOCX / PPTX 引擎共用同一道防线。
+              </p>
             </article>
 
             <article class="cap reveal">
-              <h3 class="h3">打印与导出</h3>
-              <p>五个编辑器都能直接打印；文档与 Markdown 可导出 PDF，演示可导出 SVG 与图片。</p>
+              <h3 class="h3">服务器模式与 Docker</h3>
+              <p>
+                <code>-tags server</code> 构建纯 HTTP 服务（无 GUI，默认 8080 端口），可打包为
+                distroless 镜像部署；同一套代码，桌面与服务两种形态。
+              </p>
             </article>
           </div>
         </div>
@@ -513,11 +529,23 @@
             <div class="stackrow">
               <span class="stackrow__label">运行时</span>
               <div class="chips">
-                <span class="chip">Electron 45</span>
-                <span class="chip">electron-vite 6</span>
-                <span class="chip">Node 主进程</span>
-                <span class="chip">WebContentsView</span>
-                <span class="chip">node:sqlite FTS5</span>
+                <span class="chip">Wails v3.1.0</span>
+                <span class="chip">Go 1.27</span>
+                <span class="chip">系统 WebView2</span>
+                <span class="chip">Task 构建编排</span>
+                <span class="chip">NSIS 安装包</span>
+                <span class="chip">单个原生 exe</span>
+              </div>
+            </div>
+            <div class="stackrow">
+              <span class="stackrow__label">后端</span>
+              <div class="chips">
+                <span class="chip">excelize（xlsx）</span>
+                <span class="chip">pdfcpu（页面操作）</span>
+                <span class="chip">SQLite FTS5（modernc）</span>
+                <span class="chip">fsnotify 增量索引</span>
+                <span class="chip">Gitee 更新通道</span>
+                <span class="chip">IPC 路径授权</span>
               </div>
             </div>
             <div class="stackrow">
@@ -527,21 +555,14 @@
                 <span class="chip">TypeScript 7</span>
                 <span class="chip">Vite 8</span>
                 <span class="chip">Tiptap 3</span>
-                <span class="chip">Univer 1.2</span>
+                <span class="chip">Univer 1.3</span>
                 <span class="chip">Konva 10</span>
-                <span class="chip">pdf.js 6</span>
+                <span class="chip">pdf.js 6.5</span>
                 <span class="chip">CodeMirror 6</span>
-              </div>
-            </div>
-            <div class="stackrow">
-              <span class="stackrow__label">原生</span>
-              <div class="chips">
-                <span class="chip">Rust sidecar</span>
-                <span class="chip">calamine</span>
-                <span class="chip">IronCalc</span>
-                <span class="chip">PDFium WASM</span>
-                <span class="chip">harfbuzzjs</span>
+                <span class="chip">Mermaid / KaTeX</span>
                 <span class="chip">npm workspaces</span>
+                <span class="chip">Vitest 5</span>
+                <span class="chip">Playwright</span>
               </div>
             </div>
           </div>
@@ -570,7 +591,7 @@
             <div class="platforms">
               <div class="platform">
                 <h3>Windows</h3>
-                <p class="platform__req">Windows 10 / 11 · x64</p>
+                <p class="platform__req">Windows 10 / 11 · x64 · WebView2</p>
                 <div class="platform__links">
                   <a
                     class="platform__link"
@@ -592,38 +613,41 @@
               </div>
 
               <div class="platform">
-                <h3>macOS</h3>
-                <p class="platform__req">macOS 11+ · Apple Silicon / Intel</p>
+                <h3>从源码构建</h3>
+                <p class="platform__req">Go ≥ 1.27 · Node ≥ 22 · wails3 CLI</p>
                 <div class="platform__links">
-                  <a class="platform__link" href="#code-dist">
-                    从源码打包
+                  <a class="platform__link" href="#code-run">
+                    看命令
                     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v9M4.5 8.5L8 12l3.5-3.5" /></svg>
                   </a>
-                  <span class="platform__link mono">npm run dist:mac</span>
+                  <span class="platform__link mono">wails3 dev</span>
                 </div>
               </div>
 
               <div class="platform">
-                <h3>Linux</h3>
-                <p class="platform__req">x86_64 · glibc 2.34+</p>
+                <h3>服务器 / Docker</h3>
+                <p class="platform__req">纯 HTTP 服务 · 默认 8080 端口</p>
                 <div class="platform__links">
                   <a class="platform__link" href="#code-dist">
-                    从源码打包
+                    看命令
                     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v9M4.5 8.5L8 12l3.5-3.5" /></svg>
                   </a>
-                  <span class="platform__link mono">npm run dist:linux</span>
+                  <span class="platform__link mono">task build:docker</span>
                 </div>
               </div>
             </div>
 
             <div class="startcard__body">
               <dl class="reqs">
-                <div class="req"><dt>Node.js</dt><dd>≥ 22.12</dd></div>
-                <div class="req"><dt>npm</dt><dd>≥ 10</dd></div>
-                <div class="req"><dt>Rust</dt><dd>stable（可选）</dd></div>
-                <div class="req"><dt>系统</dt><dd>Win / macOS / Linux</dd></div>
+                <div class="req"><dt>Go</dt><dd>≥ 1.27</dd></div>
+                <div class="req"><dt>Node.js</dt><dd>≥ 22</dd></div>
+                <div class="req"><dt>wails3 CLI</dt><dd>v3.1.0</dd></div>
+                <div class="req"><dt>WebView2</dt><dd>Win 10/11 一般自带</dd></div>
+                <div class="req"><dt>NSIS</dt><dd>可选，仅打安装包</dd></div>
+                <div class="req"><dt>Docker</dt><dd>可选，仅 server 镜像</dd></div>
                 <div class="reqs__note">
-                  <code>npm install</code> 的 postinstall 会下载 Electron 二进制；国内网络可用镜像变量。
+                  <code>go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0</code>
+                  安装 wails3 CLI；安装包与便携版均随附 SHA-256 校验文件。
                 </div>
               </dl>
 
@@ -631,7 +655,7 @@
                 <div class="codecard__bar">
                   <div class="codecard__tabs" role="tablist" aria-label="命令">
                     <button class="codecard__tab" role="tab" id="cmd-run" aria-controls="code-run" aria-selected="true" tabindex="0">运行</button>
-                    <button class="codecard__tab" role="tab" id="cmd-dist" aria-controls="code-dist" aria-selected="false" tabindex="-1">打包</button>
+                    <button class="codecard__tab" role="tab" id="cmd-dist" aria-controls="code-dist" aria-selected="false" tabindex="-1">构建</button>
                     <button class="codecard__tab" role="tab" id="cmd-check" aria-controls="code-check" aria-selected="false" tabindex="-1">校验</button>
                   </div>
                   <button class="copy-btn" type="button" data-copy="code-run">
@@ -640,36 +664,36 @@
                   </button>
                 </div>
 
-                <pre id="code-run" role="tabpanel" aria-labelledby="cmd-run" tabindex="0"><span class="c"># 安装依赖（monorepo 一次装完）</span>
-npm install
+                <pre id="code-run" role="tabpanel" aria-labelledby="cmd-run" tabindex="0"><span class="c"># 安装前端依赖（monorepo 一次装完）</span>
+cd frontend && npm install && cd ..
 
-<span class="c"># 生成 .docx 测试夹具</span>
-npm run fixtures
+<span class="c"># 生成 bindings、拉起 Vite dev server（:5178）、热重建并运行应用</span>
+wails3 dev</pre>
 
-<span class="c"># 五个渲染端 :5173–:5177 + Electron 主进程</span>
-npm run dev</pre>
+                <pre id="code-dist" role="tabpanel" aria-labelledby="cmd-dist" tabindex="0" hidden><span class="c"># 生产构建（build/bin/YiiOffice.exe）</span>
+task build
 
-                <pre id="code-dist" role="tabpanel" aria-labelledby="cmd-dist" tabindex="0" hidden><span class="c"># 便携 zip</span>
-npm run dist:win
+<span class="c"># NSIS 安装包 + SHA-256 校验文件（dist/）</span>
+task package:windows
 
-<span class="c"># NSIS 安装器（默认装到 D:\YiiOffice，可改）</span>
-npm run dist:win:installer
+<span class="c"># 服务器模式二进制 / distroless Docker 镜像</span>
+task build:server
+task build:docker</pre>
 
-<span class="c"># macOS / Linux</span>
-npm run dist:mac
-npm run dist:linux</pre>
+                <pre id="code-check" role="tabpanel" aria-labelledby="cmd-check" tabindex="0" hidden><span class="c"># 后端：静态检查与单元测试</span>
+go vet ./...
+go test ./internal/...
 
-                <pre id="code-check" role="tabpanel" aria-labelledby="cmd-check" tabindex="0" hidden><span class="c"># 一次跑完 19 个 workspace 的测试</span>
-npm test
-npm run typecheck
-npm run lint
+<span class="c"># 前端：类型检查、单元测试、全量构建</span>
+npm --prefix frontend run typecheck
+npm --prefix frontend test
+npm --prefix frontend run build
 
-<span class="c"># 颜色必须走主题变量；注释与日志必须是英文</span>
-npm run check:theme-colors
-npm run check:english-comments</pre>
+<span class="c"># E2E：Playwright 驱动真实 Go 后端（server 构建）</span>
+task e2e</pre>
 
                 <div class="codecard__foot">
-                  单独调试某个编辑器：<code>npm run dev:docs</code>、<code>dev:sheets</code> … 它会自己开窗口，不经过工作台。
+                  CI（GitHub Actions）在每次 push / PR 上依次跑 Go、前端、E2E 三段流水线；界面中英双语，文案集中在 <code>@yiioffice/i18n</code>。
                 </div>
               </div>
             </div>
@@ -691,22 +715,21 @@ npm run check:english-comments</pre>
                 <summary>需要联网或注册账号吗？</summary>
                 <div class="faq__body">
                   都不需要。没有账号体系，也不会上传文件；编辑、保存、搜索与格式转换都在本机完成。
-                  程序不会联网检查更新，也不会统计使用数据。
+                  更新检查不自动发起，只在设置里手动触发；也不统计使用数据。
                 </div>
               </details>
               <details>
                 <summary>保存后 MS Office / WPS 能正常打开吗？</summary>
                 <div class="faq__body">
                   能。保存走 OOXML 补丁回写，只改动被编辑的节点，其余字节保持不变，
-                  不会破坏 Office 能识别的结构。
+                  不会破坏 Office 能识别的结构与扩展属性。
                 </div>
               </details>
               <details>
-                <summary>支持哪些系统？有安装包吗？</summary>
+                <summary>PDF 能加批注、改文字吗？</summary>
                 <div class="faq__body">
-                  Windows 10 / 11 有现成的 NSIS 安装包（v0.13.0）。macOS 与 Linux
-                  目前需要自行构建：<code>npm run dist:mac</code> 或 <code>npm run dist:linux</code>。
-                  项目没有自动更新链路，升级就是重新下载。
+                  不能。PDF 引擎是 pdfcpu，只能操作页面结构（合并、拆分、裁剪、页面替换等）；
+                  内容流级别的编辑超出其能力边界，相应入口已隐藏。查看、导航与页面操作不受影响。
                 </div>
               </details>
               <details>
@@ -717,18 +740,17 @@ npm run check:english-comments</pre>
                 </div>
               </details>
               <details>
-                <summary><code>npm run dev</code> 起来了，编辑器标签却白屏？</summary>
+                <summary>能部署到服务器上吗？</summary>
                 <div class="faq__body">
-                  先确认五个渲染端 dev server（:5173–:5177）都活着 ——
-                  每个编辑器标签加载自己的 dev server，端口被占或渲染端崩掉就会白屏。
+                  可以。<code>task build:server</code> 或 <code>task build:docker</code> 产出 HTTP 服务形态，
+                  默认监听 8080；绑定到非回环地址时启动会告警，请置于可信网络或反向代理之后。
                 </div>
               </details>
               <details>
-                <summary>项目有 CI 吗？</summary>
+                <summary><code>wails3 dev</code> 起来了，编辑器标签却白屏？</summary>
                 <div class="faq__body">
-                  代码托管在两个地方：GitHub 为上游，Gitee 是国内镜像。仓库目前没有 CI 配置，
-                  lint、类型检查与测试都在本地跑，测试与类型检查仍有既有的历史失败，
-                  改动前建议先在对应 workspace 跑一遍确认基线。
+                  先确认 Vite dev server（:5178）活着 —— 编辑器标签都挂在它上面，端口被占或渲染端崩掉就会白屏；
+                  重新运行 <code>wails3 dev</code> 即可拉起。
                 </div>
               </details>
             </div>

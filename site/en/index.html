@@ -3,18 +3,18 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>YiiOffice — A local-first, open-source office suite</title>
+    <title>YiiOffice — A local-first, open-source Office suite</title>
     <meta
       name="description"
-      content="YiiOffice is a local-first, open-source office suite: native read and write for Word, Excel, PowerPoint, PDF and Markdown. Double-click and it opens. No sign-in, no uploads, no ads."
+      content="YiiOffice is a local-first, open-source Office suite built with Go and Wails v3 as a single native exe: reads and writes real Word, Excel, PowerPoint, PDF and Markdown files. Double-click and it opens, everything works offline. No sign-in, no uploads, no ads."
     />
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0a0a0b" media="(prefers-color-scheme: dark)" />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="YiiOffice — A local-first, open-source office suite" />
+    <meta property="og:title" content="YiiOffice — A local-first, open-source Office suite" />
     <meta
       property="og:description"
-      content="Native Word, Excel, PowerPoint, PDF and Markdown. No sign-in, no uploads, no ads."
+      content="Reads and writes real Word, Excel, PowerPoint, PDF and Markdown files. A single native exe — no sign-in, no uploads, no ads."
     />
     <meta property="og:url" content="https://ethanbourne789.github.io/YiiOffice/en/" />
     <meta property="og:site_name" content="YiiOffice" />
@@ -22,7 +22,7 @@
     <meta property="og:image" content="https://ethanbourne789.github.io/YiiOffice/assets/brand/og-en.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="The YiiOffice mark with the line: Your files stay on your disk." />
+    <meta property="og:image:alt" content="YiiOffice mark and tagline: your files stay on your disk." />
     <meta name="twitter:image" content="https://ethanbourne789.github.io/YiiOffice/assets/brand/og-en.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" href="../favicon.ico" sizes="16x16 32x32 48x48" />
@@ -52,10 +52,10 @@
           <span>YiiOffice</span>
         </a>
 
-        <nav class="nav__links" aria-label="Main">
+        <nav class="nav__links" aria-label="Main navigation">
           <a class="nav__link" href="#editors">Editors</a>
           <a class="nav__link" href="#capabilities">Capabilities</a>
-          <a class="nav__link" href="#start">Get started</a>
+          <a class="nav__link" href="#start">Quick start</a>
           <a class="nav__link" href="#faq">FAQ</a>
         </nav>
 
@@ -76,7 +76,7 @@
             type="button"
             data-mode="system"
             aria-label="Theme: system"
-            title="Theme (system / light / dark)"
+            title="Switch theme (system / light / dark)"
           >
             <svg data-icon="system" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1.8" y="3" width="12.4" height="8" rx="1.4" /><path d="M5.6 13.4h4.8" /></svg>
             <svg data-icon="light" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="3" /><path d="M8 1v1.6M8 13.4V15M1 8h1.6M13.4 8H15M3.1 3.1l1.1 1.1M11.8 11.8l1.1 1.1M12.9 3.1l-1.1 1.1M4.2 11.8l-1.1 1.1" /></svg>
@@ -123,15 +123,21 @@
               <div class="dl__menu">
                 <a
                   class="dl__item"
-                  href="https://github.com/ethanbourne789/YiiOffice/releases/download/YiiOffice/YiiOffice.Setup.0.13.0.exe"
+                  href="https://github.com/ethanbourne789/YiiOffice/releases/latest"
                   rel="noopener"
                 >
-                  Windows installer <small>v0.13.0 · 136 MB</small>
+                  Windows installer <small>v0.13.0 · NSIS + SHA-256</small>
                 </a>
-                <a class="dl__item" href="#start">Build from source <small>macOS / Linux</small></a>
                 <a
                   class="dl__item"
-                  href="https://gitee.com/ethanbourne789/yiioffice"
+                  href="https://github.com/ethanbourne789/YiiOffice/releases"
+                  rel="noopener"
+                >
+                  Portable zip <small>v0.13.0 · unpack and run</small>
+                </a>
+                <a
+                  class="dl__item"
+                  href="https://gitee.com/ethanbourne789/yiioffice/releases"
                   rel="noopener"
                 >
                   Gitee mirror <small>faster in China</small>
@@ -143,7 +149,7 @@
           </div>
 
           <p class="hero__meta">
-            Also builds from source on macOS and Linux · Free and open source,
+            A single native exe built with Go + Wails v3 · Windows 10/11 · Free and open source,
             <a href="https://github.com/ethanbourne789/YiiOffice/blob/main/LICENSE" rel="noopener"
               >Apache-2.0</a
             >
@@ -219,7 +225,7 @@
                     src="../assets/screens/docs-light-en.webp"
                     width="1599"
                     height="960"
-                    alt="Docs: an annual operations report in page view, with a heading, body copy and a metrics table."
+                    alt="The Docs editor showing a paginated annual report with headings, body text and a metrics table."
                     loading="lazy"
                   />
                   <img
@@ -227,7 +233,7 @@
                     src="../assets/screens/docs-dark-en.webp"
                     width="1599"
                     height="960"
-                    alt="Docs in dark theme, showing the same report."
+                    alt="The same report in the Docs editor, dark theme."
                     loading="lazy"
                   />
                 </figure>
@@ -240,7 +246,7 @@
                     src="../assets/screens/sheets-light-en.webp"
                     width="1599"
                     height="960"
-                    alt="Sheets: a regional sales table with a frozen header, thousands separators and percentage columns."
+                    alt="The Sheets editor showing a regional sales table with a frozen header, thousands separators and a percent column."
                     loading="lazy"
                   />
                   <img
@@ -248,7 +254,7 @@
                     src="../assets/screens/sheets-dark-en.webp"
                     width="1599"
                     height="960"
-                    alt="Sheets in dark theme, showing the same table."
+                    alt="The same sales table in the Sheets editor, dark theme."
                     loading="lazy"
                   />
                 </figure>
@@ -261,7 +267,7 @@
                     src="../assets/screens/slides-light-en.webp"
                     width="1599"
                     height="960"
-                    alt="Slides: a cover slide with the thumbnail rail on the left."
+                    alt="The Slides editor showing a cover slide with a thumbnail rail on the left."
                     loading="lazy"
                   />
                   <img
@@ -269,7 +275,7 @@
                     src="../assets/screens/slides-dark-en.webp"
                     width="1599"
                     height="960"
-                    alt="Slides in dark theme, showing the same cover slide."
+                    alt="The same cover slide in the Slides editor, dark theme."
                     loading="lazy"
                   />
                 </figure>
@@ -282,7 +288,7 @@
                     src="../assets/screens/pdf-light-en.webp"
                     width="1599"
                     height="960"
-                    alt="PDF: a quarterly review report with page view, thumbnail navigation and an editing toolbar."
+                    alt="The PDF viewer showing a page view, thumbnail navigation and a page-operations toolbar."
                     loading="lazy"
                   />
                   <img
@@ -290,7 +296,7 @@
                     src="../assets/screens/pdf-dark-en.webp"
                     width="1599"
                     height="960"
-                    alt="PDF in dark theme, showing the same report page."
+                    alt="The same PDF in the viewer, dark theme."
                     loading="lazy"
                   />
                 </figure>
@@ -303,7 +309,7 @@
                     src="../assets/screens/markdown-light-en.webp"
                     width="1599"
                     height="960"
-                    alt="Markdown: a WYSIWYG view with headings, a table and a blockquote."
+                    alt="The Markdown editor showing headings, a table and a blockquote in WYSIWYG view."
                     loading="lazy"
                   />
                   <img
@@ -311,7 +317,7 @@
                     src="../assets/screens/markdown-dark-en.webp"
                     width="1599"
                     height="960"
-                    alt="Markdown in dark theme, showing the same document."
+                    alt="The same document in the Markdown editor, dark theme."
                     loading="lazy"
                   />
                 </figure>
@@ -326,10 +332,11 @@
         <div class="wrap">
           <div class="section__head reveal">
             <p class="eyebrow">Editors</p>
-            <h2 class="h2">From a file to a finished deliverable.</h2>
+            <h2 class="h2">From a file to a deliverable.</h2>
             <p class="lede">
-              Every editor runs on its own or as a tab in the same workspace. Switching tabs only
-              shows and hides them — scroll position, caret and undo stack are all kept.
+              Every editor opens as a tab in one workspace, hosted by a Go-side tab manager.
+              Switching tabs only shows and hides — scroll position, cursor and undo stacks all stay
+              exactly where you left them.
             </p>
           </div>
 
@@ -338,66 +345,72 @@
               <div class="card__ico" style="background: var(--c-docs)" aria-hidden="true">W</div>
               <h3 class="h3">Docs</h3>
               <p>
-                Paged and multi-page views, rulers and page setup, headers and footers, page numbers
-                and sections; style gallery, footnotes, comments and document comparison. Equations,
-                find and replace, word count, document protection.
+                A Word-style ribbon (Home / Insert / Draw / Design / Layout / References / Review /
+                View), format painter and paste special, separate East-Asian / Latin fonts, image
+                crop, background removal and rotation, find and replace, word count, zoom and
+                reading mode; paragraph-patch saves keep everything you did not touch byte-identical.
               </p>
-              <p class="card__tags">.docx · .docm</p>
+              <p class="card__tags">.docx · Tiptap 3 + docx-engine</p>
             </article>
 
             <article class="card reveal">
               <div class="card__ico" style="background: var(--c-sheets)" aria-hidden="true">X</div>
               <h3 class="h3">Sheets</h3>
               <p>
-                A formula and function library with argument hints, conditional formatting, data
-                validation, sort and filter; pivot tables, charts, grouping, consolidated sheets,
-                worksheet protection and paged printing.
+                Formulas and a function library, conditional formatting, data validation, sort and
+                filter, tables, notes and drawings, find and replace; reading and saving run through
+                the Go-side OOXML patch gateway (excelize), so Office opens what you save as-is.
               </p>
-              <p class="card__tags">.xlsx · .xlsm · .csv</p>
+              <p class="card__tags">.xlsx · .xlsm · .csv · .tsv · Univer 1.3</p>
             </article>
 
             <article class="card reveal">
               <div class="card__ico" style="background: var(--c-slides)" aria-hidden="true">S</div>
               <h3 class="h3">Slides</h3>
               <p>
-                Masters and layouts, text, shapes, images and charts; animations and transitions
-                including Morph; presentation mode, presenter view and custom shows, notes, comments
-                and non-destructive cropping.
+                Ribbon-style editing (Insert / Draw / Design / Transitions / Animations / Slide Show
+                / Review), text, shape, picture and table editing, transitions and animation
+                effects; EMU→px high-fidelity rendering with element-patch saves that rewrite only
+                the nodes you changed.
               </p>
-              <p class="card__tags">.pptx</p>
+              <p class="card__tags">.pptx · Konva 10 + pptx-engine</p>
             </article>
 
             <article class="card reveal">
               <div class="card__ico" style="background: var(--c-pdf)" aria-hidden="true">P</div>
               <h3 class="h3">PDF</h3>
               <p>
-                Edit text and images right on the page. Annotations, outline navigation, page
-                operations, form design and filling, redaction, signatures and stamps, password
-                protection.
+                Viewing and navigation (thumbnails, page jump, zoom, fit modes); page operations:
+                merge, split, extract pages, insert PDF, replace pages, N-up, grid cut, crop, page
+                size, page-image export, blank pages. Annotations and content-stream editing are
+                beyond the engine's boundary — those entry points are removed rather than left to
+                fail on click.
               </p>
-              <p class="card__tags">.pdf</p>
+              <p class="card__tags">.pdf · pdf.js 6 + pdfcpu</p>
             </article>
 
             <article class="card reveal">
               <div class="card__ico" style="background: var(--c-md)" aria-hidden="true">M</div>
               <h3 class="h3">Markdown</h3>
               <p>
-                WYSIWYG and source views side by side, with tables, code blocks and images. Mermaid
-                diagrams and KaTeX math render in place; export to DOCX, PDF or images.
+                WYSIWYG and source views, tables, code blocks and images; Mermaid diagrams and KaTeX
+                math render inline, and JSON and plain text get their own editing modes.
               </p>
-              <p class="card__tags">.md · .txt</p>
+              <p class="card__tags">.md · .txt · .json · Tiptap + CodeMirror 6</p>
             </article>
 
             <article class="card reveal">
               <div class="card__ico" style="background: var(--c-conv)" aria-hidden="true">
                 <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M3 5.5h8.5M9 3l2.5 2.5L9 8M13 10.5H4.5M7 8L4.5 10.5 7 13" /></svg>
               </div>
-              <h3 class="h3">Conversion</h3>
+              <h3 class="h3">Export</h3>
               <p>
-                Turn a PDF into editable Word, Excel or PowerPoint, or an HTML page into DOCX. All of
-                it runs on your machine — no upload, no quota, no account.
+                Docs / Sheets / Slides / Markdown export to PDF; Docs also to HTML and DOCX. The
+                <code>--headless-export</code> CLI converts without opening a window and
+                <code>--json</code> emits one machine-readable line — all on your machine, nothing
+                uploaded, no quotas.
               </p>
-              <p class="card__tags">pdf → docx · html → docx</p>
+              <p class="card__tags">pdf · html · docx · headless CLI</p>
             </article>
           </div>
         </div>
@@ -408,23 +421,25 @@
         <div class="wrap">
           <div class="editorial">
             <div class="editorial__head reveal">
-              <h2 class="h2">Your files. Your call.</h2>
+              <h2 class="h2">Your files, your call.</h2>
               <p class="lede">
-                Open, edit and save on your own disk. The app never uploads, syncs or backs anything
-                up for you — where a file lives and what it is called stays your decision.
+                Opening, editing and saving all happen on your own disk. The app never uploads,
+                syncs or backs up anything for you — where a file lives and what it is called stays
+                your decision.
               </p>
-              <a class="editorial__link" href="#capabilities">Where the network ends</a>
+              <a class="editorial__link" href="#capabilities">See where the network boundary is</a>
             </div>
 
             <div class="facts">
               <div class="fact reveal">
                 <span class="fact__num">01</span>
                 <div>
-                  <h3 class="h3">Works with the network off</h3>
+                  <h3 class="h3">Works offline</h3>
                   <p>
-                    Editing, saving, search and conversion all run locally. There is exactly one
-                    default outbound request: loading remote images a document points at. The font
-                    download for slides only turns on when a CDN address is injected at build time.
+                    Editing, saving, searching and conversion all run locally. The only default
+                    outbound behaviour is loading remote images referenced by a document; update
+                    checks never run on their own — they start only when you trigger them in
+                    settings.
                   </p>
                 </div>
               </div>
@@ -432,11 +447,11 @@
               <div class="fact reveal">
                 <span class="fact__num">02</span>
                 <div>
-                  <h3 class="h3">Saving costs no formatting</h3>
+                  <h3 class="h3">Saves keep formatting</h3>
                   <p>
-                    Saves are OOXML patches: only the nodes you touched are rewritten, every other
-                    byte stays as it was. Styles, comments, embedded objects and macros survive, and
-                    Word or WPS opens the result as usual.
+                    Saving is an OOXML patch: only the edited nodes are rewritten, every other byte
+                    stays as it was. Styles, comments, embedded objects and macros survive, and MS
+                    Office or WPS opens the result as usual.
                   </p>
                 </div>
               </div>
@@ -446,8 +461,9 @@
                 <div>
                   <h3 class="h3">No account, no ads</h3>
                   <p>
-                    No sign-up, no usage data, no update pings. There is no hidden paywall in the
-                    interface — the main screen is just your own file list.
+                    No registration, no usage telemetry, no paid entry points hidden in the UI;
+                    features the engines cannot provide have their entry points removed instead of
+                    left as buttons that fail on click — the main screen is just your own file list.
                   </p>
                 </div>
               </div>
@@ -463,46 +479,53 @@
             <p class="eyebrow">Capabilities</p>
             <h2 class="h2">The hard parts, handled outside the editors.</h2>
             <p class="lede">
-              Saves that never corrupt a file, crashes that never lose work, search that finds Chinese
-              text — the quiet parts are what you rely on daily.
+              Saves that never corrupt, crashes that never lose content, search that actually hits
+              Chinese text — the unglamorous parts are what you rely on every day.
             </p>
           </div>
 
           <div class="caps">
             <article class="cap reveal">
               <h3 class="h3">Atomic writes</h3>
-              <p>Every save goes through a temporary file and a rename, so a crash or a power cut never leaves half a file behind.</p>
+              <p>Every save goes through a temporary file plus <code>rename</code>, so a crash or power cut cannot leave half a file behind.</p>
             </article>
 
             <article class="cap reveal">
               <h3 class="h3">Local full-text search</h3>
               <p>
-                FTS5 on <code>node:sqlite</code>, covering names, paths and body text. Chinese is
-                indexed as both bigrams and unigrams, so two-character queries match long strings.
+                A Go-side SQLite (FTS5) index over names, paths and extracted text; CJK goes through
+                bigram + unigram streams, so two-character words match inside longer runs. fsnotify
+                applies 400 ms-debounced incremental updates — folder changes sync live, no restart.
               </p>
             </article>
 
             <article class="cap reveal">
-              <h3 class="h3">A multi-tab host</h3>
-              <p>Each tab is its own <code>WebContentsView</code>. Switching only shows and hides it, so the editor keeps its full state.</p>
+              <h3 class="h3">Multi-tab host</h3>
+              <p>Tabs are managed centrally by a Go-side host; switching preserves editor state whole, tabs detach into their own windows, and closing is guarded against unsaved changes.</p>
             </article>
 
             <article class="cap reveal">
               <h3 class="h3">Headless export</h3>
               <p>
-                <code>--headless-export</code> converts to PDF without opening a window, and
-                <code>--json</code> prints one structured line for scripts and batch jobs.
+                <code>--headless-export</code> converts to PDF without a window, and
+                <code>--json</code> emits one structured line for scripts and batch jobs.
               </p>
             </article>
 
             <article class="cap reveal">
-              <h3 class="h3">Two languages</h3>
-              <p>Interface strings live in <code>@yiioffice/i18n</code>, switchable between Chinese and English, decoupled from feature code.</p>
+              <h3 class="h3">Zip-bomb defence</h3>
+              <p>
+                <code>zip-gate</code> rejects archives whose parts inflate past what they declare
+                before anything materialises them — one defence shared by the DOCX and PPTX engines.
+              </p>
             </article>
 
             <article class="cap reveal">
-              <h3 class="h3">Print and export</h3>
-              <p>All five editors print directly; Docs and Markdown export to PDF, Slides exports to SVG and images.</p>
+              <h3 class="h3">Server mode &amp; Docker</h3>
+              <p>
+                <code>-tags server</code> builds a pure HTTP server (no GUI, port 8080 by default)
+                and packages it as a distroless image — one codebase, two shapes.
+              </p>
             </article>
           </div>
         </div>
@@ -513,42 +536,47 @@
         <div class="wrap">
           <div class="section__head reveal">
             <p class="eyebrow">Stack</p>
-            <h2 class="h2">Every choice is a replaceable, public piece.</h2>
+            <h2 class="h2">Every choice is a replaceable, public component.</h2>
           </div>
 
           <div class="stackcard reveal">
             <div class="stackrow">
               <span class="stackrow__label">Runtime</span>
               <div class="chips">
-                <span class="chip">Electron 45</span>
-                <span class="chip">electron-vite 6</span>
-                <span class="chip">Node main process</span>
-                <span class="chip">WebContentsView</span>
-                <span class="chip">node:sqlite FTS5</span>
+                <span class="chip">Wails v3.1.0</span>
+                <span class="chip">Go 1.27</span>
+                <span class="chip">System WebView2</span>
+                <span class="chip">Task orchestration</span>
+                <span class="chip">NSIS installer</span>
+                <span class="chip">Single native exe</span>
               </div>
             </div>
             <div class="stackrow">
-              <span class="stackrow__label">Front end</span>
+              <span class="stackrow__label">Backend</span>
+              <div class="chips">
+                <span class="chip">excelize (xlsx)</span>
+                <span class="chip">pdfcpu (pages)</span>
+                <span class="chip">SQLite FTS5 (modernc)</span>
+                <span class="chip">fsnotify watcher</span>
+                <span class="chip">Gitee update channel</span>
+                <span class="chip">IPC path grants</span>
+              </div>
+            </div>
+            <div class="stackrow">
+              <span class="stackrow__label">Frontend</span>
               <div class="chips">
                 <span class="chip">React 19</span>
                 <span class="chip">TypeScript 7</span>
                 <span class="chip">Vite 8</span>
                 <span class="chip">Tiptap 3</span>
-                <span class="chip">Univer 1.2</span>
+                <span class="chip">Univer 1.3</span>
                 <span class="chip">Konva 10</span>
-                <span class="chip">pdf.js 6</span>
+                <span class="chip">pdf.js 6.5</span>
                 <span class="chip">CodeMirror 6</span>
-              </div>
-            </div>
-            <div class="stackrow">
-              <span class="stackrow__label">Native</span>
-              <div class="chips">
-                <span class="chip">Rust sidecar</span>
-                <span class="chip">calamine</span>
-                <span class="chip">IronCalc</span>
-                <span class="chip">PDFium WASM</span>
-                <span class="chip">harfbuzzjs</span>
+                <span class="chip">Mermaid / KaTeX</span>
                 <span class="chip">npm workspaces</span>
+                <span class="chip">Vitest 5</span>
+                <span class="chip">Playwright</span>
               </div>
             </div>
           </div>
@@ -559,8 +587,8 @@
       <section class="section section--ruled" id="start">
         <div class="wrap">
           <div class="section__head reveal">
-            <p class="eyebrow">Get started</p>
-            <h2 class="h2">Start using YiiOffice.</h2>
+            <p class="eyebrow">Quick start</p>
+            <h2 class="h2">Get YiiOffice running.</h2>
           </div>
 
           <div class="startcard reveal">
@@ -577,14 +605,14 @@
             <div class="platforms">
               <div class="platform">
                 <h3>Windows</h3>
-                <p class="platform__req">Windows 10 / 11 · x64</p>
+                <p class="platform__req">Windows 10 / 11 · x64 · WebView2</p>
                 <div class="platform__links">
                   <a
                     class="platform__link"
                     href="https://github.com/ethanbourne789/YiiOffice/releases/latest"
                     rel="noopener"
                   >
-                    Download the installer
+                    Download installer
                     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12L12 4M6 4h6v6" /></svg>
                   </a>
                   <a
@@ -599,39 +627,41 @@
               </div>
 
               <div class="platform">
-                <h3>macOS</h3>
-                <p class="platform__req">macOS 11+ · Apple Silicon / Intel</p>
+                <h3>Build from source</h3>
+                <p class="platform__req">Go ≥ 1.27 · Node ≥ 22 · wails3 CLI</p>
                 <div class="platform__links">
-                  <a class="platform__link" href="#code-dist">
-                    Build from source
+                  <a class="platform__link" href="#code-run">
+                    See commands
                     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v9M4.5 8.5L8 12l3.5-3.5" /></svg>
                   </a>
-                  <span class="platform__link mono">npm run dist:mac</span>
+                  <span class="platform__link mono">wails3 dev</span>
                 </div>
               </div>
 
               <div class="platform">
-                <h3>Linux</h3>
-                <p class="platform__req">x86_64 · glibc 2.34+</p>
+                <h3>Server / Docker</h3>
+                <p class="platform__req">Pure HTTP service · port 8080 by default</p>
                 <div class="platform__links">
                   <a class="platform__link" href="#code-dist">
-                    Build from source
+                    See commands
                     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v9M4.5 8.5L8 12l3.5-3.5" /></svg>
                   </a>
-                  <span class="platform__link mono">npm run dist:linux</span>
+                  <span class="platform__link mono">task build:docker</span>
                 </div>
               </div>
             </div>
 
             <div class="startcard__body">
               <dl class="reqs">
-                <div class="req"><dt>Node.js</dt><dd>≥ 22.12</dd></div>
-                <div class="req"><dt>npm</dt><dd>≥ 10</dd></div>
-                <div class="req"><dt>Rust</dt><dd>stable (optional)</dd></div>
-                <div class="req"><dt>Systems</dt><dd>Win / macOS / Linux</dd></div>
+                <div class="req"><dt>Go</dt><dd>≥ 1.27</dd></div>
+                <div class="req"><dt>Node.js</dt><dd>≥ 22</dd></div>
+                <div class="req"><dt>wails3 CLI</dt><dd>v3.1.0</dd></div>
+                <div class="req"><dt>WebView2</dt><dd>usually preinstalled on Win 10/11</dd></div>
+                <div class="req"><dt>NSIS</dt><dd>optional, installer builds only</dd></div>
+                <div class="req"><dt>Docker</dt><dd>optional, server image only</dd></div>
                 <div class="reqs__note">
-                  The <code>npm install</code> postinstall step downloads the Electron binary; a mirror
-                  variable is available if that is slow.
+                  <code>go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0</code>
+                  installs the wails3 CLI; installers and portable zips ship a SHA-256 sidecar.
                 </div>
               </dl>
 
@@ -639,8 +669,8 @@
                 <div class="codecard__bar">
                   <div class="codecard__tabs" role="tablist" aria-label="Commands">
                     <button class="codecard__tab" role="tab" id="cmd-run" aria-controls="code-run" aria-selected="true" tabindex="0">Run</button>
-                    <button class="codecard__tab" role="tab" id="cmd-dist" aria-controls="code-dist" aria-selected="false" tabindex="-1">Package</button>
-                    <button class="codecard__tab" role="tab" id="cmd-check" aria-controls="code-check" aria-selected="false" tabindex="-1">Check</button>
+                    <button class="codecard__tab" role="tab" id="cmd-dist" aria-controls="code-dist" aria-selected="false" tabindex="-1">Build</button>
+                    <button class="codecard__tab" role="tab" id="cmd-check" aria-controls="code-check" aria-selected="false" tabindex="-1">Verify</button>
                   </div>
                   <button class="copy-btn" type="button" data-copy="code-run">
                     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.4" /><path d="M10.5 5.5V3.9a1.4 1.4 0 0 0-1.4-1.4H3.9a1.4 1.4 0 0 0-1.4 1.4v5.2a1.4 1.4 0 0 0 1.4 1.4H5.5" /></svg>
@@ -648,37 +678,36 @@
                   </button>
                 </div>
 
-                <pre id="code-run" role="tabpanel" aria-labelledby="cmd-run" tabindex="0"><span class="c"># install every workspace at once</span>
-npm install
+                <pre id="code-run" role="tabpanel" aria-labelledby="cmd-run" tabindex="0"><span class="c"># Install frontend dependencies (one npm workspace install)</span>
+cd frontend && npm install && cd ..
 
-<span class="c"># generate the .docx test fixtures</span>
-npm run fixtures
+<span class="c"># Generate bindings, start the Vite dev server (:5178), rebuild and run</span>
+wails3 dev</pre>
 
-<span class="c"># five renderers on :5173–:5177 plus the Electron main process</span>
-npm run dev</pre>
+                <pre id="code-dist" role="tabpanel" aria-labelledby="cmd-dist" tabindex="0" hidden><span class="c"># Production build (build/bin/YiiOffice.exe)</span>
+task build
 
-                <pre id="code-dist" role="tabpanel" aria-labelledby="cmd-dist" tabindex="0" hidden><span class="c"># portable zip</span>
-npm run dist:win
+<span class="c"># NSIS installer + SHA-256 sidecar (dist/)</span>
+task package:windows
 
-<span class="c"># NSIS installer (installs to D:\YiiOffice by default)</span>
-npm run dist:win:installer
+<span class="c"># Server-mode binary / distroless Docker image</span>
+task build:server
+task build:docker</pre>
 
-<span class="c"># macOS / Linux</span>
-npm run dist:mac
-npm run dist:linux</pre>
+                <pre id="code-check" role="tabpanel" aria-labelledby="cmd-check" tabindex="0" hidden><span class="c"># Backend: vet and unit tests</span>
+go vet ./...
+go test ./internal/...
 
-                <pre id="code-check" role="tabpanel" aria-labelledby="cmd-check" tabindex="0" hidden><span class="c"># tests across all 19 workspaces</span>
-npm test
-npm run typecheck
-npm run lint
+<span class="c"># Frontend: typecheck, unit tests, full renderer build</span>
+npm --prefix frontend run typecheck
+npm --prefix frontend test
+npm --prefix frontend run build
 
-<span class="c"># colours must use theme variables; comments and logs must be English</span>
-npm run check:theme-colors
-npm run check:english-comments</pre>
+<span class="c"># E2E: Playwright against the real Go backend (server build)</span>
+task e2e</pre>
 
                 <div class="codecard__foot">
-                  To debug a single editor: <code>npm run dev:docs</code>, <code>dev:sheets</code> … it
-                  opens its own window and skips the workspace.
+                  CI (GitHub Actions) runs the Go, frontend and E2E stages in order on every push / PR; the UI ships in English and Chinese, with strings in <code>@yiioffice/i18n</code>.
                 </div>
               </div>
             </div>
@@ -692,57 +721,57 @@ npm run check:english-comments</pre>
           <div class="editorial">
             <div class="editorial__head reveal">
               <p class="eyebrow">FAQ</p>
-              <h2 class="h2">A few things you may want to know.</h2>
+              <h2 class="h2">Things you might want to ask first.</h2>
             </div>
 
             <div class="faq reveal">
               <details open>
-                <summary>Do I need a network connection or an account?</summary>
+                <summary>Do I need an account or a network connection?</summary>
                 <div class="faq__body">
-                  Neither. There is no account system and nothing is uploaded; editing, saving, search
-                  and conversion all happen locally. The app does not check for updates and does not
-                  collect usage data.
+                  Neither. There is no account system and nothing is uploaded; editing, saving,
+                  search and conversion all happen locally. Update checks never run on their own —
+                  they start only when triggered from the settings UI, and no usage data is
+                  collected.
                 </div>
               </details>
               <details>
-                <summary>Will Word and WPS open what I save?</summary>
+                <summary>Can MS Office / WPS open the files after saving?</summary>
                 <div class="faq__body">
-                  Yes. Saves are OOXML patches: only the edited nodes change, every other byte stays
-                  as it was, so the structure Office expects is untouched.
+                  Yes. Saves are OOXML patches: only edited nodes change, the remaining bytes stay
+                  as they were, so the structures and extended properties Office relies on are
+                  preserved.
                 </div>
               </details>
               <details>
-                <summary>Which platforms are supported?</summary>
+                <summary>Can I annotate or edit text in a PDF?</summary>
                 <div class="faq__body">
-                  There is a ready-made NSIS installer for Windows 10 / 11 (v0.13.0). macOS and Linux
-                  build from source today: <code>npm run dist:mac</code> or
-                  <code>npm run dist:linux</code>. There is no auto-updater — upgrading means
-                  downloading again.
+                  No. The PDF engine here is pdfcpu, which manipulates page structure (merge, split,
+                  crop, page replacement and so on). Content-stream editing is beyond its capability
+                  boundary, so those entry points are hidden. Viewing, navigation and page
+                  operations all work.
                 </div>
               </details>
               <details>
-                <summary>Can search find Chinese text?</summary>
+                <summary>Does Chinese text search work?</summary>
                 <div class="faq__body">
-                  Yes. FTS5's <code>unicode61</code> tokenizer does not split continuous Chinese, so the
-                  index also emits bigram and unigram tokens; both two-character and single-character
-                  queries match.
+                  Yes. The index emits bigram and unigram streams for CJK, working around the fact
+                  that FTS5 <code>unicode61</code> does not segment continuous Chinese text.
                 </div>
               </details>
               <details>
-                <summary><code>npm run dev</code> runs, but editor tabs stay blank?</summary>
+                <summary>Can it be deployed on a server?</summary>
                 <div class="faq__body">
-                  Check that all five renderer dev servers (:5173–:5177) are alive. Each editor tab
-                  loads its own dev server, so an occupied port or a crashed renderer gives you a blank
-                  tab.
+                  Yes. <code>task build:server</code> or <code>task build:docker</code> produces the
+                  HTTP shape, listening on port 8080 by default; binding to a non-loopback address
+                  prints a startup warning, so keep it behind a trusted network or a reverse proxy.
                 </div>
               </details>
               <details>
-                <summary>Is there CI?</summary>
+                <summary><code>wails3 dev</code> started, but an editor tab shows a white page?</summary>
                 <div class="faq__body">
-                  The code lives in two places: GitHub upstream and a Gitee mirror for China. There is
-                  no CI configuration yet — lint, type checks and tests run locally, and there are
-                  known pre-existing failures, so check the baseline in the relevant workspace before
-                  changing it.
+                  Check that the Vite dev server (:5178) is alive — every editor tab loads from it,
+                  so a blocked port or a crashed renderer shows a blank tab. Re-running
+                  <code>wails3 dev</code> brings it back.
                 </div>
               </details>
             </div>
@@ -755,11 +784,11 @@ npm run check:english-comments</pre>
         <div class="wrap">
           <div class="cta reveal">
             <div>
-              <h2 class="h2">Open source. Change anything.</h2>
+              <h2 class="h2">Open source — go ahead and change it.</h2>
               <p>
-                The code, the component split and the build scripts are all in the repository — there
-                is no hidden paid tier. Add an editor, restyle the interface, or make one format read
-                more accurately: go ahead.
+                The code, the component splits and the build scripts are all in the repository,
+                with no hidden paid modules. Want to add an editor, reskin the palette, or make one
+                format's read/write even more faithful? Just start hacking.
               </p>
             </div>
             <div class="cta__actions">
@@ -791,10 +820,7 @@ npm run check:english-comments</pre>
               <img class="brand__mark" src="../assets/brand/mark-64.png" width="30" height="30" alt="" decoding="async" />
               <span>YiiOffice</span>
             </a>
-            <p>
-              A local-first, open-source office suite. Native read and write for Word, Excel,
-              PowerPoint, PDF and Markdown.
-            </p>
+            <p>A local-first, open-source Office suite. Reads and writes real Word, Excel, PowerPoint, PDF and Markdown files.</p>
           </div>
 
           <div class="footer__col">
@@ -802,32 +828,32 @@ npm run check:english-comments</pre>
             <a href="#editors">Editors</a>
             <a href="#principles">Principles</a>
             <a href="#capabilities">Capabilities</a>
-            <a href="#start">Get started</a>
+            <a href="#start">Quick start</a>
           </div>
 
           <div class="footer__col">
             <h4>Project</h4>
-            <a href="https://github.com/ethanbourne789/YiiOffice" rel="noopener">GitHub</a>
+            <a href="https://github.com/ethanbourne789/YiiOffice" rel="noopener">GitHub repository</a>
             <a href="https://gitee.com/ethanbourne789/yiioffice" rel="noopener">Gitee mirror</a>
-            <a href="https://github.com/ethanbourne789/YiiOffice/releases/latest" rel="noopener">Releases</a>
-            <a href="https://github.com/ethanbourne789/YiiOffice/issues" rel="noopener">Issues</a>
+            <a href="https://github.com/ethanbourne789/YiiOffice/releases/latest" rel="noopener">Download installer</a>
+            <a href="https://github.com/ethanbourne789/YiiOffice/issues" rel="noopener">Report an issue</a>
           </div>
 
           <div class="footer__col">
             <h4>Language</h4>
             <a href="../index.html" hreflang="zh-CN" lang="zh-CN">简体中文</a>
             <a href="index.html" aria-current="true">English</a>
-            <a href="https://github.com/ethanbourne789/YiiOffice/blob/main/LICENSE" rel="noopener">Apache-2.0 licence</a>
+            <a href="https://github.com/ethanbourne789/YiiOffice/blob/main/LICENSE" rel="noopener">Apache-2.0 license</a>
           </div>
         </div>
 
         <div class="footer__bottom">
           <p class="footer__fine">
-            © 2026 YiiOffice · Released under Apache-2.0. The YiiOffice name and mark are trademarks
-            of their owner; Apache-2.0 grants no trademark rights, so forks should use their own
-            branding. Not affiliated with Microsoft or Kingsoft.
+            © 2026 YiiOffice · Published under Apache-2.0. The YiiOffice name and logo are
+            trademarks of their owner; Apache-2.0 does not grant trademark rights — forks should use
+            their own branding. Not affiliated with Microsoft or Kingsoft.
           </p>
-          <p class="footer__fine">This page loads no third-party fonts, analytics or CDN assets.</p>
+          <p class="footer__fine">This page loads no third-party fonts, analytics scripts or CDN assets.</p>
         </div>
       </div>
     </footer>
