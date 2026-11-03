@@ -207,6 +207,8 @@ import type { PageSize, FitMode } from './view-config'
 import { useVisibleSet, PdfPage, MarkupOverlay } from './PdfPage'
 import { PdfThumb, ThumbPendingOverlay } from './PdfThumb'
 import type { ThumbMenu } from './PdfThumb'
+import { usePdfDocument } from './usePdfDocument'
+import { useRenderTask } from './useRenderTask'
 import { SignDropOverlay, signPlaceK, imagePlaceK, staticFormFillPlaceK } from './SignDropOverlay'
 import { EDIT_FONT_BY_ID, measureTextWidth, rgbToHex, hexToRgb, hexTo255, rgb255ToHex, styleRunsToKeyRuns, styleSegCss, boldCss, boldToken, keyRunsToStyleRuns, blockMoveInput, patchPendingEdits, shiftPendingEdit, shiftRect, unionCover, inflateCss, textInsertPreviewStyle, textEditPreviewParts, textEditPreviewContent, seedDraftColors, paperCss, textEraseKey, textEraseProbe } from './text-edit-preview'
 import { samplePaperColor } from './paper-sample'
@@ -326,7 +328,14 @@ export function App() {
     collapse: t('ribbonCollapse'),
     expand: t('ribbonExpand'),
   })
-  const [doc, setDoc] = useState<PDFDocumentProxy | null>(null)
+  const {
+    doc,
+    load: loadPdfDocument,
+    adopt: adoptPdfDocument,
+    destroy: destroyPdfDocument,
+  } = usePdfDocument()
+  // Canvas render tasks started by the exporter are cancelled when App unmounts
+  const exportRenderTasks = useRenderTask()
   const [filePath, setFilePath] = useState('')
   const [status, setStatus] = useState<'loading' | 'error' | 'empty' | 'password' | 'ready'>(
     'loading',
@@ -944,64 +953,20 @@ export function App() {
         formDesignRef.current?.reset()
         setFreshFormFieldId(null)
       }
-      const task = getDocument({
-        data: bytes,
-        password: passwordRef.current,
-        ...DOC_OPTS,
+      const probe = await loadPdfDocument(bytes, { password: passwordRef.current })
+      // A newer open superseded this one; the hook already released its document.
+      if (!probe) return 0
+      const loaded = probe.doc
+      const documentInfo = probe.info
+      setDocInfo({
+        title: documentInfo.Title ?? '',
+        author: documentInfo.Author ?? '',
+        subject: documentInfo.Subject ?? '',
+        keywords: documentInfo.Keywords ?? '',
       })
-      let loaded: PDFDocumentProxy
-      try {
-        loaded = await task.promise
-      } catch (err) {
-        // a failed open (wrong password, corrupt file) leaves the rejected task
-        // holding the file bytes and its worker: retire it before surfacing
-        void task.destroy()
-        throw err
-      }
-      const all: PageSize[] = []
-      const rots: number[] = []
-      const origins: [number, number][] = []
-      const userUnits: number[] = []
-      try {
-        const metadata = await loaded.getMetadata()
-        const documentInfo = metadata.info as {
-          EncryptFilterName?: string | null
-          IsXFAPresent?: boolean
-          Title?: string
-          Author?: string
-          Subject?: string
-          Keywords?: string
-        }
-        setDocInfo({
-          title: documentInfo.Title ?? '',
-          author: documentInfo.Author ?? '',
-          subject: documentInfo.Subject ?? '',
-          keywords: documentInfo.Keywords ?? '',
-        })
-        const formFeatures = documentFormFeatures(documentInfo, bytes)
-        setFormHasXfa(formFeatures.hasXfa)
-        setDocumentEncrypted(formFeatures.encrypted)
-        for (let i = 1; i <= loaded.numPages; i++) {
-          const page = await loaded.getPage(i)
-          // Unrotated size; display size is derived by geom from the total rotation
-          const vp = page.getViewport({ scale: 1, rotation: 0 })
-          all.push({ width: vp.width, height: vp.height })
-          rots.push(page.rotate ?? 0)
-          origins.push([page.view[0]!, page.view[1]!])
-          userUnits.push(page.userUnit ?? 1)
-          // Only the geometry was needed. Without this, opening a large PDF
-          // keeps every page's parsed content alive for the whole session
-          // (each page re-parses lazily when it first scrolls into view).
-          page.cleanup()
-        }
-      } catch (err) {
-        // getMetadata/page probing failed after the document resolved but before
-        // setDoc adopted it: destroy the half-open document (pdfjs-dist 6.x
-        // removed PDFDocumentProxy.destroy(); go through the loading task) and
-        // keep the previous document on screen, then surface the error
-        void loaded.loadingTask.destroy()
-        throw err
-      }
+      const formFeatures = documentFormFeatures(documentInfo, bytes)
+      setFormHasXfa(formFeatures.hasXfa)
+      setDocumentEncrypted(formFeatures.encrypted)
       try {
         setFormCatalog(await buildFormCatalog(loaded))
       } catch {
@@ -1012,10 +977,10 @@ export function App() {
       } catch {
         setSavedStaticFormFills([])
       }
-      setSizes(all)
-      setPageOrigins(origins)
-      setPageUserUnits(userUnits)
-      setBaseRots(rots)
+      setSizes(probe.sizes)
+      setPageOrigins(probe.origins)
+      setPageUserUnits(probe.userUnits)
+      setBaseRots(probe.rotations)
       let renderedPages: Promise<void> | null = null
       if (saved && waitForPageNos.length > 0) {
         postSaveRenderWaitRef.current?.finish()
@@ -1036,7 +1001,7 @@ export function App() {
           if (wait.pending.size === 0) wait.finish()
         })
       }
-      setDoc(loaded)
+      if (!adoptPdfDocument(probe)) return 0
       if (renderedPages) await renderedPages
       if (!saved) {
         setMarkups([])
@@ -1250,10 +1215,10 @@ export function App() {
           setOutlineGenerated(!embedded && generated !== null)
         })
       // pdfjs-dist 6.x removed PDFDocumentProxy.destroy(); go through the loading task
-      if (previous) void previous.loadingTask.destroy()
+      destroyPdfDocument(previous)
       return loaded.numPages
     },
-    [],
+    [loadPdfDocument, adoptPdfDocument, destroyPdfDocument],
   )
 
   const openPath = useCallback(
@@ -5298,12 +5263,16 @@ export function App() {
     flushThen(async () => {
       if (!doc || exporting) return
       setExporting(true)
+      // Every page bitmap draws onto this one canvas; the session cancels the
+      // active render task if App unmounts while an export is still running.
+      const session = exportRenderTasks.begin()
       try {
         const targets = allPages ? visList : [curOrigIdx].filter((i) => i >= 0)
         const images: string[] = []
         const pageNumbers: number[] = []
         const canvas = document.createElement('canvas')
         for (const origIdx of targets) {
+          if (!session.live) break
           if (isBlankPage(origIdx)) {
             const d = dispSize(origIdx)
             canvas.width = Math.floor((d.width * 150) / 72)
@@ -5318,18 +5287,29 @@ export function App() {
             continue
           }
           const page = await doc.getPage(origIdx + 1)
+          if (!session.live) break
           const viewport = page.getViewport({
             scale: 150 / 72,
             rotation: (page.rotate + rotDelta(origIdx)) % 360,
           })
           canvas.width = Math.floor(viewport.width)
           canvas.height = Math.floor(viewport.height)
-          await page.render({ canvas, viewport }).promise
+          const renderTask = page.render({ canvas, viewport })
+          session.track(renderTask)
+          try {
+            await renderTask.promise
+          } catch (err) {
+            // A cancelled task must not be reported as an export failure
+            if (session.live) throw err
+            break
+          }
+          if (!session.live) break
           images.push(canvas.toDataURL('image/png').split(',')[1] ?? '')
           pageNumbers.push(visList.indexOf(origIdx) + 1)
         }
         canvas.width = 0
         canvas.height = 0
+        if (!session.live) return
         const result = await window.pdfApi.exportImages({
           images,
           pageNumbers,
@@ -5339,6 +5319,7 @@ export function App() {
       } catch (err) {
         opFailed(err instanceof Error ? err.message : String(err))
       } finally {
+        session.end()
         setExporting(false)
       }
     })

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, RefObject } from 'react'
 import { AnnotationMode, TextLayer } from 'pdfjs-dist/legacy/build/pdf.mjs'
-import type { PDFDocumentProxy, PDFPageProxy, RenderTask } from 'pdfjs-dist'
+import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist'
 import { pdfRectToCss, quadToRect } from './annotations'
 import type { LocalMarkup, PageGeom } from './annotations'
+import { useRenderTask } from './useRenderTask'
 import { MAX_PAGE_RENDER_PIXELS } from './view-config'
 
 /** Which items in the container are within the (expanded) viewport — shared lazy-render basis
@@ -62,6 +63,7 @@ export function PdfPage({
   onRenderState: (doc: PDFDocumentProxy, pageNo: number, pending: boolean) => void
 }) {
   const holderRef = useRef<HTMLDivElement>(null)
+  const renderTasks = useRenderTask()
   // Last page proxy this component rendered: needed for cleanup() when the page
   // scrolls out. pdf.js 6 removed proxy.destroy(); page.cleanup() is what
   // frees the parsed content, and the proxy stays usable (re-parses on demand).
@@ -93,11 +95,12 @@ export function PdfPage({
     // Visibility may change while a save reload is running. Register newly visible
     // pages dynamically so global preview cleanup cannot outrun their bitmap swap.
     onRenderState(doc, pageNo, true)
-    let cancelled = false
-    let renderTask: RenderTask | null = null
+    const session = renderTasks.begin()
     void (async () => {
       const page = await doc.getPage(pageNo)
-      if (cancelled) return
+      // A page that stopped being current (hidden, unmounted, scrolled away) during
+      // the async page lookup must not create a render task at all.
+      if (!session.live) return
       pageRef.current = page
       const viewport = page.getViewport({ scale, rotation: (page.rotate + rotationDelta) % 360 })
       // Cap at 2x: on hi-dpi screens a 3x-dpr full-page bitmap doubles memory with no visible gain.
@@ -112,7 +115,7 @@ export function PdfPage({
       canvas.height = Math.floor(viewport.height * dpr)
       canvas.style.width = `${Math.floor(viewport.width)}px`
       canvas.style.height = `${Math.floor(viewport.height)}px`
-      renderTask = page.render({
+      const renderTask = page.render({
         canvas,
         viewport,
         // FormLayer renders interactive widgets as HTML. Exclude their saved appearance
@@ -120,18 +123,22 @@ export function PdfPage({
         annotationMode: AnnotationMode.ENABLE_FORMS,
         transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined,
       })
+      session.track(renderTask)
       try {
         await renderTask.promise
       } catch {
         return // cancelled
       }
-      if (cancelled) return
+      if (!session.live) return
       const textDiv = document.createElement('div')
       textDiv.className = 'textLayer'
       holder.replaceChildren(canvas, textDiv)
       // Notify after the bitmap swap, but before the browser paints. A post-save
       // reload uses this to remove the matching edit previews in the same frame.
       onRenderState(doc, pageNo, false)
+      // The canvas bitmap is settled; the text layer is a separate render whose
+      // failure/cancellation must not revoke this session.
+      session.end()
       const textLayer = new TextLayer({
         textContentSource: page.streamTextContent(),
         container: textDiv,
@@ -143,11 +150,11 @@ export function PdfPage({
         /* cancelled */
       }
     })()
-    return () => {
-      cancelled = true
-      renderTask?.cancel()
-    }
-  }, [doc, pageNo, scale, rotationDelta, visible, onRenderState])
+    // Hiding, rerendering, scrolling away or unmounting cancels the in-flight task:
+    // pdf.js owns the canvas until its promise settles, so a leftover task must never
+    // be allowed to paint onto a page that is already gone.
+    return () => session.cancel()
+  }, [renderTasks, doc, pageNo, scale, rotationDelta, visible, onRenderState])
   return <div ref={holderRef} className="pdf-page-content" />
 }
 
