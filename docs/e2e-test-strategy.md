@@ -95,6 +95,8 @@ await expect(page.locator('.app-frame')).toBeVisible() // 永远成立
 1. **`End-to-End Testing`**（<https://v3.wails.io/guides/e2e-testing/>）：用 Playwright 打 **server 构建**（`-tags server`）——同一份前端产物、同一批 Go 服务，只是没有原生窗口；配置用 `webServer` 起 `go run -tags server,production .` 并以 `/health` 为就绪门；并明确声明**不覆盖**原生 WebView 窗口、系统菜单、托盘、原生文件对话框。
 2. **`Server Build`**（<https://v3.wails.io/guides/server-build/>）：`Server: application.ServerOptions{Host, Port}`、`/health` 端点、绑定与事件在 server 模式行为一致（事件走 WebSocket）、窗口/托盘/对话框在 server 模式下是 no-op；`WAILS_SERVER_HOST/PORT` 可覆盖配置。
 
+> **安全说明**：server 模式把全部 bridge 绑定与已授权的本地文件读取暴露在**无认证**的 HTTP 上。代码默认绑定 `127.0.0.1`，E2E fixture 显式设置 `WAILS_SERVER_HOST=127.0.0.1`；`docker/Dockerfile.server` 为容器网络刻意设置 `0.0.0.0`。当 `WAILS_SERVER_HOST` 指向非回环地址时，二进制在启动时输出 `SERVER MODE BOUND TO NON-LOOPBACK ADDRESS` 告警（判定见 `internal/servmode.IsLoopbackHost`），行为本身不变。不要把该端口直接暴露到不可信网络；确有需要时置于带认证的反向代理之后。
+
 对照本项目原 `fixture.ts` 的注释——"For a full real-backend E2E see the official guide"——说明团队知道差距存在，但把它留在了 TODO 状态。另外原注释引用的还是旧版指南的 `wails3 dev`（9245 端口）语境，与当前官方推荐的 server 构建方式已不一致。
 
 ### 3.1 文档条目与实现的逐条对应
