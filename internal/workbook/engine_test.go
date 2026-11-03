@@ -3,6 +3,7 @@ package workbook
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -329,6 +330,112 @@ func TestConcurrentReadersAndWriters(t *testing.T) {
 	}
 	if len(res.Cells) == 0 {
 		t.Error("expected cells after concurrent storm")
+	}
+}
+
+// TestOperationsAfterCloseFail verifies every session entry point reports
+// the session as unknown once Close released it.
+func TestOperationsAfterCloseFail(t *testing.T) {
+	eng := NewEngine()
+	defer eng.CloseAll()
+	info, err := eng.Open(fixture(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sheet := info.Sheets[0].ID
+	if err := eng.Close(info.SessionID); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+
+	area := CellArea{StartRow: 0, EndRow: 1, StartColumn: 0, EndColumn: 1}
+	calls := map[string]func() error{
+		"Info":      func() error { _, err := eng.Info(info.SessionID); return err },
+		"SheetName": func() error { _, err := eng.SheetName(info.SessionID, sheet); return err },
+		"ReadRange": func() error { _, err := eng.ReadRange(info.SessionID, sheet, area); return err },
+		"ReadFormulas": func() error {
+			_, err := eng.ReadFormulas(info.SessionID, sheet)
+			return err
+		},
+		"ReadRowOutline": func() error {
+			_, err := eng.ReadRowOutline(info.SessionID, sheet)
+			return err
+		},
+		"FindCells": func() error {
+			_, err := eng.FindCells(FindRequest{SessionID: info.SessionID, Query: "x"})
+			return err
+		},
+		"Recalc": func() error {
+			_, err := eng.Recalc(RecalcRequest{SessionID: info.SessionID,
+				Reads: []RecalcRead{{SheetID: sheet, Range: area}}})
+			return err
+		},
+		"ReadMedia": func() error {
+			_, err := eng.ReadMedia(info.SessionID, "missing")
+			return err
+		},
+		"Save": func() error {
+			_, err := eng.Save(SaveRequest{SessionID: info.SessionID, Mode: "save"})
+			return err
+		},
+	}
+	for name, call := range calls {
+		err := call()
+		if err == nil || !strings.Contains(err.Error(), "unknown session") {
+			t.Errorf("%s after close: want unknown session, got %v", name, err)
+		}
+	}
+}
+
+// TestCloseRacesWithReaders is a regression for the session TOCTOU window:
+// a reader that resolved the session pointer just before Close ran must
+// never touch the released excelize file. Without the closed-flag recheck
+// under s.mu the readers below panic or surface raw excelize errors instead
+// of "unknown session".
+func TestCloseRacesWithReaders(t *testing.T) {
+	eng := NewEngine()
+	defer eng.CloseAll()
+	const rounds, racers = 10, 8
+	area := CellArea{StartRow: 0, EndRow: 5, StartColumn: 0, EndColumn: 1}
+
+	for r := 0; r < rounds; r++ {
+		info, err := eng.Open(fixture(t))
+		if err != nil {
+			t.Fatal(err)
+		}
+		sheet := info.Sheets[0].ID
+		sid := info.SessionID
+
+		var wg sync.WaitGroup
+		errCh := make(chan error, racers)
+		stop := make(chan struct{})
+		for i := 0; i < racers; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for {
+					select {
+					case <-stop:
+						return
+					default:
+					}
+					if _, err := eng.ReadRange(sid, sheet, area); err != nil {
+						if !strings.Contains(err.Error(), "unknown session") {
+							errCh <- fmt.Errorf("reader: %w", err)
+						}
+						return
+					}
+				}
+			}()
+		}
+		if err := eng.Close(sid); err != nil {
+			t.Fatalf("round %d close: %v", r, err)
+		}
+		close(stop)
+		wg.Wait()
+		close(errCh)
+		for err := range errCh {
+			t.Fatalf("round %d: %v", r, err)
+		}
 	}
 }
 

@@ -2,11 +2,9 @@ package workbook
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -21,11 +19,10 @@ const scanLimit = 500_000
 // ReadRange returns the stored cells, row attributes, merges and hyperlinks
 // that intersect area.
 func (e *Engine) ReadRange(sessionID, sheet string, area CellArea) (*RangeResult, error) {
-	s, err := e.get(sessionID)
+	s, err := e.acquire(sessionID)
 	if err != nil {
 		return nil, err
 	}
-	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, err := s.file.GetSheetIndex(sheet); err != nil {
 		return nil, fmt.Errorf("unknown sheet %q", sheet)
@@ -196,11 +193,10 @@ func scanSheet(f *excelize.File, sheet string, fn func(row, col int, value any, 
 
 // ReadFormulas returns every formula cell of a sheet.
 func (e *Engine) ReadFormulas(sessionID, sheet string) (*FormulaCellsResult, error) {
-	s, err := e.get(sessionID)
+	s, err := e.acquire(sessionID)
 	if err != nil {
 		return nil, err
 	}
-	s.mu.Lock()
 	defer s.mu.Unlock()
 	result := &FormulaCellsResult{Cells: []CellRecord{}, SharedGroups: []any{}, IndexingComplete: true}
 	scanSheet(s.file, sheet, func(row, col int, value any, formula string) bool {
@@ -225,11 +221,10 @@ func (e *Engine) ReadFormulas(sessionID, sheet string) (*FormulaCellsResult, err
 // FindCells runs an Excel-style find across the requested sheets and pages
 // the hits through resumeAt/limit.
 func (e *Engine) FindCells(req FindRequest) (*FindCellsResult, error) {
-	s, err := e.get(req.SessionID)
+	s, err := e.acquire(req.SessionID)
 	if err != nil {
 		return nil, err
 	}
-	s.mu.Lock()
 	defer s.mu.Unlock()
 	result := &FindCellsResult{Matches: []FindCellMatch{}, IndexingComplete: true}
 	limit := req.Limit
@@ -342,11 +337,10 @@ func renderText(value any) string {
 
 // ReadRowOutline returns outlined or hidden rows of a sheet.
 func (e *Engine) ReadRowOutline(sessionID, sheet string) (*RowOutlineResult, error) {
-	s, err := e.get(sessionID)
+	s, err := e.acquire(sessionID)
 	if err != nil {
 		return nil, err
 	}
-	s.mu.Lock()
 	defer s.mu.Unlock()
 	rows, _ := sheetDimensions(s.file, sheet)
 	result := &RowOutlineResult{Rows: []RowOutlineRow{}, IndexingComplete: true}
@@ -369,19 +363,19 @@ func (e *Engine) ReadRowOutline(sessionID, sheet string) (*RowOutlineResult, err
 // excelize's calculator. Unsupported functions are returned as error cells
 // instead of failing the whole request.
 func (e *Engine) Recalc(req RecalcRequest) (*RecalcResult, error) {
-	s, err := e.get(req.SessionID)
+	s, err := e.acquire(req.SessionID)
 	if err != nil {
 		return nil, err
 	}
 	result := &RecalcResult{Cells: []RecalcCell{}}
 	if len(req.Reads) == 0 {
+		s.mu.Unlock()
 		return result, nil
 	}
 	// Only the snapshot touches the shared file; the clone below is
 	// goroutine-local, so the lock is released before the expensive
 	// evaluation to keep readers unblocked.
 	buf, err := func() (*bytes.Buffer, error) {
-		s.mu.Lock()
 		defer s.mu.Unlock()
 		return s.file.WriteToBuffer()
 	}()
@@ -482,11 +476,10 @@ func (e *Engine) mediaItems(s *session) []MediaItem {
 // ReadMedia resolves one media id (from the FileInfo visuals or a picture
 // anchor) to its base64 payload.
 func (e *Engine) ReadMedia(sessionID, visualID string) (*MediaResult, error) {
-	s, err := e.get(sessionID)
+	s, err := e.acquire(sessionID)
 	if err != nil {
 		return nil, err
 	}
-	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, item := range e.mediaItems(s) {
 		if item.ID == visualID {
@@ -498,14 +491,13 @@ func (e *Engine) ReadMedia(sessionID, visualID string) (*MediaResult, error) {
 
 // Save applies a patch request and writes it back to disk.
 func (e *Engine) Save(req SaveRequest) (*SaveResult, error) {
-	s, err := e.get(req.SessionID)
+	s, err := e.acquire(req.SessionID)
 	if err != nil {
 		return nil, err
 	}
 	// The whole edit→SaveAs→reload sequence must be atomic: readers must
 	// never observe a half-patched file, and reload swaps s.file beneath
 	// them. reloadLocked runs under this same lock, so no re-entry occurs.
-	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.info.ReadOnly && req.TargetPath == "" {
 		return nil, fmt.Errorf("workbook is read-only: %s", s.info.Path)
@@ -543,7 +535,9 @@ func (e *Engine) Save(req SaveRequest) (*SaveResult, error) {
 // disk. The caller must hold s.mu: it closes the old excelize file and
 // swaps in a fresh parse, which readers must never observe half-done.
 func (e *Engine) reloadLocked(s *session, path string) (*FileInfo, error) {
-	data, err := os.ReadFile(path)
+	// Stream the hash (see Engine.Open) so the reload does not hold a
+	// second full copy of the workbook alongside excelize's parse.
+	sum, size, err := hashFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("reload workbook: %w", err)
 	}
@@ -552,13 +546,12 @@ func (e *Engine) reloadLocked(s *session, path string) (*FileInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reload workbook: %w", err)
 	}
-	sum := sha256.Sum256(data)
 	info := FileInfo{
 		SessionID:    s.info.SessionID,
 		Name:         filepath.Base(path),
 		Path:         path,
 		SHA256:       hex.EncodeToString(sum[:]),
-		FileBytes:    int64(len(data)),
+		FileBytes:    size,
 		EntryCount:   countZipEntries(path),
 		ReadOnly:     isReadOnly(path),
 		Sheets:       sheetMetadata(f),

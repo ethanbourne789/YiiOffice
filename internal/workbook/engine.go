@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -33,6 +34,10 @@ type session struct {
 	mu   sync.Mutex
 	info FileInfo
 	file *excelize.File
+	// closed marks a session whose file has been (or is being) released.
+	// It is only ever set with mu held, so acquire can reject a session
+	// that was closed between the map lookup and the lock acquisition.
+	closed bool
 }
 
 // NewEngine returns an empty engine.
@@ -55,6 +60,7 @@ func (e *Engine) CloseAll() {
 	e.mu.Unlock()
 	for _, s := range sessions {
 		s.mu.Lock()
+		s.closed = true
 		s.file.Close()
 		s.mu.Unlock()
 	}
@@ -74,12 +80,18 @@ func newUUID() string {
 }
 
 // Open loads the workbook at path and registers a session.
+//
+// Memory note: the SHA-256 is computed by streaming the file, so peak
+// residency is excelize's single in-memory copy. The previous os.ReadFile
+// of the whole workbook added a second full copy on top. excelize.OpenFile
+// is used instead of OpenReader(bytes) because OpenReader io.ReadAll-copies
+// its input, reintroducing the extra buffer; countZipEntries only reads the
+// zip central directory.
 func (e *Engine) Open(path string) (*FileInfo, error) {
-	data, err := os.ReadFile(path)
+	sum, size, err := hashFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("read workbook: %w", err)
+		return nil, err
 	}
-	sum := sha256.Sum256(data)
 	f, err := excelize.OpenFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("parse workbook: %w", err)
@@ -90,7 +102,7 @@ func (e *Engine) Open(path string) (*FileInfo, error) {
 		Name:       filepath.Base(path),
 		Path:       path,
 		SHA256:     hex.EncodeToString(sum[:]),
-		FileBytes:  int64(len(data)),
+		FileBytes:  size,
 		EntryCount: entryCount,
 		ReadOnly:   isReadOnly(path),
 		Sheets:     sheetMetadata(f),
@@ -115,17 +127,35 @@ func (e *Engine) Close(sessionID string) error {
 	if !ok {
 		return fmt.Errorf("unknown session %q", sessionID)
 	}
-	// Wait out any in-flight read/write before releasing the file.
+	// Wait out any in-flight read/write before releasing the file. The
+	// closed flag is set under s.mu, so an operation that already holds
+	// the lock finishes against a live file, and any later acquire sees
+	// closed and reports the session as unknown.
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.closed {
+		return nil
+	}
+	s.closed = true
 	return s.file.Close()
 }
 
-func (e *Engine) get(sessionID string) (*session, error) {
+// acquire returns a session with s.mu held, or an error. The caller must
+// unlock s.mu when done. Re-checking closed under s.mu closes the TOCTOU
+// window where Close deletes the session between a map lookup and the
+// caller taking the lock, which would otherwise use a closed excelize
+// file. Engine.mu is released before s.mu is taken, preserving the rule
+// that Engine.mu is never held while a session lock is acquired.
+func (e *Engine) acquire(sessionID string) (*session, error) {
 	e.mu.Lock()
-	defer e.mu.Unlock()
 	s, ok := e.sessions[sessionID]
+	e.mu.Unlock()
 	if !ok {
+		return nil, fmt.Errorf("unknown session %q", sessionID)
+	}
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
 		return nil, fmt.Errorf("unknown session %q", sessionID)
 	}
 	return s, nil
@@ -134,11 +164,10 @@ func (e *Engine) get(sessionID string) (*session, error) {
 // SheetName resolves a renderer sheet id (which equals the sheet name) to a
 // worksheet the excelize file accepts.
 func (e *Engine) SheetName(sessionID, sheetID string) (string, error) {
-	s, err := e.get(sessionID)
+	s, err := e.acquire(sessionID)
 	if err != nil {
 		return "", err
 	}
-	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, err := s.file.GetSheetIndex(sheetID); err != nil {
 		return "", fmt.Errorf("unknown sheet %q", sheetID)
@@ -148,17 +177,34 @@ func (e *Engine) SheetName(sessionID, sheetID string) (string, error) {
 
 // Info returns the metadata snapshot of an open session.
 func (e *Engine) Info(sessionID string) (*FileInfo, error) {
-	s, err := e.get(sessionID)
+	s, err := e.acquire(sessionID)
 	if err != nil {
 		return nil, err
 	}
-	s.mu.Lock()
 	defer s.mu.Unlock()
 	info := s.info
 	return &info, nil
 }
 
 // ── metadata helpers ──
+
+// hashFile streams path through SHA-256 and returns the digest plus the
+// byte count, without holding the file contents in memory.
+func hashFile(path string) ([sha256.Size]byte, int64, error) {
+	fh, err := os.Open(path)
+	if err != nil {
+		return [sha256.Size]byte{}, 0, fmt.Errorf("read workbook: %w", err)
+	}
+	defer fh.Close()
+	h := sha256.New()
+	n, err := io.Copy(h, fh)
+	if err != nil {
+		return [sha256.Size]byte{}, 0, fmt.Errorf("hash workbook: %w", err)
+	}
+	var sum [sha256.Size]byte
+	copy(sum[:], h.Sum(nil))
+	return sum, n, nil
+}
 
 func countZipEntries(path string) int {
 	zr, err := zip.OpenReader(path)
