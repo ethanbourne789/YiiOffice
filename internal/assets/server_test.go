@@ -2,6 +2,7 @@ package assets
 
 import (
 	"io/fs"
+	"mime"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -11,15 +12,16 @@ import (
 
 func testRoot() fstest.MapFS {
 	return fstest.MapFS{
-		"shell/index.html":       {Data: []byte("<html>shell</html>")},
-		"docs/index.html":        {Data: []byte("<html>docs</html>")},
-		"docs/assets/app.js":     {Data: []byte("console.log('docs')")},
-		"sheets/index.html":      {Data: []byte("<html>sheets</html>")},
-		"slides/index.html":      {Data: []byte("<html>slides</html>")},
-		"pdf/index.html":         {Data: []byte("<html>pdf</html>")},
-		"markdown/index.html":    {Data: []byte("<html>markdown</html>")},
-		"shell/assets/main.css":  {Data: []byte("body{}")},
-		"shell/assets/main.js":   {Data: []byte("console.log('shell')")},
+		"shell/index.html":                     {Data: []byte("<html>shell</html>")},
+		"docs/index.html":                      {Data: []byte("<html>docs</html>")},
+		"docs/assets/app.js":                   {Data: []byte("console.log('docs')")},
+		"sheets/index.html":                    {Data: []byte("<html>sheets</html>")},
+		"slides/index.html":                    {Data: []byte("<html>slides</html>")},
+		"pdf/index.html":                       {Data: []byte("<html>pdf</html>")},
+		"markdown/index.html":                  {Data: []byte("<html>markdown</html>")},
+		"shell/assets/main.css":                {Data: []byte("body{}")},
+		"shell/assets/main.js":                 {Data: []byte("console.log('shell')")},
+		"pdf/assets/pdf.worker.min-abc123.mjs": {Data: []byte("onmessage=()=>{}")},
 	}
 }
 
@@ -51,6 +53,26 @@ func TestAppAssetServedWithContentType(t *testing.T) {
 	}
 	if ct := rec.Header().Get("Content-Type"); !strings.Contains(ct, "javascript") {
 		t.Fatalf("content-type = %q", ct)
+	}
+}
+
+// TestMJSResistsPoisonedRegistry guards the CI failure where the Windows
+// runner's HKCR entry made the mime table answer ".mjs" → "text/plain": the
+// pdf.js worker was refused as a module script and every PDF failed to open.
+// Poisoning the table here is exactly what that registry does at init time;
+// pinModuleScriptMIME must undo it, and the test leaves the table pinned.
+func TestMJSResistsPoisonedRegistry(t *testing.T) {
+	if err := mime.AddExtensionType(".mjs", "text/plain"); err != nil {
+		t.Fatalf("poison: %v", err)
+	}
+	pinModuleScriptMIME()
+
+	rec := do(t, testRoot(), "/pdf/assets/pdf.worker.min-abc123.mjs")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("got %d", rec.Code)
+	}
+	if ct := rec.Header().Get("Content-Type"); !strings.Contains(ct, "javascript") {
+		t.Fatalf("content-type = %q, want javascript", ct)
 	}
 }
 

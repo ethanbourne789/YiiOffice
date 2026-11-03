@@ -4,11 +4,27 @@ package assets
 import (
 	"io"
 	"io/fs"
+	"mime"
 	"net/http"
 	"os"
 	"path"
 	"strings"
 )
+
+// init pins the module-script extension for ServeContent's type lookup. On
+// Windows the mime package seeds its extension table from the HKCR registry,
+// which overrides the built-in entries — and Go only ignores the notorious
+// ".js" → "text/plain" setting (issue #32350), not ".mjs". A runner image that
+// registered ".mjs" as text/plain made this handler answer the pdf.js worker
+// with text/plain + nosniff, Chromium refused the module script, and every PDF
+// failed to open in CI while passing on dev machines whose registry is clean.
+// AddExtensionType runs after the registry scan (package init order) and
+// overrides whatever it recorded.
+func init() { pinModuleScriptMIME() }
+
+func pinModuleScriptMIME() {
+	_ = mime.AddExtensionType(".mjs", "text/javascript")
+}
 
 // contentSecurityPolicy is the response-header policy applied to every bundle.
 // A response header and a document's <meta> policy are enforced as the
