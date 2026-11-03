@@ -6,11 +6,12 @@ import (
 )
 
 // TabService exposes tab-management operations to the shell as an official
-// Wails V3 named binding service. It mirrors the real tabs:* channels that were
-// previously dispatched by the legacy Router. Keyboard/view-only stubs that the
-// frontend never invokes are intentionally omitted; the legacy Router keeps the
-// full channel surface for backward compatibility until the frontend moves fully
-// onto these bindings.
+// Wails V3 named binding service. It is the sole owner of the former Electron
+// tabs:* channel surface: list/activate/close/detach/tear-off/reorder, the
+// native menu handlers and the dirty-tab bridge all live here, consumed
+// through the generated bindings and packages/wails-bridge/tabs-bridge.ts.
+// Keyboard/view-only stubs the frontend never invokes are intentionally
+// omitted — no legacy Router remains to serve them.
 type TabService struct {
 	th *host.TabHost
 	dh *host.DetachedHost

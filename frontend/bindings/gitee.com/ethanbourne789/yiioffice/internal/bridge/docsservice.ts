@@ -3,8 +3,12 @@
 
 /**
  * DocsService exposes the Docs editor real operations as an official Wails V3
- * named binding service. Stub channels (export-pdf, print, spell, context-menu,
- * mcp, etc.) remain on the legacy Router and are not generated here.
+ * named binding service, including PDF export (ExportPdf below). The
+ * Electron-era surfaces without a host implementation are shimmed in the
+ * frontend wails-bridge editor-api instead of being generated here: print
+ * reports an explicit "not available in this build" error to its dialog,
+ * spell/context-menu degrade to empty results, and the old MCP bridge was
+ * removed entirely (no consumers remained).
  * @module
  */
 
@@ -58,6 +62,8 @@ export function OpenDocxDecrypt(path: string, _password: string): $CancellablePr
 
 /**
  * OpenDocxPath reads a docx file at the given path and returns base64 content.
+ * The path must be granted (dialog pick or Home open funnel) or inside the
+ * authorised roots.
  */
 export function OpenDocxPath(path: string): $CancellablePromise<$models.DocxOpenResult> {
     return $Call.ByID(3442373447, path).then(($result: any) => {
@@ -66,7 +72,9 @@ export function OpenDocxPath(path: string): $CancellablePromise<$models.DocxOpen
 }
 
 /**
- * OpenPath reads a file and returns its base64-encoded content.
+ * OpenPath reads a file and returns its base64-encoded content. The path must
+ * be granted (a dialog pick or the Home open funnel) or resolve inside the
+ * authorised roots.
  */
 export function OpenPath(path: string): $CancellablePromise<string> {
     return $Call.ByID(1948266541, path);

@@ -13,8 +13,12 @@ import (
 )
 
 // DocsService exposes the Docs editor real operations as an official Wails V3
-// named binding service. Stub channels (export-pdf, print, spell, context-menu,
-// mcp, etc.) remain on the legacy Router and are not generated here.
+// named binding service, including PDF export (ExportPdf below). The
+// Electron-era surfaces without a host implementation are shimmed in the
+// frontend wails-bridge editor-api instead of being generated here: print
+// reports an explicit "not available in this build" error to its dialog,
+// spell/context-menu degrade to empty results, and the old MCP bridge was
+// removed entirely (no consumers remained).
 type DocsService struct {
 	rm    *host.RecentManager
 	idxLc *index.Lifecycle

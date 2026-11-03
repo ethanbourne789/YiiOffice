@@ -3,8 +3,10 @@
 
 /**
  * SlidesService exposes the Slides editor real operations as an official
- * Wails V3 named binding service. Editing operations (edit-text, add-element,
- * undo, etc.) are all frontend stubs and remain on the legacy Router.
+ * Wails V3 named binding service. Slide editing (edit-text, add-element,
+ * undo, …) runs entirely inside the slides renderer against the local
+ * pptx-engine and needs no backend channel; only open/save/print/present
+ * require host services.
  * @module
  */
 
@@ -41,7 +43,9 @@ export function FilesReadImage(path: string): $CancellablePromise<string> {
 }
 
 /**
- * OpenPath reads a file and returns its base64-encoded content.
+ * OpenPath reads a file and returns its base64-encoded content. The path must
+ * be granted (a dialog pick or the Home open funnel) or resolve inside the
+ * authorised roots, so a crafted deck cannot name any file it likes.
  */
 export function OpenPath(path: string): $CancellablePromise<string> {
     return $Call.ByID(3208775208, path);

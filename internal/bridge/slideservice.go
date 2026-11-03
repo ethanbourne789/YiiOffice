@@ -11,8 +11,10 @@ import (
 )
 
 // SlidesService exposes the Slides editor real operations as an official
-// Wails V3 named binding service. Editing operations (edit-text, add-element,
-// undo, etc.) are all frontend stubs and remain on the legacy Router.
+// Wails V3 named binding service. Slide editing (edit-text, add-element,
+// undo, …) runs entirely inside the slides renderer against the local
+// pptx-engine and needs no backend channel; only open/save/print/present
+// require host services.
 type SlidesService struct {
 	rm *host.RecentManager
 }

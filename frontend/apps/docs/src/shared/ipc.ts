@@ -195,29 +195,6 @@ export interface AiDocContent {
 
 
 
-/**
- * MCP bridge: an editor command pushed from the shell main process into a docs
- * tab so an external agent drives the *visible* editor instead of writing a file
- * behind it. `insert_content` / `replace_blocks` / `apply_ops` / `read_document`
- * reuse the built-in agent's tool executors; `save_document` writes the live
- * document to an explicit path.
- */
-export type McpEditorCommand =
-  'insert_content' | 'replace_blocks' | 'apply_ops' | 'read_document' | 'save_document'
-
-export interface McpCommandMessage {
-  requestId: string
-  command: McpEditorCommand
-  payload: unknown
-}
-
-export interface McpCommandResult {
-  requestId: string
-  ok: boolean
-  result?: unknown
-  error?: string
-}
-
 export interface McpSaveResult {
   ok: boolean
   path?: string
@@ -355,12 +332,6 @@ export interface DesktopApi {
   /** MCP-driven output: write the current document to an explicit absolute path
    *  with no dialog; refuses to replace an existing file unless overwrite is true */
   saveDocxTo(path: string, data: ArrayBuffer, overwrite: boolean): Promise<McpSaveResult>
-  /** MCP bridge: receive an editor command pushed by the shell main process */
-  onMcpCommand(handler: (message: McpCommandMessage) => void): () => void
-  /** MCP bridge: report a command's outcome back to the shell main process */
-  reportMcpResult(result: McpCommandResult): void
-  /** MCP bridge: announce that this tab's editor is ready for commands */
-  signalMcpReady(): void
   getRecentFiles(): Promise<string[]>
   pickImage(): Promise<PickImageResult | null>
   /** vertical metrics of an installed family (exact name match), null when missing */

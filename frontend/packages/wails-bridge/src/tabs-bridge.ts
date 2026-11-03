@@ -99,7 +99,12 @@ export async function currentTabPath(): Promise<string | null> {
 export function setCurrentTabDirty(dirty: boolean): void {
   const id = currentTabId()
   if (!id) return
-  void SetDirty(id, dirty).catch(() => undefined)
+  SetDirty(id, dirty).catch((err: unknown) => {
+    // A lost dirty flag means the window close guard never prompts and
+    // unsaved changes can quit silently. This is a data-loss channel, so
+    // surface the failure instead of swallowing it.
+    console.error(`[wails-bridge] SetDirty(tab=${id}, dirty=${dirty}) failed`, err)
+  })
 }
 
 export interface TabsBridge {
