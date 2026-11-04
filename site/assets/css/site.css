@@ -882,6 +882,86 @@ html[data-theme="dark"] .shot img.shot__dark {
   color: var(--ink-2);
 }
 
+/* ------------------------------------------------------- size comparison */
+
+.sizecard {
+  margin-top: clamp(26px, 3.5vw, 40px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-tint);
+  overflow-x: auto;
+}
+
+.sizetable {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.sizetable th,
+.sizetable td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.sizetable thead th {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.sizetable tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.sizetable tbody tr[data-base="true"] {
+  background: color-mix(in srgb, var(--bg-soft) 55%, transparent);
+}
+
+.sizetable td:first-child {
+  font-weight: 560;
+}
+
+.sizetable .num {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.sizetable .note {
+  color: var(--ink-2);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.size__notes {
+  max-width: 60rem;
+  margin-top: 18px;
+  color: var(--ink-2);
+  font-size: 0.85rem;
+  line-height: 1.7;
+}
+
+.size__notes p + p {
+  margin-top: 10px;
+}
+
+.size__notes a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--line-2);
+  text-underline-offset: 3px;
+}
+
+.size__notes a:hover {
+  text-decoration-color: var(--ink);
+}
+
 /* ------------------------------------------------------------- get started */
 
 .startcard {

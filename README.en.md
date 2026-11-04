@@ -75,6 +75,30 @@ One window hosting every editor as a tab — the first thing you see when the ap
 
 ---
 
+## Installer Size Comparison (Windows 64-bit)
+
+> Data checked on 2026-11-04. All sizes refer to **full offline installers**; 1 MB = 1,048,576 bytes (the same convention Windows uses for file sizes), and 1 GB = 1,024 MB. The Office row is the set of cab/dat files fetched by ODT; the others are single installers.
+
+| Product | Version | Installer type | Size | Relative to this project | Notes |
+| --- | --- | --- | --- | --- | --- |
+| Microsoft Office | Office LTSC 2024 (ProPlus2024Volume, x64) | Full offline ODT package (cab/dat set, en-us) | 3,115.0 MB (3,266,286,064 bytes) | about 123× | Full suite; fetched anonymously via ODT `/download`, with byte counts summed from the official CDN file set; an LTSC license is still required to install and activate. LTSC 2021 measured the same way at 1,858.4 MB. |
+| WPS Office | Windows 64-bit build 29158 (2026-10-12) | Full offline installer | 356.8 MB | about 14× | The website's default download is an online installer of about 5 MB; this row uses the full package. |
+| LibreOffice | 26.8.2 | Full offline installer (MSI) | 358.5 MB | about 14× | Only a full MSI is offered; there is no online installer. |
+| ONLYOFFICE Desktop Editors | 10.0.0 | Full offline installer (EXE) | 286.0 MB | about 11× | An online installer of about 1 MB is also offered; this row uses the full Windows x64 package. |
+| **YiiOffice** | 0.13.0 | Full offline installer (NSIS) | **25.4 MB** | 1× (baseline) | `dist/YiiOffice_0.13.0_setup.exe`, 26,625,923 bytes. |
+
+These numbers compare installer size only; they are not a full comparison of capability or quality. Office LTSC, WPS and LibreOffice are broader office suites whose installers bundle many local components, fonts, templates and offline resources; ONLYOFFICE likewise ships a complete desktop editor. YiiOffice is a lightweight, self-built suite that relies on the system WebView2 (usually preinstalled on Windows 10/11) for rendering, which keeps its installer small. The size difference comes from product trade-offs, not from a difference in quality.
+
+**Sources and conversion**
+
+- Microsoft: the ODT is publicly downloadable; with `ProPlus2024Volume`, x64 and en-us, `setup /download` fetched files without a VLSC login. Byte counts come from the official PerpetualVL2024 CDN (<https://officecdn.microsoft.com/pr/7983bac0-e531-40cf-be00-fd24fe66619c/Office/Data/16.0.17932.21056/>), totaling 3,266,286,064 bytes; a valid LTSC license is still required to install and activate. Office LTSC 2021 (16.0.14334.20974) totals 1,948,647,170 bytes (1,858.4 MB) by the same method.
+- WPS: official CDN full package `WPS_Setup_x64_29158.exe`, 374,103,552 bytes on download; release information in the WPS official community (<https://bbs.wps.cn/topic/99188>).
+- LibreOffice: official download `LibreOffice_26.8.2_Win_x86-64.msi`, 375,934,976 bytes (<https://download.documentfoundation.org/libreoffice/stable/26.8.2/win/x86_64/LibreOffice_26.8.2_Win_x86-64.msi>).
+- ONLYOFFICE: the official download page lists the Windows x64 full package at 286 MB (<https://www.onlyoffice.com/en/download-desktop>); the corresponding GitHub release asset `DesktopEditors_x64.exe` is 299,860,896 bytes.
+- YiiOffice: measured from the current build artifact in this repository.
+
+---
+
 ## Quick start
 
 ### Requirements

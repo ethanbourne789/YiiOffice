@@ -54,6 +54,7 @@
 
         <nav class="nav__links" aria-label="主导航">
           <a class="nav__link" href="#editors">编辑器</a>
+          <a class="nav__link" href="#size">体积对比</a>
           <a class="nav__link" href="#start">快速开始</a>
           <a class="nav__link" href="#faq">常见问题</a>
         </nav>
@@ -460,6 +461,94 @@
 
       <!-- ------------------------------------------------------ capabilities -->
 
+      <!-- ---------------------------------------------------------- installer -->
+      <section class="section section--ruled" id="size">
+        <div class="wrap">
+          <div class="section__head reveal">
+            <p class="eyebrow">安装包体积</p>
+            <h2 class="h2">Windows 64 位安装包体积对比。</h2>
+            <p class="lede">
+              只比较完整离线安装包的大小。数字来自厂商安装包、官方 CDN 字节数或官方文档，查询日期 2026-11-04；
+              单位按 Windows 口径：1 MB = 1,048,576 字节，1 GB = 1,024 MB。
+            </p>
+          </div>
+
+          <div class="sizecard reveal">
+            <table class="sizetable" aria-label="Windows 64 位完整离线安装包体积对比">
+              <thead>
+                <tr>
+                  <th scope="col">产品</th>
+                  <th scope="col">版本</th>
+                  <th scope="col">安装包类型</th>
+                  <th scope="col">体积</th>
+                  <th scope="col">相对本项目倍数</th>
+                  <th scope="col">备注</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Microsoft Office</td>
+                  <td>Office LTSC 2024（ProPlus2024Volume，x64）</td>
+                  <td>ODT 完整离线包（cab/dat 集合，en-us）</td>
+                  <td class="num">3,115.0 MB</td>
+                  <td class="num">约 123×</td>
+                  <td class="note">完整套件；匿名 ODT /download 可拉取，字节数按官方 CDN 文件集求和；安装/激活仍需 LTSC 授权。LTSC 2021 同法为 1,858.4 MB。</td>
+                </tr>
+                <tr>
+                  <td>WPS Office</td>
+                  <td>Windows 64 位 build 29158（2026-10-12）</td>
+                  <td>完整离线安装包</td>
+                  <td class="num">356.8 MB</td>
+                  <td class="num">约 14×</td>
+                  <td class="note">官网默认下载是约 5 MB 的在线安装器；本行取完整离线包。</td>
+                </tr>
+                <tr>
+                  <td>LibreOffice</td>
+                  <td>26.8.2</td>
+                  <td>完整离线安装包（MSI）</td>
+                  <td class="num">358.5 MB</td>
+                  <td class="num">约 14×</td>
+                  <td class="note">官方只提供完整 MSI，没有在线安装器。</td>
+                </tr>
+                <tr>
+                  <td>ONLYOFFICE Desktop Editors</td>
+                  <td>10.0.0</td>
+                  <td>完整离线安装包（EXE）</td>
+                  <td class="num">286.0 MB</td>
+                  <td class="num">约 11×</td>
+                  <td class="note">官方另有约 1 MB 在线安装器；本行取 Windows x64 完整包。</td>
+                </tr>
+                <tr data-base="true">
+                  <td>YiiOffice</td>
+                  <td>0.13.0</td>
+                  <td>完整离线安装包（NSIS）</td>
+                  <td class="num">25.4 MB</td>
+                  <td class="num">1×（基准）</td>
+                  <td class="note">仓库内 dist/YiiOffice_0.13.0_setup.exe，26,625,923 字节。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="size__notes reveal">
+            <p>
+              以上只比较安装包体积，不构成完整的能力或质量对比。Office LTSC、WPS 与 LibreOffice
+              是覆盖面更广的办公套件，安装包内包含大量本机组件、字体、模板与离线资源；ONLYOFFICE
+              同样捆绑了完整桌面编辑器。YiiOffice 是自研轻量套件，界面渲染与部分能力依赖系统
+              WebView2（Windows 10/11 一般自带），安装包因此更小。体积差异主要来自产品取舍，不代表功能强弱。
+            </p>
+            <p>
+              数据来源：<a href="https://www.microsoft.com/en-us/download/details.aspx?id=49117" rel="noopener">Microsoft ODT</a> 与
+              <a href="https://officecdn.microsoft.com/pr/7983bac0-e531-40cf-be00-fd24fe66619c/Office/Data/16.0.17932.21056/" rel="noopener">PerpetualVL2024 CDN</a>（匿名 /download，合计 3,266,286,064 字节；LTSC 2021 为 1,948,647,170 字节）、
+              <a href="https://bbs.wps.cn/topic/99188" rel="noopener">WPS 官方社区</a>（完整包 374,103,552 字节）、
+              <a href="https://www.libreoffice.org/download/download-libreoffice/" rel="noopener">LibreOffice 官方下载</a>（26.8.2 x64 MSI 375,934,976 字节）、
+              <a href="https://www.onlyoffice.com/en/download-desktop" rel="noopener">ONLYOFFICE 官方下载页</a>（x64 完整包 286 MB）、
+              以及仓库内当前构建产物。
+            </p>
+          </div>
+        </div>
+      </section>
+
       <!-- ------------------------------------------------------------- stack -->
       <section class="section section--ruled" id="stack">
         <div class="wrap">
@@ -727,6 +816,7 @@ task e2e</pre>
             <h4>产品</h4>
             <a href="#editors">编辑器</a>
             <a href="#principles">设计原则</a>
+            <a href="#size">安装包体积</a>
             <a href="#start">快速开始</a>
           </div>
 

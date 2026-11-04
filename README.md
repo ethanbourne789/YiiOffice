@@ -75,6 +75,30 @@
 
 ---
 
+## 安装包体积对比（Windows 64 位）
+
+> 查询日期：2026-11-04。表中体积均为**完整离线安装包**；单位 1 MB = 1,048,576 字节（与 Windows 文件大小显示一致），GB 按 1 GB = 1,024 MB 换算。Office 行为 ODT 拉取的 cab/dat 文件集合，其余为单一安装包。
+
+| 产品 | 版本 | 安装包类型 | 体积 | 相对本项目倍数 | 备注 |
+| --- | --- | --- | --- | --- | --- |
+| Microsoft Office | Office LTSC 2024（ProPlus2024Volume，x64） | ODT 完整离线包（cab/dat 集合，en-us） | 3,115.0 MB（3,266,286,064 字节） | 约 123× | 完整套件；匿名 ODT `/download` 可拉取，字节数按官方 CDN 文件集逐项求和；安装/激活仍需 LTSC 授权。LTSC 2021 同法为 1,858.4 MB。 |
+| WPS Office | Windows 64 位 build 29158（2026-10-12） | 完整离线安装包 | 356.8 MB | 约 14× | 官网默认下载是约 5 MB 的在线安装器；本行取完整离线包。 |
+| LibreOffice | 26.8.2 | 完整离线安装包（MSI） | 358.5 MB | 约 14× | 官方只提供完整 MSI，没有在线安装器。 |
+| ONLYOFFICE Desktop Editors | 10.0.0 | 完整离线安装包（EXE） | 286.0 MB | 约 11× | 官方另有约 1 MB 在线安装器；本行取 Windows x64 完整包。 |
+| **YiiOffice** | 0.13.0 | 完整离线安装包（NSIS） | **25.4 MB** | 1×（基准） | 仓库内 `dist/YiiOffice_0.13.0_setup.exe`，26,625,923 字节。 |
+
+以上只比较安装包体积，不构成完整的能力或质量对比。Office LTSC、WPS 与 LibreOffice 是覆盖面更广的办公套件，安装包内包含大量本机组件、字体、模板与离线资源；ONLYOFFICE 同样捆绑了完整桌面编辑器。YiiOffice 是自研轻量套件，界面渲染与部分能力依赖系统 WebView2（Windows 10/11 一般自带），安装包因此更小。体积差异主要来自产品取舍，不代表功能强弱。
+
+**数据来源与换算**
+
+- Microsoft：ODT 免费公开，配置 `ProPlus2024Volume`、x64、en-us 后 `setup /download` 无需 VLSC 登录即可拉取。各文件字节数取自官方 PerpetualVL2024 CDN（<https://officecdn.microsoft.com/pr/7983bac0-e531-40cf-be00-fd24fe66619c/Office/Data/16.0.17932.21056/>），合计 3,266,286,064 字节；安装与激活仍需有效的 LTSC 授权。Office LTSC 2021（16.0.14334.20974）同法合计 1,948,647,170 字节（1,858.4 MB）。
+- WPS：官方 CDN 完整包 `WPS_Setup_x64_29158.exe`，下载文件 374,103,552 字节；版本发布信息见 WPS 官方社区（<https://bbs.wps.cn/topic/99188>）。
+- LibreOffice：官方下载 `LibreOffice_26.8.2_Win_x86-64.msi`，下载文件 375,934,976 字节（<https://download.documentfoundation.org/libreoffice/stable/26.8.2/win/x86_64/LibreOffice_26.8.2_Win_x86-64.msi>）。
+- ONLYOFFICE：官方下载页标注 Windows x64 完整包 286 MB（<https://www.onlyoffice.com/en/download-desktop>）；对应的 GitHub Release 资产 `DesktopEditors_x64.exe` 为 299,860,896 字节。
+- YiiOffice：仓库内当前构建产物实测字节数。
+
+---
+
 ## 快速开始
 
 ### 环境要求
