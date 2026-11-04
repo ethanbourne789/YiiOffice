@@ -71,19 +71,38 @@ func (*FileOps) Delete(paths []string) []string {
 }
 
 // RouteByExt returns the TabKind for a file extension.
+//
+// Legacy 97-2003 binary formats (.doc/.xls/.ppt) are deliberately absent: none
+// of the bundled editors can parse them, so routing them would only open a tab
+// that immediately fails. Droppers report them through LegacyOfficeReplacement
+// instead of silently pretending they can be opened.
 func RouteByExt(path string) (TabKind, bool) {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
-	case ".docx", ".doc":
+	case ".docx":
 		return TabKindDocs, true
-	case ".xlsx", ".xlsm", ".xls", ".csv", ".tsv":
+	case ".xlsx", ".xlsm", ".csv", ".tsv":
 		return TabKindSheets, true
-	case ".pptx", ".ppt":
+	case ".pptx":
 		return TabKindSlides, true
 	case ".pdf":
 		return TabKindPDF, true
-	case ".md", ".markdown":
+	case ".md", ".markdown", ".txt", ".json":
 		return TabKindMarkdown, true
+	}
+	return "", false
+}
+
+// LegacyOfficeReplacement reports whether path is a legacy 97-2003 Office file
+// and the modern extension it should be saved as before it can be opened.
+func LegacyOfficeReplacement(path string) (string, bool) {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".doc":
+		return ".docx", true
+	case ".xls":
+		return ".xlsx", true
+	case ".ppt":
+		return ".pptx", true
 	}
 	return "", false
 }

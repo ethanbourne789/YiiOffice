@@ -445,16 +445,15 @@ func TestHomeServiceOpenPathRoutesByExtension(t *testing.T) {
 		wantKind host.TabKind
 	}{
 		{".docx", host.TabKindDocs},
-		{".doc", host.TabKindDocs},
 		{".xlsx", host.TabKindSheets},
-		{".xls", host.TabKindSheets},
 		{".csv", host.TabKindSheets},
 		{".tsv", host.TabKindSheets},
 		{".pptx", host.TabKindSlides},
-		{".ppt", host.TabKindSlides},
 		{".pdf", host.TabKindPDF},
 		{".md", host.TabKindMarkdown},
 		{".markdown", host.TabKindMarkdown},
+		{".txt", host.TabKindMarkdown},
+		{".json", host.TabKindMarkdown},
 	}
 
 	for _, tc := range tests {
@@ -492,9 +491,14 @@ func TestHomeServiceOpenPathUnsupportedExtension(t *testing.T) {
 		func() ([]string, error) { return nil, nil },
 		func(string) error { return nil })
 
-	err := svc.OpenPath("/path/to/file.xyz")
-	if err == nil {
-		t.Fatal("expected error for unsupported extension")
+	// Legacy binary Office formats must be rejected rather than opened into a
+	// tab that cannot render them; unknown extensions are rejected likewise.
+	for _, ext := range []string{".doc", ".xls", ".ppt", ".xyz"} {
+		t.Run(ext, func(t *testing.T) {
+			if err := svc.OpenPath("/path/to/file" + ext); err == nil {
+				t.Fatalf("expected error for unsupported extension %s", ext)
+			}
+		})
 	}
 }
 

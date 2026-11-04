@@ -110,18 +110,19 @@ func TestRouteByExt(t *testing.T) {
 	}{
 		{"file.docx", TabKindDocs, true},
 		{"file.DOCX", TabKindDocs, true},
-		{"file.doc", TabKindDocs, true},
 		{"file.xlsx", TabKindSheets, true},
 		{"file.xlsm", TabKindSheets, true},
-		{"file.xls", TabKindSheets, true},
 		{"file.csv", TabKindSheets, true},
 		{"file.tsv", TabKindSheets, true},
 		{"file.pptx", TabKindSlides, true},
-		{"file.ppt", TabKindSlides, true},
 		{"file.pdf", TabKindPDF, true},
 		{"file.md", TabKindMarkdown, true},
 		{"file.markdown", TabKindMarkdown, true},
-		{"file.txt", "", false},
+		{"file.txt", TabKindMarkdown, true},
+		{"file.json", TabKindMarkdown, true},
+		{"file.doc", "", false},
+		{"file.xls", "", false},
+		{"file.ppt", "", false},
 		{"file.jpg", "", false},
 	}
 
@@ -132,6 +133,29 @@ func TestRouteByExt(t *testing.T) {
 		}
 		if kind != tt.wantKind {
 			t.Errorf("RouteByExt(%q): kind=%q, want %q", tt.path, kind, tt.wantKind)
+		}
+	}
+}
+
+func TestLegacyOfficeReplacement(t *testing.T) {
+	tests := []struct {
+		path       string
+		wantTarget string
+		wantOK     bool
+	}{
+		{"file.doc", ".docx", true},
+		{"file.DOC", ".docx", true},
+		{"file.xls", ".xlsx", true},
+		{"file.ppt", ".pptx", true},
+		{"file.docx", "", false},
+		{"file.txt", "", false},
+	}
+
+	for _, tt := range tests {
+		target, ok := LegacyOfficeReplacement(tt.path)
+		if ok != tt.wantOK || target != tt.wantTarget {
+			t.Errorf("LegacyOfficeReplacement(%q): (%q, %v), want (%q, %v)",
+				tt.path, target, ok, tt.wantTarget, tt.wantOK)
 		}
 	}
 }

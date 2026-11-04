@@ -1,6 +1,7 @@
 package bridge
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,7 +33,13 @@ func InstallFileDropBridge(win *application.WebviewWindow) {
 		if ctx == nil {
 			return
 		}
-		paths := FilterDroppedPaths(ctx.DroppedFiles())
+		raw := ctx.DroppedFiles()
+		paths := FilterDroppedPaths(raw)
+		if legacy := legacyDroppedPaths(raw); len(legacy) > 0 {
+			// Legacy binary formats cannot be opened at all. Tell the user now
+			// instead of opening a tab that instantly fails.
+			_ = platform.ShowNotification("YiiOffice", legacyDropNotice(legacy, platform.SystemLocale()))
+		}
 		if len(paths) == 0 {
 			return
 		}
@@ -53,14 +60,31 @@ func InstallFileDropBridge(win *application.WebviewWindow) {
 // when the same path is dropped more than once (Windows paths compare
 // case-insensitively).
 func FilterDroppedPaths(paths []string) []string {
+	return collectDroppedPaths(paths, func(clean string) bool {
+		_, ok := host.RouteByExt(clean)
+		return ok
+	})
+}
+
+// legacyDroppedPaths keeps existing legacy 97-2003 Office files. They are not
+// openable, but the drop handler names them in a notice instead of dropping
+// them silently.
+func legacyDroppedPaths(paths []string) []string {
+	return collectDroppedPaths(paths, func(clean string) bool {
+		_, ok := host.LegacyOfficeReplacement(clean)
+		return ok
+	})
+}
+
+func collectDroppedPaths(paths []string, keep func(string) bool) []string {
 	seen := make(map[string]struct{}, len(paths))
-	openable := make([]string, 0, len(paths))
+	out := make([]string, 0, len(paths))
 	for _, raw := range paths {
 		clean := filepath.Clean(strings.TrimSpace(raw))
 		if clean == "." || clean == "" {
 			continue
 		}
-		if _, ok := host.RouteByExt(clean); !ok {
+		if !keep(clean) {
 			continue
 		}
 		info, err := os.Stat(clean)
@@ -72,7 +96,32 @@ func FilterDroppedPaths(paths []string) []string {
 			continue
 		}
 		seen[key] = struct{}{}
-		openable = append(openable, clean)
+		out = append(out, clean)
 	}
-	return openable
+	return out
+}
+
+// legacyDropNotice builds the short, locale-aware message shown when legacy
+// binary files are dropped. It names at most three files and counts the rest.
+func legacyDropNotice(paths []string, locale string) string {
+	names := make([]string, 0, 3)
+	for i, path := range paths {
+		if i == 3 {
+			break
+		}
+		names = append(names, filepath.Base(path))
+	}
+	quoted := "\"" + strings.Join(names, "\", \"") + "\""
+	extra := ""
+	if len(paths) > 3 {
+		if locale == "zh" {
+			extra = fmt.Sprintf("（另有 %d 个）", len(paths)-3)
+		} else {
+			extra = fmt.Sprintf(" (+%d more)", len(paths)-3)
+		}
+	}
+	if locale == "zh" {
+		return fmt.Sprintf("旧版格式暂不支持：%s%s。请先另存为 .docx / .xlsx / .pptx，再打开。", quoted, extra)
+	}
+	return fmt.Sprintf("Legacy formats are not supported: %s%s. Save them as .docx / .xlsx / .pptx first.", quoted, extra)
 }
