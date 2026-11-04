@@ -23,7 +23,7 @@ import {
 } from './TextEditOverlay'
 import type { FormatCmd } from './components/Ribbon'
 import type { SlideThemePreset } from './themes'
-import { t } from './i18n/locale'
+import { bridgeErrorText, t } from './i18n/locale'
 
 export function onFormat(cmd: FormatCmd): void {
   if (cmd === 'fontSizeUp') resizeSelectionFont(1)
@@ -295,7 +295,7 @@ export async function applyThemePreset(ctx: ActionCtx, preset: SlideThemePreset)
     fitWidthPx: FIT_WIDTH,
   })
   if (r && !Array.isArray(r)) {
-    ctx.setStatus(t('appStatusThemeApplyFailed', { error: r.error }))
+    ctx.setStatus(t('appStatusThemeApplyFailed', { error: bridgeErrorText(r.error) }))
     return
   }
   if (r) {

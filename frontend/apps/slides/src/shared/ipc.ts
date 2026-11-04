@@ -133,8 +133,6 @@ export interface DesktopFilesApi {
   readAttachment(path: string, offset: number, maxChars: number): Promise<AttachmentReadResult>
   /** Read an image attachment as base64 for multimodal (≤5MB) */
   readAttachmentImage(path: string): Promise<AttachmentImageResult>
-  /** Absolute path of a File dropped on the window (Electron webUtils) */
-  getPathForFile(file: File): string
 }
 
 /** A raw op transaction from the AI batch surface (ops are validated by the registry; coordinates are document-space EMU). */
@@ -1019,8 +1017,8 @@ export interface ReplacePictureBytesOp {
 }
 
 /**
- * Insert media the renderer holds (screen-recording webm) or a media file it was
- * handed a path for (drop). A path lets main derive the video poster from the
+ * Insert media the renderer holds as bytes (screen recording, dropped file) or a
+ * path the host already resolved. A path lets main derive the video poster from the
  * system thumbnail; bytes get a solid placeholder.
  */
 export type AddMediaBytesOp = {

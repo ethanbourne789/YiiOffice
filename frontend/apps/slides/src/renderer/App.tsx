@@ -90,7 +90,7 @@ import {
 import type { ChartPresetDef, IconDef, SmartArtDef } from './insert-presets'
 import { ToastHost } from './components/toast'
 import { showToast } from '@yiioffice/ui'
-import { t, useI18n } from './i18n/locale'
+import { bridgeErrorText, t, useI18n } from './i18n/locale'
 import { ChartDataDialog } from './components/ChartDataDialog'
 import type { BrushFormat } from './format-brush'
 import { isTextUndoTarget, shouldRouteHistoryToDeck } from './undo-routing'
@@ -1234,7 +1234,7 @@ export function App() {
     const bootBlank = () =>
       newBlank().catch((err: unknown) => {
         void newBlank().catch(() => {
-          showToast(err instanceof Error ? err.message : String(err), 'error')
+          showToast(bridgeErrorText(err), 'error')
         })
       })
     // File pushes arrive through tab creation in the Wails build; this channel only

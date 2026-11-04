@@ -6,7 +6,7 @@ import type { PictureRenderNode } from '@yiioffice/pptx-render'
 import { FIT_WIDTH } from './app-constants'
 import type { ActionCtx } from './action-context'
 import { renderSelectionToPngBase64 } from './selection-image'
-import { t } from './i18n/locale'
+import { bridgeErrorText, t } from './i18n/locale'
 
 /** Enter picture crop mode: find the selected picture node and read its box and srcRect */
 export function startCrop(ctx: ActionCtx): void {
@@ -178,8 +178,8 @@ export async function saveSelectionAsPicture(
       defaultName: pictureFileName(ctx, sourceIds),
     })
     if (r.ok && r.path) ctx.setStatus(t('appStatusPictureSaved', { path: r.path }))
-    else if (r.error) ctx.setStatus(t('appStatusPictureSaveFailed', { error: r.error }))
+    else if (r.error) ctx.setStatus(t('appStatusPictureSaveFailed', { error: bridgeErrorText(r.error) }))
   } catch (err) {
-    ctx.setStatus(t('appStatusPictureSaveFailed', { error: String(err) }))
+    ctx.setStatus(t('appStatusPictureSaveFailed', { error: bridgeErrorText(err) }))
   }
 }

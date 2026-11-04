@@ -10,8 +10,9 @@ import type { ActionCtx } from './action-context'
 import { collectExportPdfLinks } from './export-links'
 import { renderSlidesToPdfPages } from './export-pages'
 import { renderSlidesToPngBase64 } from './export-render'
-import { t } from './i18n/locale'
+import { bridgeErrorText, t } from './i18n/locale'
 import { showToast } from '@yiioffice/ui'
+import { systemNotify } from '@yiioffice/wails-bridge'
 
 /**
  * If a text box/table is still being edited on ⌘S/close-save, blur first so the
@@ -112,9 +113,10 @@ export async function save(getCtx: () => ActionCtx, quiet = false): Promise<bool
       if (!quiet) showToast(saved)
       return true
     } catch (err) {
-      const failed = t('appStatusSaveFailed', { error: String(err) })
+      const failed = t('appStatusSaveFailed', { error: bridgeErrorText(err) })
       ctx.setStatus(failed)
       showToast(failed, 'error')
+      systemNotify(failed)
       return false
     }
   })
@@ -134,9 +136,10 @@ export async function saveAs(getCtx: () => ActionCtx): Promise<void> {
       const result = await (window.desktop as any).saveAs({ path: ctx.path || name, base64 })
       if (result?.canceled) return
       if (!result?.ok) {
-        const failed = t('appStatusSaveFailed', { error: result?.error ?? t('appUnknownError') })
+        const failed = t('appStatusSaveFailed', { error: bridgeErrorText(result?.error) })
         ctx.setStatus(failed)
         showToast(failed, 'error')
+        systemNotify(failed)
         return
       }
       const { commitSaved } = await import('@yiioffice/pptx-engine')
@@ -147,9 +150,10 @@ export async function saveAs(getCtx: () => ActionCtx): Promise<void> {
       ctx.setStatus(saved)
       showToast(saved)
     } catch (err) {
-      const failed = t('appStatusSaveFailed', { error: String(err) })
+      const failed = t('appStatusSaveFailed', { error: bridgeErrorText(err) })
       ctx.setStatus(failed)
       showToast(failed, 'error')
+      systemNotify(failed)
     }
   })
 }
@@ -187,16 +191,20 @@ export async function exportImages(ctx: ActionCtx): Promise<void> {
       pngsBase64: pngs,
     })
     if (r.ok) {
-      ctx.setStatus(t('appExportImagesDone', { count: r.paths?.length ?? 0, dir }))
+      const done = t('appExportImagesDone', { count: r.paths?.length ?? 0, dir })
+      ctx.setStatus(done)
+      systemNotify(done)
     } else {
-      const failed = t('appExportImagesFailed', { error: r.error ?? t('appUnknownError') })
+      const failed = t('appExportImagesFailed', { error: bridgeErrorText(r.error) })
       ctx.setStatus(failed)
       showToast(failed, 'error')
+      systemNotify(failed, { whenUnfocused: false })
     }
   } catch (err) {
-    const failed = t('appExportImagesFailed', { error: String(err) })
+    const failed = t('appExportImagesFailed', { error: bridgeErrorText(err) })
     ctx.setStatus(failed)
     showToast(failed, 'error')
+    systemNotify(failed, { whenUnfocused: false })
   } finally {
     exportInFlight = false
   }
@@ -253,17 +261,22 @@ export async function exportPdf(ctx: ActionCtx, outPath?: string): Promise<boole
       fontCss,
     })
     if (r.ok) {
-      ctx.setStatus(t('appExportPdfDone', { path: r.path ?? '' }))
+      const done = t('appExportPdfDone', { path: r.path ?? '' })
+      ctx.setStatus(done)
+      // Headless exports (outPath given) run without a window to notify.
+      if (!outPath) systemNotify(done)
       return true
     }
-    const failed = t('appExportPdfFailed', { error: r.error ?? t('appUnknownError') })
+    const failed = t('appExportPdfFailed', { error: bridgeErrorText(r.error) })
     ctx.setStatus(failed)
     showToast(failed, 'error')
+    if (!outPath) systemNotify(failed, { whenUnfocused: false })
     return false
   } catch (err) {
-    const failed = t('appExportPdfFailed', { error: String(err) })
+    const failed = t('appExportPdfFailed', { error: bridgeErrorText(err) })
     ctx.setStatus(failed)
     showToast(failed, 'error')
+    if (!outPath) systemNotify(failed, { whenUnfocused: false })
     return false
   } finally {
     exportInFlight = false

@@ -408,8 +408,10 @@ export async function insertMediaFile(ctx: ActionCtx, kind: 'video' | 'audio'): 
 
 /**
  * A video/audio file dropped on the canvas, embedded like the Insert dialog does but
- * centered on the drop point. Electron hands us the file's path, which lets main
- * build the poster frame from the system thumbnail; a path-less File falls back to bytes.
+ * centered on the drop point. WebView2 never exposes the dropped File's local path to
+ * JS — Wails only resolves the path on the Go side — so the bytes are embedded directly.
+ * The caller is fire-and-forget, so failures are reported in the status bar instead of
+ * rejecting.
  */
 export async function insertDroppedMedia(
   ctx: ActionCtx,
@@ -419,25 +421,28 @@ export async function insertDroppedMedia(
 ): Promise<void> {
   if (!ctx.slide) return
   const slideIndex = ctx.current
-  const path = window.desktop.getPathForFile(file)
-  const source = path
-    ? { path }
-    : { base64: bytesToBase64(new Uint8Array(await file.arrayBuffer())) }
-  const r = await window.desktop.addMediaBytes({
-    slideIndex,
-    kind,
-    ext: fileExt(file.name),
-    fitWidthPx: FIT_WIDTH,
-    name: file.name,
-    centerPx: atPx,
-    ...source,
-  })
-  if (!r) return
-  ctx.applySlide(slideIndex, r.slide)
-  ctx.setSelectedIds([r.sourceId])
-  ctx.setStatus(
-    r.warning ?? (kind === 'video' ? t('appStatusVideoInserted') : t('appStatusAudioInserted')),
-  )
+  const inserted = kind === 'video' ? t('appStatusVideoInserted') : t('appStatusAudioInserted')
+  try {
+    const base64 = bytesToBase64(new Uint8Array(await file.arrayBuffer()))
+    const r = await window.desktop.addMediaBytes({
+      slideIndex,
+      kind,
+      ext: fileExt(file.name),
+      fitWidthPx: FIT_WIDTH,
+      name: file.name,
+      centerPx: atPx,
+      base64,
+    })
+    if (!r) {
+      ctx.setStatus(t('appStatusMediaInsertFailed', { name: file.name }))
+      return
+    }
+    ctx.applySlide(slideIndex, r.slide)
+    ctx.setSelectedIds([r.sourceId])
+    ctx.setStatus(r.warning ?? inserted)
+  } catch {
+    ctx.setStatus(t('appStatusMediaInsertFailed', { name: file.name }))
+  }
 }
 
 /** Chunked: spreading a large array into fromCharCode would blow the call stack. */
