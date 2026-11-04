@@ -396,8 +396,6 @@ export interface DesktopApi {
   readAttachment(path: string, offset: number, maxChars: number): Promise<AttachmentReadResult>
   /** read an image attachment as base64 for multimodal input (≤5MB) */
   readAttachmentImage(path: string): Promise<AttachmentImageResult>
-  /** absolute path of a File dropped onto the window (Electron webUtils) */
-  getPathForFile(file: File): string
   /** View → New Tab: open another docs tab, optionally loading the same document */
   openNewTab(openPath?: string | null): Promise<void>
   /** all open docs tabs, for View → Switch Tab */
@@ -415,6 +413,3 @@ export interface DesktopApi {
   /** keep the native View menu's checkbox items in sync with renderer state */
   reportViewMenuState(state: { darkCanvas: boolean }): void
 }
-
-/** mirrors VIEW_IMAGE_CHANNEL in @yiioffice/desktop-utils (kept literal so the preload stays free of main-only deps) */
-export const VIEW_IMAGE_CHANNEL = 'yiioffice:view-image'

@@ -164,7 +164,7 @@ import {
 import type { CharStyle } from './color-runs'
 import { platformShortcuts } from '@yiioffice/i18n'
 import { Dropdown, useDismissablePopover, useRibbonCollapse, type PixelImage } from '@yiioffice/ui'
-import { useI18n } from './i18n/locale'
+import { bridgeErrorText, useI18n } from './i18n/locale'
 import { useAutosave } from './useAutosave'
 import type {
   AnnotDeleteInput,
@@ -3367,7 +3367,7 @@ export function App() {
           }
     const plan = applyEditOps([{ op: 'addFormField', field }])
     if (plan.failures.length > 0) {
-      showNotice(plan.failures[0]!.error)
+      showNotice(bridgeErrorText(plan.failures[0]!.error))
       return
     }
     const created = plan.records[0]?.created?.[0] ?? null
@@ -3616,7 +3616,7 @@ export function App() {
     })
     const plan = applyEditOps(ops)
     if (plan.failures.length > 0) {
-      showNotice(plan.failures[0]!.error)
+      showNotice(bridgeErrorText(plan.failures[0]!.error))
       return
     }
     design.select(
@@ -3701,7 +3701,7 @@ export function App() {
         found.slice(0, DETECT_FIELD_CAP).map((field) => ({ op: 'addFormField', field })),
       )
       if (plan.failures.length > 0) {
-        showNotice(plan.failures[0]!.error)
+        showNotice(bridgeErrorText(plan.failures[0]!.error))
         return
       }
       design.disarm()
@@ -3795,11 +3795,11 @@ export function App() {
     showNotice(t('formXfaWarning'))
   }, [filePath, formHasXfa])
 
-  /** Localize known structured main-process errors; other messages pass through raw */
+  /** Localize structured main-process errors; unknown text falls back to generic copy */
   const friendlySaveError = (error: string): string => {
     const verify = /save-verify-failed pages=([\d,]+)/.exec(error)
     if (verify) return t('saveVerifyFailed', { pages: verify[1]!.split(',').join(', ') })
-    return error
+    return bridgeErrorText(error)
   }
 
   const opFailed = (error: string) => {

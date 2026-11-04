@@ -15,7 +15,8 @@ import type { Editor } from '@tiptap/core'
 import { TextSelection } from '@tiptap/pm/state'
 import { exportImages } from './export/imageExport'
 import type { StringKey } from './i18n/locale'
-import { t as message, useI18n } from './i18n/locale'
+import { bridgeErrorText, t as message, useI18n } from './i18n/locale'
+import { systemNotify } from '@yiioffice/wails-bridge'
 import {
   buildFrontmatterRaw,
   frontmatterInner,
@@ -391,10 +392,14 @@ export default function App() {
         return true
       }
       setSaveState(result.ok ? 'idle' : 'failed')
+      if (!result.ok && !('canceled' in result && result.canceled)) {
+        systemNotify(message('saveFailed'), { whenUnfocused: false })
+      }
       return false
     } catch (err) {
       console.error('[markdown] save failed:', err)
       setSaveState('failed')
+      systemNotify(message('saveFailed'), { whenUnfocused: false })
       return false
     } finally {
       savingRef.current = false
@@ -568,10 +573,14 @@ export default function App() {
           return true
         }
         setSaveState(result.ok ? 'idle' : 'failed')
+        if (!result.ok && !('canceled' in result && result.canceled)) {
+          systemNotify(message('saveFailed'), { whenUnfocused: false })
+        }
         return false
       } catch (err) {
         console.error('[markdown] save failed:', err)
         setSaveState('failed')
+        systemNotify(message('saveFailed'), { whenUnfocused: false })
         return false
       } finally {
         savingRef.current = false
@@ -626,16 +635,23 @@ export default function App() {
             setImageExportStatus(null)
             return false
           }
+          const done = message('appExportImagesDone', {
+            count: result.count ?? 0,
+            dir: result.path,
+          })
           setImageExportStatus({
             key: 'appExportImagesDone',
             params: { count: result.count ?? 0, dir: result.path },
           })
+          systemNotify(done)
           return true
         } catch (err) {
+          const failed = message('appExportImagesFailed', { error: bridgeErrorText(err) })
           setImageExportStatus({
             key: 'appExportImagesFailed',
-            params: { error: err instanceof Error ? err.message : String(err) },
+            params: { error: bridgeErrorText(err) },
           })
+          systemNotify(failed, { whenUnfocused: false })
           return false
         } finally {
           exportingImagesRef.current = false
@@ -649,11 +665,16 @@ export default function App() {
             suggestedName,
             ...(outPath ? { outPath } : {}),
           })
-          if (!result.ok) {
-            console.error('[markdown] pdf export failed:', result.error)
-            showToast(message('exportFailed', { error: result.error }), 'error')
+          if (result.ok) {
+            if (!outPath) systemNotify(message('exportDone'))
+            return true
           }
-          return result.ok && !('canceled' in result)
+          if ('canceled' in result && result.canceled) return false
+          const failed = message('exportFailed', { error: bridgeErrorText(result.error) })
+          console.error('[markdown] pdf export failed:', result.error)
+          showToast(failed, 'error')
+          if (!outPath) systemNotify(failed, { whenUnfocused: false })
+          return false
         }
         const loadImage = async (src: string) => {
           const data = decodeImageDataUrl(src) ?? (await window.markdownApi.readImage(src))
@@ -669,17 +690,22 @@ export default function App() {
           suggestedName,
           mode: format === 'docs' ? 'openInDocs' : 'dialog',
         })
-        if (!result.ok) {
-          console.error('[markdown] docx export failed:', result.error)
-          showToast(message('exportFailed', { error: result.error }), 'error')
+        if (result.ok) {
+          // openInDocs hands the document to the Docs app, no file lands here.
+          if (format !== 'docs' && !outPath) systemNotify(message('exportDone'))
+          return true
         }
-        return result.ok && !('canceled' in result)
+        if ('canceled' in result && result.canceled) return false
+        const failed = message('exportFailed', { error: bridgeErrorText(result.error) })
+        console.error('[markdown] docx export failed:', result.error)
+        showToast(failed, 'error')
+        if (!outPath) systemNotify(failed, { whenUnfocused: false })
+        return false
       } catch (err) {
         console.error('[markdown] export failed:', err)
-        showToast(
-          message('exportFailed', { error: err instanceof Error ? err.message : String(err) }),
-          'error',
-        )
+        const failed = message('exportFailed', { error: bridgeErrorText(err) })
+        showToast(failed, 'error')
+        if (!outPath) systemNotify(failed, { whenUnfocused: false })
         return false
       }
     },
@@ -768,6 +794,42 @@ export default function App() {
       offPrint()
     }
   }, [runExport, printDoc])
+
+  // Headless export mode (--headless-export): this renderer lives in a hidden
+  // window with a tab carrying the CLI's input path. Wait for the boot open to
+  // settle, export to the CLI's path, then report so Go can quit with an exit
+  // code. The wait is bounded so a failed open never hangs the CLI.
+  const headlessExportStartedRef = useRef(false)
+  useEffect(() => {
+    if (headlessExportStartedRef.current) return
+    headlessExportStartedRef.current = true
+    void (async () => {
+      const outPath = await window.markdownApi.consumeHeadlessExport()
+      if (!outPath) return
+      try {
+        const deadline = Date.now() + 30_000
+        while (statusRef.current !== 'ready' && statusRef.current !== 'error' && Date.now() < deadline) {
+          await new Promise((resolve) => setTimeout(resolve, 250))
+        }
+        if (statusRef.current !== 'ready') {
+          throw new Error(
+            statusRef.current === 'error'
+              ? 'the note could not be read (missing, too large or unreadable)'
+              : 'the note did not finish loading before the export deadline',
+          )
+        }
+        if (sourceMode) throw new Error('source mode has no rendered document to export')
+        const written = await runExport('pdf', outPath)
+        if (!written) throw new Error('the PDF export did not produce a file')
+        window.markdownApi.headlessExportDone({ ok: true })
+      } catch (err) {
+        window.markdownApi.headlessExportDone({
+          ok: false,
+          error: bridgeErrorText(err),
+        })
+      }
+    })()
+  }, [runExport, sourceMode])
 
   const openFind = useCallback((replace: boolean) => {
     if (statusRef.current !== 'ready') return

@@ -2498,6 +2498,13 @@ export function App() {
     void (async () => {
       const target = await window.desktop.consumeHeadlessExport()
       if (!target) return
+      if (target.format !== 'pdf' && target.format !== 'html') {
+        window.desktop.headlessExportDone({
+          ok: false,
+          error: `docs does not support format: ${String(target.format)}`,
+        })
+        return
+      }
       const report = await runHeadlessDocumentExport(
         target.outPath,
         // A failed open falls back to an untitled blank document (filePath
