@@ -44,6 +44,8 @@ One window hosting every editor as a tab — the first thing you see when the ap
 - **Home**: recent files, starred files, folder tree (multiple roots, expandable subfolders), filter by file type
 - **Create and open**: one click for Docs / Sheets / Slides / Markdown; double-click through file associations
 - **Tabs**: managed centrally by a Go-side tab host; open, switch, close (with an unsaved-changes guard); detach a tab into its own window
+- **Drag and drop**: drop a supported file onto the main window and it opens a tab in the matching editor; multiple files open one after another in drop order, while folders and unknown types are ignored. Legacy binary formats (`.doc` / `.xls` / `.ppt`) are out of scope — save them in the new format first
+- **Recent files**: loaded newest-first in pages, with older entries fetched as you scroll down; a file you open moves back to the top. At most the newest 2,000 records are kept locally; starred files are exempt from that cap (older starred entries stay), so the list can exceed 2,000 entries
 - **Settings that stick**: UI language (English / Chinese), UI and document theme, default save folder, default app per file type; recents and stars are persisted locally
 
 ### Five editors
@@ -55,6 +57,34 @@ One window hosting every editor as a tab — the first thing you see when the ap
 | **Slides** | `.pptx` | Konva 10 + `pptx-engine` / `pptx-ops` / `pptx-render` | Ribbon-style editing (Insert / Draw / Design / Transitions / Animations / Slide Show / Review), text/shape/picture/table editing, transitions and animations, EMU→px high-fidelity rendering, element-patch saves |
 | **PDF** | `.pdf` | pdf.js 6 + pdfcpu (Go) | Viewing and navigation (thumbnails, page jump, zoom, fit modes); page operations: merge, split, extract pages, insert PDF, replace pages, N-up, grid cut, crop, page size, page-image export, blank pages |
 | **Markdown** | `.md` `.markdown` `.txt` `.json` | Tiptap + CodeMirror 6 | WYSIWYG and source views, tables / code blocks / images, Mermaid diagrams, KaTeX math |
+
+Editors also accept drops: images dropped into Docs or Sheets are inserted into the open file, and images, videos or audio dropped onto a slide are inserted on the current page.
+
+### Encrypted workbooks, saves and printing
+
+- **Opening**: a password-protected OOXML workbook (`.xlsx` / `.xlsm`) prompts for its password; a wrong password can be retried in the same dialog, and cancelling leaves the file closed. Both ECMA-376 Standard and Agile encryption can be decrypted.
+- **Saving**: if the file already has a password, save and save-as keep it, but re-encrypt with ECMA-376 **Standard**. A file that used Agile encryption becomes Standard after one save here — the password itself does not change, and MS Office / WPS can still open it. Files that were unencrypted stay unencrypted.
+- **What does not work**: `.xls` (the Excel 97-2003 binary format) cannot be opened; save it as `.xlsx` in Excel or WPS first. Any other encryption container we cannot recognise is reported as "encryption method not supported" rather than passed off as a damaged file.
+- **Printing**: Sheets has no physical printing; only "Export as PDF" remains. `Ctrl+P` exports a PDF directly and never opens a system print dialog.
+
+### System notifications
+
+Export and save results are surfaced in the Windows notification center:
+
+- **Export finished**: if the window has focus, only the in-app message appears; the system toast is raised once you switch to another program.
+- **Export failed**: a toast is raised whether or not the window is focused.
+- **Save failed**: a toast is raised whenever the window is not focused; while it is focused, Docs / Sheets / Markdown still raise one, and Slides only shows its in-app message.
+- The same failure text toasts at most once every 60 seconds; background autosave failures only toast while the window is not focused and are not deduplicated, so a disk that stays unwritable can repeat on the save cadence.
+- Notifications cover exports and saves in Docs / Sheets / Slides / Markdown; PDF viewing, page operations and export do not raise system notifications.
+- The icon, layout and dwell time are decided by your Windows version and notification settings; the app only supplies a title and a body.
+
+### Manual update check (read-only)
+
+Settings → About has a "Check for updates" button:
+
+- It only reads the latest release and shows the result: up to date, a new version, incomparable, or check failed. It does not download an installer, read the checksum sidecar, or launch the installer.
+- If the release tag is not a semantic version (such as `v1.2.3`, where the leading `v` is optional), the UI shows "New release: <tag>" with a note that the versions cannot be ordered, plus the publish date, release notes and a link to the release page. Once the tag becomes semver, the comparison resumes on its own.
+- Automatic download and installation are not enabled; see the note under "Quick start" below for the current state.
 
 ---
 
@@ -130,6 +160,30 @@ task build:docker             # distroless Docker image
 task run:docker               # run the image, exposing port 8080
 ```
 
+In-app updates are currently paused; before resuming, follow the [release checklist](docs/releasing.md) to prepare the tag and assets.
+
+### Headless export
+
+The shipped `YiiOffice.exe` converts files without opening a window:
+
+```bash
+YiiOffice.exe --headless-export <input> --to <format> --out <output> [--json]
+```
+
+| Input | `--to` | Notes |
+| --- | --- | --- |
+| `.docx` | `pdf` / `html` | Paginated PDF or standalone HTML |
+| `.xlsx` `.xlsm` `.csv` `.tsv` | `pdf` | Every worksheet |
+| `.pptx` | `pdf` | One PDF page per slide |
+| `.md` `.markdown` | `pdf` | Rendered document (not the source view) |
+
+- The input list is limited to formats that really open and convert, shared by the CLI and the renderers: `.docx`, `.xlsx` / `.xlsm` / `.csv` / `.tsv`, `.pptx`, `.md` / `.markdown`.
+- Legacy 97-2003 binaries (`.doc` / `.xls` / `.ppt`) and `.html` / `.htm` are rejected during argument validation (exit code `1`), and the error lists the supported extensions; save legacy files as `.docx` / `.xlsx` / `.pptx` first. `.html` / `.htm` are export targets only. A legacy `.xls` is rejected at the entry point instead of being routed to Sheets and failing there.
+- Exit codes: `0` success, `1` bad arguments/format, `2` input problem, `3` conversion or timeout failure.
+- With `--json`, stdout carries one structured line (including the output path on success).
+- The CLI waits for the editor to finish rendering: up to 20 s for first load and 45–90 s (per type) for the export itself. A timeout exits with `3` and a diagnostic.
+- DOCX output, source-view Markdown and PDF page operations are not available headless; those remain GUI-only.
+
 ---
 
 ## Repository layout
@@ -187,6 +241,22 @@ Yes. Saves are OOXML patches: only edited nodes change, the remaining bytes stay
 **Can I annotate or edit text in a PDF?**
 
 No. The PDF engine here is pdfcpu, which manipulates page structure (merge, split, crop, page replacement and so on). Content-stream editing is beyond its capability boundary, so those entry points are hidden. Viewing, navigation and page operations all work.
+
+**Can I just drag files into the window?**
+
+Yes. Dropping a supported file onto the main window opens a tab in the matching editor, and dropping several opens them one after another; folders and unknown types are ignored. Drops inside an editor are handled there instead: images dropped into Docs or Sheets are inserted into the open file, and images, videos or audio dropped onto a slide are inserted on the current page.
+
+**Can I open a password-protected Excel file, and does the password survive a save?**
+
+Yes for `.xlsx` / `.xlsm`; you are asked for the password first. If the file already has one, save and save-as keep it, but re-encrypt with ECMA-376 Standard — a file that used Agile becomes Standard after one save here. `.xls` and encryption methods we cannot recognise cannot be opened.
+
+**Why does Ctrl+P in Sheets not open a print dialog?**
+
+There is no reliable physical printing pipeline, so Sheets keeps only "Export as PDF"; `Ctrl+P` exports a PDF directly instead of opening a system print dialog.
+
+**Windows says the publisher is unknown or SmartScreen blocks the installer. Is that expected?**
+
+Yes. The project does not buy a code-signing certificate, so the first download may trigger that prompt. The release page publishes the installer's SHA-256 (the line in the `.sha256` asset); run `Get-FileHash -Algorithm SHA256 <installer>` and compare before choosing "Run anyway".
 
 ---
 

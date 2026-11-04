@@ -764,6 +764,38 @@ task e2e</pre>
                   内容流级别的编辑超出其能力边界，相应入口已隐藏。查看、导航与页面操作不受影响。
                 </div>
               </details>
+              <details>
+                <summary>可以把文件直接拖进窗口打开吗？</summary>
+                <div class="faq__body">
+                  可以。把受支持的文件从资源管理器拖进主窗口，会按类型打开对应应用的新标签页；
+                  一次拖多个会逐个打开，目录和不认识的类型会被忽略。拖进编辑器内部则由编辑器处理：
+                  文档和表格里拖入图片会插入当前文件，幻灯片里拖入图片、视频、音频会插入当前页。
+                </div>
+              </details>
+              <details>
+                <summary>带密码的 Excel 能打开吗？保存后密码还在吗？</summary>
+                <div class="faq__body">
+                  能打开 <code>.xlsx</code> / <code>.xlsm</code>，会先弹密码框。原文件带密码时，
+                  保存和另存都会保留密码，但加密方式会统一写成 ECMA-376 Standard ——
+                  原本用 Agile 加密的文件保存一次后会变成 Standard，密码本身不变，MS Office / WPS
+                  仍能打开。<code>.xls</code> 和其他无法识别的加密方式打不开。
+                </div>
+              </details>
+              <details>
+                <summary>导出很慢，完成或失败时会提醒我吗？</summary>
+                <div class="faq__body">
+                  会。窗口不在前台时，导出完成、导出失败和保存失败都会发 Windows 系统通知；
+                  窗口在前台时成功只显示应用内提示。同一段失败文案 60 秒内只提醒一次
+                  （后台自动保存的提醒除外）。PDF 的查看与页面操作不发通知。
+                </div>
+              </details>
+              <details>
+                <summary>Sheets 里按 Ctrl+P 为什么没有打印对话框？</summary>
+                <div class="faq__body">
+                  当前没有可靠的物理打印链路，Sheets 只保留「导出为 PDF」；
+                  按 <code>Ctrl+P</code> 会直接导出 PDF，不再弹系统打印对话框。
+                </div>
+              </details>
             </div>
           </div>
         </div>

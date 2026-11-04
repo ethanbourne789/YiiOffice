@@ -785,6 +785,44 @@ task e2e</pre>
                   operations all work.
                 </div>
               </details>
+              <details>
+                <summary>Can I just drag files into the window?</summary>
+                <div class="faq__body">
+                  Yes. Dropping a supported file onto the main window opens a tab in the matching
+                  editor, and dropping several opens them one after another; folders and unknown
+                  types are ignored. Drops inside an editor are handled there instead: images
+                  dropped into Docs or Sheets are inserted into the open file, and images, videos
+                  or audio dropped onto a slide are inserted on the current page.
+                </div>
+              </details>
+              <details>
+                <summary>Can I open a password-protected Excel file, and does the password survive a save?</summary>
+                <div class="faq__body">
+                  Yes for <code>.xlsx</code> / <code>.xlsm</code>; you are asked for the password
+                  first. If the file already has one, save and save-as keep it, but re-encrypt with
+                  ECMA-376 Standard — a file that used Agile becomes Standard after one save here.
+                  The password itself does not change and MS Office / WPS can still open the file.
+                  <code>.xls</code> and encryption methods we cannot recognise cannot be opened.
+                </div>
+              </details>
+              <details>
+                <summary>Exports take a while — will I be told when one finishes or fails?</summary>
+                <div class="faq__body">
+                  Yes. While the window is not in front, a finished or failed export and a failed
+                  save all raise a Windows system notification; while it is in front, success stays
+                  in the app's own message. The same failure text is repeated at most once every 60
+                  seconds (background autosave alerts aside). PDF viewing and page operations do not
+                  send notifications.
+                </div>
+              </details>
+              <details>
+                <summary>Why does Ctrl+P in Sheets not open a print dialog?</summary>
+                <div class="faq__body">
+                  There is no reliable physical printing pipeline, so Sheets keeps only
+                  "Export as PDF"; <code>Ctrl+P</code> exports a PDF directly instead of opening a
+                  system print dialog.
+                </div>
+              </details>
             </div>
           </div>
         </div>
