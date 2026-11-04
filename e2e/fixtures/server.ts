@@ -74,10 +74,21 @@ async function waitForHealth(server: TestServer, child: ChildProcess, timeoutMs 
   throw new Error(`E2E server did not answer /health within ${timeoutMs}ms.\n${server.logs()}`)
 }
 
+export interface StartServerOptions {
+  /**
+   * Runs once the fresh `YIIOFFICE_USER_DATA` directory exists but before the
+   * host process starts. Lets a spec seed `recent.json` / preferences without
+   * racing the initial load (the host reads recents only at startup).
+   */
+  prepareDataDir?: (dataDir: string) => Promise<void> | void
+}
+
 /**
  * Start one isolated server build. Call `stop()` when the worker is done.
  */
-export async function startServer(): Promise<{ server: TestServer; stop: () => Promise<void> }> {
+export async function startServer(
+  options: StartServerOptions = {},
+): Promise<{ server: TestServer; stop: () => Promise<void> }> {
   if (!existsSync(SERVER_BINARY)) {
     throw new Error(
       `Missing E2E server binary at ${SERVER_BINARY}.\n` +
@@ -86,6 +97,7 @@ export async function startServer(): Promise<{ server: TestServer; stop: () => P
   }
 
   const dataDir = await mkdtemp(join(tmpdir(), 'yiioffice-e2e-data-'))
+  await options.prepareDataDir?.(dataDir)
   const port = await freePort()
   const server: TestServer = {
     baseURL: `http://127.0.0.1:${port}`,

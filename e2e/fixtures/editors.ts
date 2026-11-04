@@ -109,7 +109,7 @@ export async function waitForActiveEditor(
  * counterpart of the Electron suite's "wait for a new BrowserWindow".
  */
 export async function editorFor(page: Page, tab: Tab): Promise<EditorHandle> {
-  const iframe = page.locator(`iframe[title="${tab.id}"]`)
+  const iframe = page.locator(`iframe[data-tab-id="${tab.id}"]`)
   await expect(iframe).toBeVisible({ timeout: 20_000 })
   // `locator.contentFrame()` yields a FrameLocator (no URL, no evaluate), so the
   // real Frame comes from the element handle — that is the object a test can
@@ -125,7 +125,7 @@ export async function editorFor(page: Page, tab: Tab): Promise<EditorHandle> {
       { timeout: 20_000, message: `iframe for ${tab.id} should expose a frame` },
     )
     .toBe(true)
-  return { tab, frame: frame!, ui: page.frameLocator(`iframe[title="${tab.id}"]`) }
+  return { tab, frame: frame!, ui: page.frameLocator(`iframe[data-tab-id="${tab.id}"]`) }
 }
 
 /** Open a document and return its editor once the tab is active. */

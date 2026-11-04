@@ -27,8 +27,8 @@ test.describe('tabs: activation', () => {
 
     await app.page.locator('.tab-item', { hasText: 'tab-a.docx' }).click()
 
-    await expect(app.page.locator(`iframe[title="${docsTab.id}"]`)).toBeVisible()
-    await expect(app.page.locator(`iframe[title="${markdownTab.id}"]`)).toBeHidden()
+    await expect(app.page.locator(`iframe[data-tab-id="${docsTab.id}"]`)).toBeVisible()
+    await expect(app.page.locator(`iframe[data-tab-id="${markdownTab.id}"]`)).toBeHidden()
     const active = (await listTabs(app.page)).find((tab) => tab.active)
     expect(active?.id).toBe(docsTab.id)
   })
@@ -40,14 +40,14 @@ test.describe('tabs: activation', () => {
     const markdownTab = tabs.find((tab) => tab.kind === 'markdown')!
 
     await app.page.locator('.tab-item', { hasText: 'tab-b.md' }).click()
-    await expect(app.page.locator(`iframe[title="${markdownTab.id}"]`)).toBeVisible()
+    await expect(app.page.locator(`iframe[data-tab-id="${markdownTab.id}"]`)).toBeVisible()
 
     await app.page.locator('.tab-item', { hasText: 'tab-b.md' }).locator('.tab-close').click()
 
     await expect
       .poll(async () => (await listTabs(app.page)).find((tab) => tab.active)?.id)
       .toBe(docsTab.id)
-    await expect(app.page.locator(`iframe[title="${docsTab.id}"]`)).toBeVisible()
+    await expect(app.page.locator(`iframe[data-tab-id="${docsTab.id}"]`)).toBeVisible()
   })
 
   test('closing a background tab leaves the active editor untouched', async ({ app }) => {
@@ -62,7 +62,7 @@ test.describe('tabs: activation', () => {
     await expect
       .poll(async () => (await listTabs(app.page)).map((tab) => tab.id))
       .toEqual(['home', markdownTab.id])
-    await expect(app.page.locator(`iframe[title="${markdownTab.id}"]`)).toBeVisible()
-    await expect(app.page.locator(`iframe[title="${docsTab.id}"]`)).toHaveCount(0)
+    await expect(app.page.locator(`iframe[data-tab-id="${markdownTab.id}"]`)).toBeVisible()
+    await expect(app.page.locator(`iframe[data-tab-id="${docsTab.id}"]`)).toHaveCount(0)
   })
 })

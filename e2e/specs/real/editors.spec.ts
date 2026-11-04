@@ -95,6 +95,6 @@ test.describe('cross-editor: the shell binary contract', () => {
 
     // Both iframes stay mounted; only the active one is visible.
     const docxTab = tabs.find((tab) => tab.kind === 'docs')!
-    await expect(app.page.locator(`iframe[title="${docxTab.id}"]`)).toBeHidden()
+    await expect(app.page.locator(`iframe[data-tab-id="${docxTab.id}"]`)).toBeHidden()
   })
 })

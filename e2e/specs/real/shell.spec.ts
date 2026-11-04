@@ -35,7 +35,7 @@ test.describe('shell: tabs', () => {
   test('closing a tab removes it from the host and unmounts its iframe', async ({ app }) => {
     const first = await writeDocx(app.workDir, 'close-me.docx', 'close me')
     await app.openFile(first, { kind: 'docs' })
-    const iframe = app.page.locator(`iframe[title="${(await waitForActiveEditor(app.page)).id}"]`)
+    const iframe = app.page.locator(`iframe[data-tab-id="${(await waitForActiveEditor(app.page)).id}"]`)
     await expect(iframe).toHaveCount(1)
 
     const editorTab = (await listTabs(app.page)).find((tab) => tab.kind === 'docs')!
@@ -59,7 +59,7 @@ test.describe('shell: tabs', () => {
     expect(docsTab.active).toBe(false)
 
     // Editors are kept alive (not unmounted) so unsaved state survives a switch.
-    const iframe = app.page.locator(`iframe[title="${docsTab.id}"]`)
+    const iframe = app.page.locator(`iframe[data-tab-id="${docsTab.id}"]`)
     await expect(iframe).toHaveCount(1)
     await expect(iframe).toBeHidden()
 

@@ -60,6 +60,69 @@ test.describe('home: recent list', () => {
     await expect(app.page.locator('.recent-row', { hasText: 'filter-me.md' })).toHaveCount(0)
   })
 
+  /**
+   * Regression: switching type filters used to leave the previous rows (or the
+   * blank-path "." placeholder rows the host stats out of old recent.json
+   * records) on screen while the heading already reported the new count, and
+   * the sidebar counter followed the filter instead of the collection.
+   */
+  test('switching type filters settles on real rows and keeps the sidebar count', async ({
+    app,
+  }) => {
+    const docx = await writeDocx(app.workDir, 'cycle.docx', 'cycle')
+    const md = await writeText(app.workDir, 'cycle.md', '# cycle\n')
+    await app.openFile(docx, { kind: 'docs' })
+    await app.openFile(md, { kind: 'markdown' })
+    await app.page.evaluate(() => window.aiOfficeTabs.activate('home'))
+    await app.page.getByTestId('nav-recent').click()
+
+    const pills = app.page.locator('.filter-pills').first().locator('button')
+    const heading = app.page.locator('.recents-heading .file-count')
+    const sidebarCount = app.page.getByTestId('nav-recent').locator('.nav-count')
+    const rows = app.page.locator('.recent-row')
+
+    // /全部/ 文档 /表格 /演示 /PDF /Markdown — index-based, labels are localised
+    const ALL = 0
+    const DOCS = 1
+    const SHEETS = 2
+    const MARKDOWN = 5
+
+    const sidebarBefore = (await sidebarCount.textContent())?.trim()
+
+    /** the list must agree with its own heading and never show a "." placeholder row */
+    const settled = async () => {
+      await expect.poll(async () => /\d/.test((await heading.textContent()) ?? '')).toBe(true)
+      const claimed = Number(((await heading.textContent()) ?? '').match(/\d+/)?.[0])
+      expect(await rows.count()).toBe(claimed)
+      expect(await app.page.locator('.recent-name', { hasText: /^\.$/ }).count()).toBe(0)
+      expect((await sidebarCount.textContent())?.trim()).toBe(sidebarBefore)
+    }
+
+    for (let round = 0; round < 5; round++) {
+      await pills.nth(SHEETS).click()
+      await settled()
+      await expect(app.page.locator('.recent-row', { hasText: 'cycle.docx' })).toHaveCount(0)
+
+      await pills.nth(ALL).click()
+      await settled()
+      await expect(app.page.locator('.recent-row', { hasText: 'cycle.docx' })).toHaveCount(1)
+      await expect(app.page.locator('.recent-row', { hasText: 'cycle.md' })).toHaveCount(1)
+
+      await pills.nth(DOCS).click()
+      await settled()
+      await expect(app.page.locator('.recent-row', { hasText: 'cycle.docx' })).toHaveCount(1)
+      await expect(app.page.locator('.recent-row', { hasText: 'cycle.md' })).toHaveCount(0)
+
+      await pills.nth(MARKDOWN).click()
+      await settled()
+      await expect(app.page.locator('.recent-row', { hasText: 'cycle.md' })).toHaveCount(1)
+      await expect(app.page.locator('.recent-row', { hasText: 'cycle.docx' })).toHaveCount(0)
+
+      await pills.nth(ALL).click()
+      await settled()
+    }
+  })
+
   test('starring a file makes it appear under Starred', async ({ app }) => {
     const path = await writeDocx(app.workDir, 'star-me.docx', 'star')
     await app.openFile(path, { kind: 'docs' })
