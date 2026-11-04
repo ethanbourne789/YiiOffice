@@ -82,23 +82,6 @@ func NewDetachedWindow(name, title, url string, width, height int) {
 	})
 }
 
-// ClipboardText returns the current clipboard text, or ("", false) when
-// unavailable.
-func ClipboardText() (string, bool) {
-	if current != nil {
-		return current.Clipboard.Text()
-	}
-	return "", false
-}
-
-// ClipboardSetText writes text to the system clipboard.
-func ClipboardSetText(text string) bool {
-	if current != nil {
-		return current.Clipboard.SetText(text)
-	}
-	return false
-}
-
 // CurrentWindow returns the window that issued the current frontend call.
 // When the platform cannot report the focused window it falls back to the
 // oldest window — the shell, which is always created first — so the caption
