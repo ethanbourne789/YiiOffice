@@ -153,3 +153,5 @@ export function createI18n<D extends Record<string, string>>(dicts: LangDicts<D>
 }
 
 export * from './font-names'
+export { parseBridgeError, bridgeErrorTextOf } from './error-code'
+export type { ParsedBridgeError } from './error-code'
