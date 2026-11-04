@@ -5,9 +5,8 @@
  * assembled pages to the system print dialog.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useEscOverlay } from '../esc-overlay'
 import type { RenderSlide } from '@yiioffice/pptx-render'
-import { useI18n } from '../i18n/locale'
+import { bridgeErrorText, useI18n } from '../i18n/locale'
 import {
   buildPrintDocumentHtml,
   currentRangeIndices,
@@ -17,6 +16,7 @@ import {
   type PrintOrientation,
 } from '../../shared/print-html'
 import { renderSlidesToPngBase64 } from '../export-render'
+import { useModalDialog } from './modal-dialog'
 
 type RangeMode = 'all' | 'current' | 'custom'
 
@@ -35,8 +35,10 @@ export function PrintDialog({
   onClose: () => void
   setStatus: (s: string) => void
 }) {
-  useEscOverlay(true)
   const { t } = useI18n()
+  // Shared contract: Esc closes, Tab stays inside, first option takes focus,
+  // focus returns to the opener, page behind is inert.
+  const { titleId, dialogProps } = useModalDialog(onClose)
   const [pngs, setPngs] = useState<string[] | null>(null)
   const [notes, setNotes] = useState<string[]>([])
   const [layout, setLayout] = useState<PrintLayout>('full')
@@ -49,20 +51,6 @@ export function PrintDialog({
   const blobUrlsRef = useRef<string[]>([])
   const frameRef = useRef<HTMLIFrameElement | null>(null)
   const paneRef = useRef<HTMLDivElement | null>(null)
-  const dialogRef = useRef<HTMLDivElement>(null)
-  const previouslyFocused = useRef<HTMLElement | null>(null)
-
-  // Focus the first field on mount; return focus to the opener on unmount
-  useEffect(() => {
-    previouslyFocused.current = document.activeElement as HTMLElement | null
-    const root = dialogRef.current
-    if (root && !root.contains(document.activeElement)) {
-      root.querySelector<HTMLElement>('input, textarea, select, button')?.focus()
-    }
-    return () => {
-      previouslyFocused.current?.focus?.()
-    }
-  }, [])
 
   // One offscreen render of the whole deck on open (print quality, 2x); the same
   // bitmaps feed the preview (as blob URLs) and the print job (as base64).
@@ -81,7 +69,7 @@ export function PrintDialog({
         setNotes(noteTexts)
         setPngs(rendered)
       } catch (err) {
-        if (alive) setStatus(t('appPrintFailed', { error: String(err) }))
+        if (alive) setStatus(t('appPrintFailed', { error: bridgeErrorText(err) }))
       }
     })()
     return () => {
@@ -91,17 +79,6 @@ export function PrintDialog({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation()
-        onClose()
-      }
-    }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [onClose])
 
   /** 0-based deck indices selected by the range options (before the hidden filter) */
   const rangeIndices = useMemo<number[] | null>(() => {
@@ -165,7 +142,7 @@ export function PrintDialog({
         ...(frame && layout === 'full' ? { frame: true } : {}),
       })
       if (r.ok) onClose()
-      else if (r.error) setStatus(t('appPrintFailed', { error: r.error }))
+      else if (r.error) setStatus(t('appPrintFailed', { error: bridgeErrorText(r.error) }))
       // ok=false without an error = canceled in the system dialog: keep the dialog open
     } finally {
       setPrinting(false)
@@ -183,14 +160,11 @@ export function PrintDialog({
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div
-        ref={dialogRef}
+        {...dialogProps}
         className="modal print-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('appPrintTitle')}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2>{t('appPrintTitle')}</h2>
+        <h2 id={titleId}>{t('appPrintTitle')}</h2>
         <div className="print-dialog-body">
           <div className="print-preview-pane" ref={paneRef}>
             {previewHtml ? (

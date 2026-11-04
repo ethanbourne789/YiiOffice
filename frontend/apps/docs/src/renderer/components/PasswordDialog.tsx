@@ -7,6 +7,8 @@
  * reveal toggle, error under the field, footer buttons bottom-right.
  * Value / error / busy state live in App's retry loop.
  */
+import { useEffect, useId } from 'react'
+import { useModalDialog } from '@yiioffice/ui'
 import { FieldError, PasswordInput } from './PasswordInput'
 
 export function PasswordDialog({
@@ -41,10 +43,26 @@ export function PasswordDialog({
   onSubmit: () => void
   onCancel: () => void
 }) {
+  const modal = useModalDialog(onCancel, { initialFocus: 'input', restoreFocus: true })
+  const titleId = useId()
+  // A failed attempt keeps the user in the password field, matching the
+  // error-state focus the prompt established.
+  useEffect(() => {
+    if (error) modal.ref.current?.querySelector<HTMLInputElement>('input')?.focus()
+  }, [error, modal.ref])
   return (
-    <div className="modal-backdrop">
-      <div className="modal gs-form pwd-dialog" role="dialog" aria-modal="true">
-        <h2>{title}</h2>
+    <div
+      className="modal-backdrop"
+      ref={modal.ref}
+      onKeyDown={modal.onKeyDown}
+    >
+      <div
+        className="modal gs-form pwd-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+      >
+        <h2 id={titleId}>{title}</h2>
         <p className="modal-desc">{body}</p>
         <label className={`fld${error ? ' has-error' : ''}`}>
           {label}

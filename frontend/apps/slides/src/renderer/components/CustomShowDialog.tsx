@@ -8,6 +8,7 @@
 import { useState } from 'react'
 import { useI18n } from '../i18n/locale'
 import type { CustomShow } from '../slideshow-utils'
+import { useModalDialog } from './modal-dialog'
 
 /** Generate a show id (timestamp + random suffix, avoiding collisions when created in the same millisecond) */
 function newShowId(): string {
@@ -34,6 +35,9 @@ export function CustomShowDialog({
   onClose: () => void
 }) {
   const { t } = useI18n()
+  // Shared contract adds what this dialog previously lacked: Esc closes,
+  // Tab stays inside, first control takes focus, focus returns on close.
+  const { titleId, dialogProps } = useModalDialog(onClose)
   const [selId, setSelId] = useState<string | null>(shows[0]?.id ?? null)
   const sel = shows.find((s) => s.id === selId) ?? null
   // Out-of-range indexes left over after page deletion aren't shown (the show entry filters them too)
@@ -80,13 +84,11 @@ export function CustomShowDialog({
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div
+        {...dialogProps}
         className="modal csd"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="csd-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 id="csd-title">{t('paneCsdTitle')}</h2>
+        <h2 id={titleId}>{t('paneCsdTitle')}</h2>
         <div className="csd-body">
           <div className="csd-shows">
             <div

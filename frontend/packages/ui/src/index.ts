@@ -75,7 +75,14 @@ export {
 } from './image-dialogs'
 
 export { ImageViewer, type ImageViewerLabels } from './image-viewer'
-export { trapTab, useModalKeys } from './modal-keys'
+export {
+  installModalBehavior,
+  trapTab,
+  useModalDialog,
+  useModalKeys,
+  type ModalBehaviorOptions,
+  type ModalDialogProps,
+} from './modal-keys'
 export {
   removeBackground,
   sampleBackgroundColors,

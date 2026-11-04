@@ -1,43 +1,34 @@
+/**
+ * Modal contract shared by the .pdf-modal dialogs, now built on the common
+ * `@yiioffice/ui` behaviour: Escape cancels (unless the dialog hands the key to
+ * a nested popover), Tab cycles inside the card, the first field takes focus on
+ * open, the opener gets it back on close, and the page behind is inert.
+ * Put the ref on the dialog card.
+ */
 import { useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
+import { installModalBehavior } from '@yiioffice/ui'
 
-/**
- * Modal contract shared by the .pdf-modal dialogs: Escape cancels (unless the
- * dialog hands the key to a nested popover), the first field takes focus on
- * open and the opener gets it back on close. Put the ref on the dialog card.
- */
 export function useModalDialog(
   onCancel: () => void,
-  { escape = true }: { escape?: boolean } = {},
+  { escape = true, initialFocus }: { escape?: boolean; initialFocus?: string } = {},
 ): RefObject<HTMLDivElement | null> {
   const dialogRef = useRef<HTMLDivElement>(null)
+  const closeRef = useRef(onCancel)
+  closeRef.current = onCancel
+  const escapeRef = useRef(escape)
+  escapeRef.current = escape
   // Read during render: an autoFocus child already owns focus once effects run
   const [opener] = useState(() => document.activeElement as HTMLElement | null)
 
   useEffect(() => {
-    if (!escape) return
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        onCancel()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onCancel, escape])
-
-  useEffect(() => {
-    const root = dialogRef.current
-    if (root && !root.contains(document.activeElement)) {
-      // Tab strips and thumbnails precede the text field in some dialogs; land in the field so typing works
-      ;(
-        root.querySelector<HTMLElement>('input, textarea, select') ??
-        root.querySelector<HTMLElement>('button')
-      )?.focus()
-    }
-    return () => {
-      if (opener && opener !== document.body && opener.isConnected) opener.focus()
-    }
+    return installModalBehavior(dialogRef.current, {
+      onClose: () => closeRef.current(),
+      escape: () => escapeRef.current,
+      initialFocus,
+      restoreFocus: true,
+      opener,
+    })
   }, [opener])
 
   return dialogRef

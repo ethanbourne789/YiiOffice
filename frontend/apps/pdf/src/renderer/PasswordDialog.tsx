@@ -6,9 +6,10 @@
  *
  * Value / wrong state live in App's retry loop (status === 'password').
  */
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { useI18n } from './i18n/locale'
 import { IconAlert, IconEye, IconEyeOff } from './icons'
+import { useModalDialog } from './modal-dialog'
 
 export function PasswordDialog({
   fileName,
@@ -27,8 +28,15 @@ export function PasswordDialog({
   onCancel: () => void
 }) {
   const { t } = useI18n()
+  const dialogRef = useModalDialog(onCancel)
+  const titleId = useId()
   const [show, setShow] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // A failed attempt keeps typing in the password field.
+  useEffect(() => {
+    if (wrong) inputRef.current?.focus()
+  }, [wrong])
   /** caret to restore after the type=password/text swap resets it to 0 */
   const caretRef = useRef<[number, number] | null>(null)
 
@@ -56,8 +64,14 @@ export function PasswordDialog({
 
   return (
     <div className="pdf-modal-mask pdf-pwd-mask">
-      <div className="pdf-modal pdf-pwd-dialog" role="dialog" aria-modal="true">
-        <h2>{t('pwTitle')}</h2>
+      <div
+        ref={dialogRef}
+        className="pdf-modal pdf-pwd-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+      >
+        <h2 id={titleId}>{t('pwTitle')}</h2>
         <p className="pdf-pwd-desc">{t('pwBody', { name: fileName })}</p>
         <label className={`pdf-pwd-fld${wrong ? ' has-error' : ''}`}>
           {t('pwLabel')}

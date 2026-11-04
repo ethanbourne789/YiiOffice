@@ -18,6 +18,7 @@ import {
 } from '@yiioffice/ui'
 import { DEFAULT_CUTOUT_TOLERANCE, type CropFractions } from './image-bake'
 import type { StringKey, TFunc } from './i18n/locale'
+import { useModalDialog } from './modal-dialog'
 
 /** Longest side of the preview canvas (px) */
 const PREVIEW_MAX = 520
@@ -88,20 +89,10 @@ export function CutoutDialog({
   /** Background representative colors (sampled once at source resolution, shared by preview/apply) */
   const bgColorsRef = useRef<RGB[]>([])
   const rafRef = useRef<number | null>(null)
-  const dialogRef = useRef<HTMLDivElement>(null)
-  const previouslyFocused = useRef<HTMLElement | null>(null)
-
-  // Focus the first field on mount; return focus to the opener on unmount
-  useEffect(() => {
-    previouslyFocused.current = document.activeElement as HTMLElement | null
-    const root = dialogRef.current
-    if (root && !root.contains(document.activeElement)) {
-      root.querySelector<HTMLElement>('input, textarea, select, button')?.focus()
-    }
-    return () => {
-      previouslyFocused.current?.focus?.()
-    }
-  }, [])
+  // The shared modal contract opens on the tolerance field; while the image is
+  // still decoding that field is disabled, so the fallback is Cancel until the
+  // loaded effect below moves focus onto the now-enabled slider.
+  const dialogRef = useModalDialog(onCancel, { initialFocus: 'input[type="range"]' })
 
   const renderPreview = useCallback((tol: number) => {
     const pv = previewRef.current
@@ -173,16 +164,11 @@ export function CutoutDialog({
     [],
   )
 
+  // First input, not the Cancel button, owns focus as soon as the preview is usable.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        onCancel()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onCancel])
+    if (!loaded) return
+    dialogRef.current?.querySelector<HTMLInputElement>('input[type="range"]')?.focus()
+  }, [loaded, dialogRef])
 
   const apply = () => {
     const full = fullRef.current
@@ -326,20 +312,9 @@ export function CropDialog({
     startY: number
     start: CropFractions
   } | null>(null)
-  const dialogRef = useRef<HTMLDivElement>(null)
-  const previouslyFocused = useRef<HTMLElement | null>(null)
-
-  // Focus the first field on mount; return focus to the opener on unmount
-  useEffect(() => {
-    previouslyFocused.current = document.activeElement as HTMLElement | null
-    const root = dialogRef.current
-    if (root && !root.contains(document.activeElement)) {
-      root.querySelector<HTMLElement>('input, textarea, select, button')?.focus()
-    }
-    return () => {
-      previouslyFocused.current?.focus?.()
-    }
-  }, [])
+  // No inputs of its own: the shared contract opens on the first enabled
+  // control (Cancel) and keeps Esc/Tab/focus-return consistent.
+  const dialogRef = useModalDialog(onCancel)
 
   const updateView = useCallback(() => {
     const img = imgRef.current
@@ -386,20 +361,17 @@ export function CropDialog({
     }
   }, [crop, onApply])
 
-  // Esc cancels / Enter applies
+  // Enter applies; Esc is owned by the shared modal contract.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        onCancel()
-      } else if (e.key === 'Enter' && loaded && !error) {
+      if (e.key === 'Enter' && loaded && !error) {
         e.preventDefault()
         apply()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onCancel, apply, loaded, error])
+  }, [apply, loaded, error])
 
   const startDrag = (handle: CropHandle) => (e: ReactMouseEvent) => {
     e.preventDefault()
