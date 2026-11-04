@@ -221,6 +221,14 @@ body.overlay-title-bar .tab-bar-drag-spacer {
   z-index: 1;
 }
 
+/* keyboard focus ring: the strip is a real tablist, so the roving tab stop
+ * must be visible. Drawn inside the tab box so the strip's scroll clip cannot
+ * cut it off; never `outline: none`. */
+.tab-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 /* active shape: same side edges, full height, top corners only */
 .tab-item.active .tab-plate {
   inset: 0 3px;

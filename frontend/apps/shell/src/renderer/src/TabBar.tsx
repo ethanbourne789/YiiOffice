@@ -577,6 +577,8 @@ export function TabBar() {
       <div
         className={`tab-strip ${dragVisual ? 'dragging' : ''} ${dockX !== null ? 'dock-target' : ''}`}
         ref={stripRef}
+        role="tablist"
+        aria-label={t('tabStripAria')}
         // the strip, not the grabbed tab, owns the pointer capture: a torn-off
         // tab's element unmounts mid-gesture, and the moves must keep coming
         onPointerMove={handleDragMove}
@@ -608,6 +610,56 @@ export function TabBar() {
               // full title (the close button's own tooltip still wins there)
               title={tab.title}
               style={dragStyle}
+              role="tab"
+              aria-selected={tab.active}
+              // roving tabindex: only the active tab is a tab stop; the arrows
+              // move between the rest (ARIA tabs pattern)
+              tabIndex={tab.active ? 0 : -1}
+              data-tab-id={tab.id}
+              onKeyDown={(event) => {
+                const target = event.target as HTMLElement
+                // the rename field and the close button own their keys
+                if (target.closest('.tab-close') || target.closest('.tab-rename-input')) {
+                  return
+                }
+                let nextIndex = -1
+                switch (event.key) {
+                  case 'ArrowLeft':
+                    nextIndex = Math.max(0, index - 1)
+                    break
+                  case 'ArrowRight':
+                    nextIndex = Math.min(tabs.length - 1, index + 1)
+                    break
+                  case 'Home':
+                    nextIndex = 0
+                    break
+                  case 'End':
+                    nextIndex = tabs.length - 1
+                    break
+                  case 'Enter':
+                  case ' ':
+                    event.preventDefault()
+                    if (!tab.active) void window.aiOfficeTabs.activate(tab.id)
+                    return
+                  case 'Delete':
+                    if (!tab.closable) return
+                    event.preventDefault()
+                    void window.aiOfficeTabs.close(tab.id)
+                    return
+                  default:
+                    return
+                }
+                event.preventDefault()
+                const next = tabs[nextIndex]
+                if (!next) return
+                // focus the destination before activating: the host broadcast
+                // re-renders the strip, and the focused element must not be
+                // stranded on a tab that is about to lose its tab stop
+                stripRef.current
+                  ?.querySelectorAll<HTMLElement>('.tab-item')
+                  [nextIndex]?.focus()
+                if (!next.active) void window.aiOfficeTabs.activate(next.id)
+              }}
               onContextMenu={(event) => {
                 event.preventDefault()
                 if (tab.id === 'home') return
@@ -705,6 +757,9 @@ export function TabBar() {
                   className="tab-close"
                   title={t('closeTab')}
                   aria-label={t('closeTab')}
+                  // Delete on the focused tab closes it; keeping the nested
+                  // button out of the tab order preserves the roving tabindex
+                  tabIndex={-1}
                   onClick={(event) => {
                     event.stopPropagation()
                     void window.aiOfficeTabs.close(tab.id)
