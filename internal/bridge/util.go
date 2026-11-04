@@ -357,12 +357,12 @@ func saveImageSourceAs(src string, roots func() []string, extra []string) SaveIm
 	if strings.HasPrefix(src, "data:") {
 		comma := strings.Index(src, ",")
 		if comma < 0 {
-			return SaveImageAsResult{Error: "malformed data url"}
+			return SaveImageAsResult{Error: codedMessage(ErrOpenUnsupportedType, "malformed data url")}
 		}
 		header := src[:comma]
 		decoded, err := base64.StdEncoding.DecodeString(src[comma+1:])
 		if err != nil {
-			return SaveImageAsResult{Error: fmt.Sprintf("decode data url: %v", err)}
+			return SaveImageAsResult{Error: codedMessage(ErrSaveDecodeFailed, err.Error())}
 		}
 		data = decoded
 		ext := ".png"
@@ -379,24 +379,24 @@ func saveImageSourceAs(src string, roots func() []string, extra []string) SaveIm
 	} else {
 		authorised, err := authoriseLocalImageRead(roots, extra, src)
 		if err != nil {
-			return SaveImageAsResult{Error: fmt.Sprintf("source not authorised: %v", err)}
+			return SaveImageAsResult{Error: codedMessage(ErrOpenPathNotAuthorised, err.Error())}
 		}
 		read, err := os.ReadFile(authorised)
 		if err != nil {
-			return SaveImageAsResult{Error: fmt.Sprintf("read source: %v", err)}
+			return SaveImageAsResult{Error: codedMessage(ErrOpenReadFailed, err.Error())}
 		}
 		data = read
 		defaultName = filepath.Base(authorised)
 	}
 	path, canceled, err := saveFileDialog(defaultName)
 	if err != nil {
-		return SaveImageAsResult{Error: err.Error()}
+		return SaveImageAsResult{Error: codedMessage(ErrSaveDialogFailed, err.Error())}
 	}
 	if canceled {
 		return SaveImageAsResult{Canceled: true}
 	}
 	if err := os.WriteFile(path, data, 0o644); err != nil {
-		return SaveImageAsResult{Error: fmt.Sprintf("write: %v", err)}
+		return SaveImageAsResult{Error: codedMessage(ErrSaveWriteFailed, err.Error())}
 	}
 	return SaveImageAsResult{OK: true, Path: path}
 }
@@ -406,16 +406,16 @@ func saveImageSourceAs(src string, roots func() []string, extra []string) SaveIm
 func writeAppManagedCopy(name string, data []byte) (string, error) {
 	dataDir, err := host.AppDataDir()
 	if err != nil {
-		return "", fmt.Errorf("app data dir: %w", err)
+		return "", codedError(ErrExportWriteFailed, err)
 	}
 	defaultDir := filepath.Join(dataDir, "exports")
 	if err := os.MkdirAll(defaultDir, 0o755); err != nil {
-		return "", fmt.Errorf("create export dir: %w", err)
+		return "", codedError(ErrExportWriteFailed, err)
 	}
 	// The name arrives from the renderer; strip any path components so a
 	// "../.." cannot escape the exports directory.
 	path := filepath.Join(defaultDir, sanitizeFileName(name))
-	return path, os.WriteFile(path, data, 0o644)
+	return path, codedError(ErrExportWriteFailed, os.WriteFile(path, data, 0o644))
 }
 
 // ── File name helpers ──

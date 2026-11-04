@@ -49,7 +49,7 @@ func (s *ExportService) ExportPdf(html string, outPath string, suggestedName str
 // exportPdf is the shared HTML→PDF path used by every editor service.
 func exportPdf(html string, outPath string, suggestedName string, widthIn float64, heightIn float64) ExportResult {
 	if strings.TrimSpace(html) == "" {
-		return ExportResult{Error: "empty document"}
+		return ExportResult{Error: ErrExportEmptyDocument}
 	}
 	path, canceled, err := resolveExportTarget(suggestedName, outPath, ".pdf")
 	if err != nil {
@@ -59,7 +59,7 @@ func exportPdf(html string, outPath string, suggestedName string, widthIn float6
 		return ExportResult{Canceled: true}
 	}
 	if err := platform.PrintHTMLToPdf(html, path, pageOptions(widthIn, heightIn)); err != nil {
-		return ExportResult{Error: fmt.Sprintf("export pdf: %v", err)}
+		return ExportResult{Error: codedMessage(ErrExportRenderFailed, err.Error())}
 	}
 	return ExportResult{OK: true, Path: path}
 }
@@ -68,7 +68,7 @@ func exportPdf(html string, outPath string, suggestedName string, widthIn float6
 // when the caller already owns one).
 func (s *ExportService) ExportHtml(html string, outPath string, suggestedName string) ExportResult {
 	if strings.TrimSpace(html) == "" {
-		return ExportResult{Error: "empty document"}
+		return ExportResult{Error: ErrExportEmptyDocument}
 	}
 	path, canceled, err := resolveExportTarget(suggestedName, outPath, ".html")
 	if err != nil {
@@ -78,7 +78,7 @@ func (s *ExportService) ExportHtml(html string, outPath string, suggestedName st
 		return ExportResult{Canceled: true}
 	}
 	if err := os.WriteFile(path, []byte(html), 0o644); err != nil {
-		return ExportResult{Error: fmt.Sprintf("write html: %v", err)}
+		return ExportResult{Error: codedMessage(ErrExportWriteFailed, err.Error())}
 	}
 	return ExportResult{OK: true, Path: path}
 }
@@ -87,11 +87,11 @@ func (s *ExportService) ExportHtml(html string, outPath string, suggestedName st
 // by mixed-paper exports that merge several per-group PDFs afterwards.
 func (s *ExportService) RenderPdfBase64(html string, widthIn float64, heightIn float64) (string, error) {
 	if strings.TrimSpace(html) == "" {
-		return "", fmt.Errorf("empty document")
+		return "", fmt.Errorf("%s", ErrExportEmptyDocument)
 	}
 	tmp, err := os.CreateTemp("", "yiioffice-render-*.pdf")
 	if err != nil {
-		return "", fmt.Errorf("create temp pdf: %w", err)
+		return "", codedError(ErrExportWriteFailed, err)
 	}
 	path := tmp.Name()
 	tmp.Close()
@@ -99,11 +99,11 @@ func (s *ExportService) RenderPdfBase64(html string, widthIn float64, heightIn f
 	defer os.Remove(path)
 
 	if err := platform.PrintHTMLToPdf(html, path, pageOptions(widthIn, heightIn)); err != nil {
-		return "", fmt.Errorf("render pdf: %w", err)
+		return "", codedError(ErrExportRenderFailed, err)
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return "", fmt.Errorf("read rendered pdf: %w", err)
+		return "", codedError(ErrExportSourceUnreadable, err)
 	}
 	return base64.StdEncoding.EncodeToString(data), nil
 }
@@ -112,11 +112,11 @@ func (s *ExportService) RenderPdfBase64(html string, widthIn float64, heightIn f
 // result to outPath (a save dialog opens when outPath is empty).
 func (s *ExportService) MergePdfParts(parts []string, outPath string, suggestedName string) ExportResult {
 	if len(parts) == 0 {
-		return ExportResult{Error: "no pdf parts to merge"}
+		return ExportResult{Error: codedMessage(ErrExportMergeFailed, "no pdf parts to merge")}
 	}
 	dir, err := os.MkdirTemp("", "yiioffice-merge-*")
 	if err != nil {
-		return ExportResult{Error: fmt.Sprintf("create temp dir: %v", err)}
+		return ExportResult{Error: codedMessage(ErrExportWriteFailed, err.Error())}
 	}
 	defer os.RemoveAll(dir)
 
@@ -124,11 +124,11 @@ func (s *ExportService) MergePdfParts(parts []string, outPath string, suggestedN
 	for i, part := range parts {
 		data, derr := base64.StdEncoding.DecodeString(part)
 		if derr != nil {
-			return ExportResult{Error: fmt.Sprintf("decode part %d: %v", i, derr)}
+			return ExportResult{Error: codedMessage(ErrExportDecodeFailed, fmt.Sprintf("part %d: %v", i, derr))}
 		}
 		file := filepath.Join(dir, fmt.Sprintf("part-%03d.pdf", i))
 		if werr := os.WriteFile(file, data, 0o644); werr != nil {
-			return ExportResult{Error: fmt.Sprintf("write part %d: %v", i, werr)}
+			return ExportResult{Error: codedMessage(ErrExportWriteFailed, fmt.Sprintf("part %d: %v", i, werr))}
 		}
 		files = append(files, file)
 	}
@@ -137,7 +137,7 @@ func (s *ExportService) MergePdfParts(parts []string, outPath string, suggestedN
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 	if err := api.MergeCreateFile(ctx, files, merged, false, nil); err != nil {
-		return ExportResult{Error: fmt.Sprintf("merge pdf: %v", err)}
+		return ExportResult{Error: codedMessage(ErrExportMergeFailed, err.Error())}
 	}
 
 	path, canceled, err := resolveExportTarget(suggestedName, outPath, ".pdf")
@@ -149,10 +149,10 @@ func (s *ExportService) MergePdfParts(parts []string, outPath string, suggestedN
 	}
 	data, err := os.ReadFile(merged)
 	if err != nil {
-		return ExportResult{Error: fmt.Sprintf("read merged pdf: %v", err)}
+		return ExportResult{Error: codedMessage(ErrExportSourceUnreadable, err.Error())}
 	}
 	if err := os.WriteFile(path, data, 0o644); err != nil {
-		return ExportResult{Error: fmt.Sprintf("write pdf: %v", err)}
+		return ExportResult{Error: codedMessage(ErrExportWriteFailed, err.Error())}
 	}
 	return ExportResult{OK: true, Path: path}
 }
@@ -164,7 +164,7 @@ func (s *ExportService) MergePdfParts(parts []string, outPath string, suggestedN
 func (s *ExportService) PickExportFolder(title string) (ExportFolder, error) {
 	app := platform.App()
 	if app == nil {
-		return ExportFolder{}, fmt.Errorf("app not available")
+		return ExportFolder{}, fmt.Errorf("%s", ErrAppUnavailable)
 	}
 	if title == "" {
 		title = "Export as Images"
@@ -176,7 +176,7 @@ func (s *ExportService) PickExportFolder(title string) (ExportFolder, error) {
 		CanCreateDirectories(true).
 		PromptForSingleSelection()
 	if err != nil {
-		return ExportFolder{}, err
+		return ExportFolder{}, codedError(ErrExportDialogFailed, err)
 	}
 	if dir == "" {
 		return ExportFolder{}, nil
@@ -184,7 +184,7 @@ func (s *ExportService) PickExportFolder(title string) (ExportFolder, error) {
 	GrantDir(dir)
 	tmp, err := os.CreateTemp("", "yiioffice-export-*.pdf")
 	if err != nil {
-		return ExportFolder{}, fmt.Errorf("create temp pdf: %w", err)
+		return ExportFolder{}, codedError(ErrExportWriteFailed, err)
 	}
 	pdfPath := tmp.Name()
 	tmp.Close()
@@ -205,7 +205,7 @@ func (s *ExportService) PickSaveFile(defaultName string, ext string) (string, er
 	}
 	path, canceled, err := saveFileDialog(name)
 	if err != nil {
-		return "", err
+		return "", codedError(ErrExportDialogFailed, err)
 	}
 	if canceled {
 		return "", nil
@@ -219,11 +219,11 @@ func (s *ExportService) PickSaveFile(defaultName string, ext string) (string, er
 func (s *ExportService) TakeTempPdf(path string) (string, error) {
 	authorised, err := AuthoriseWrite(path)
 	if err != nil {
-		return "", fmt.Errorf("temp pdf path: %w", err)
+		return "", codedError(ErrExportTargetNotAuthorised, err)
 	}
 	data, err := os.ReadFile(authorised)
 	if err != nil {
-		return "", fmt.Errorf("read pdf: %w", err)
+		return "", codedError(ErrExportSourceUnreadable, err)
 	}
 	os.Remove(authorised)
 	return base64.StdEncoding.EncodeToString(data), nil
@@ -235,17 +235,17 @@ func (s *ExportService) TakeTempPdf(path string) (string, error) {
 func (s *ExportService) WriteBase64File(path string, content string) ExportResult {
 	data, err := base64.StdEncoding.DecodeString(content)
 	if err != nil {
-		return ExportResult{Error: fmt.Sprintf("decode content: %v", err)}
+		return ExportResult{Error: codedMessage(ErrExportDecodeFailed, err.Error())}
 	}
 	authorised, err := AuthoriseWrite(path)
 	if err != nil {
-		return ExportResult{Error: err.Error()}
+		return ExportResult{Error: codedMessage(ErrExportTargetNotAuthorised, err.Error())}
 	}
 	if err := os.MkdirAll(filepath.Dir(authorised), 0o755); err != nil {
-		return ExportResult{Error: fmt.Sprintf("create directory: %v", err)}
+		return ExportResult{Error: codedMessage(ErrExportWriteFailed, err.Error())}
 	}
 	if err := os.WriteFile(authorised, data, 0o644); err != nil {
-		return ExportResult{Error: fmt.Sprintf("write file: %v", err)}
+		return ExportResult{Error: codedMessage(ErrExportWriteFailed, err.Error())}
 	}
 	return ExportResult{OK: true, Path: authorised}
 }
@@ -279,12 +279,16 @@ func resolveExportTarget(suggestedName, outPath, ext string) (string, bool, erro
 	if outPath != "" {
 		authorised, err := AuthoriseWrite(outPath)
 		if err != nil {
-			return "", false, err
+			return "", false, codedError(ErrExportTargetNotAuthorised, err)
 		}
 		if err := os.MkdirAll(filepath.Dir(authorised), 0o755); err != nil {
-			return "", false, fmt.Errorf("create output directory: %w", err)
+			return "", false, codedError(ErrExportWriteFailed, err)
 		}
 		return authorised, false, nil
 	}
-	return saveFileDialog(name)
+	path, canceled, err := saveFileDialog(name)
+	if err != nil {
+		return "", false, codedError(ErrExportDialogFailed, err)
+	}
+	return path, canceled, nil
 }

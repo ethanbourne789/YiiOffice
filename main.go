@@ -14,7 +14,6 @@ import (
 	"runtime/debug"
 	"runtime/trace"
 	"strings"
-	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
@@ -82,15 +81,32 @@ func main() {
 		}
 	}()
 
-	// Check for --headless-export flag BEFORE any GUI initialization.
-	if req, ok := export.ShouldRunHeadless(); ok {
-		code := runHeadlessExport(req)
-		os.Exit(code)
+	// Check for --headless-export BEFORE any GUI initialization. The flag with
+	// bad arguments is a hard bad-args exit, not a GUI launch.
+	headlessReq, headless := export.ShouldRunHeadless()
+	if !headless && export.HeadlessFlagPresent(os.Args) {
+		headlessExit(export.ParseHeadlessUsageError(), false)
+	}
+	if headless {
+		if err := export.ValidateRequest(headlessReq); err != nil {
+			headlessExit(export.HeadlessOutcome{Error: err.Error(), ExitHint: export.ExitBadArgs}, headlessReq.JSON)
+		}
+		if err := export.ValidateHeadlessPaths(headlessReq); err != nil {
+			headlessExit(export.HeadlessOutcome{Error: err.Error(), ExitHint: export.ExitInputError}, headlessReq.JSON)
+		}
+		// The CLI picked these paths; the bridge's write policy requires an
+		// explicit grant before the renderer's export may write the output.
+		bridge.GrantFile(headlessReq.Input)
+		bridge.GrantFile(headlessReq.Out)
 	}
 
 	if err := platform.RequireWindows(); err != nil {
 		log.Fatal(err)
 	}
+
+	// Pin the taskbar/notification identity before any window is created so
+	// grouping does not depend on the install path (internal/platform/aumid.go).
+	platform.ApplyAppUserModelID()
 
 	// Server builds (`-tags server`) run as an HTTP host with no webview, so the
 	// WebView2 preflight is not only unnecessary but harmful: it would abort a
@@ -192,13 +208,16 @@ func main() {
 	go wd.Start(wdCtx)
 
 	// Initialize file index (non-fatal if it fails). Done before application.New
-	// so the HomeService bindings can receive the lifecycle pointer.
-	rootPaths := fm.RootPaths()
+	// so the HomeService bindings can receive the lifecycle pointer. Headless
+	// exports never touch Home, so skip the cold scan (it can be very slow).
 	var idxLifecycle *index.Lifecycle
-	if lc, err := index.Init(dataDir, rootPaths); err != nil {
-		platform.Logger().Warn("file index init failed", "error", err)
-	} else {
-		idxLifecycle = lc
+	if !headless {
+		rootPaths := fm.RootPaths()
+		if lc, err := index.Init(dataDir, rootPaths); err != nil {
+			platform.Logger().Warn("file index init failed", "error", err)
+		} else {
+			idxLifecycle = lc
+		}
 	}
 
 	// The Sheets editor runs on the in-process pure-Go workbook engine
@@ -228,6 +247,20 @@ func main() {
 				"port", os.Getenv("WAILS_SERVER_PORT"),
 				"risk", "unauthenticated HTTP access to all bindings and authorised local files",
 				"mitigation", "run only on a trusted network or behind an authenticating reverse proxy")
+		}
+	}
+
+	// Headless runs must not be folded into an already-running GUI instance:
+	// single-instance would forward the CLI args and exit with code 0.
+	var singleInstance *application.SingleInstanceOptions
+	if !headless {
+		singleInstance = &application.SingleInstanceOptions{
+			UniqueID: "gitee.com.ethanbourne789.yiioffice",
+			// A file opened from Explorer while YiiOffice runs is handed to the
+			// running instance instead of starting a second window.
+			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
+				openFilesFromArgs(homeSvc, data.Args)
+			},
 		}
 	}
 
@@ -292,19 +325,20 @@ func main() {
 			application.NewService(bridge.NewMarkdownService(rm, fm.RootPaths)),
 			application.NewService(bridge.NewWorkbookService(wbEngine, rm)),
 			application.NewService(bridge.NewExportService()),
+			// Windows toast fallback for results the user may miss while the
+			// window is in the background (exports, background save failures).
+			application.NewService(bridge.NewNotificationService()),
 			// Frameless main window: the tab strip is the title bar, so the
 			// shell draws the caption buttons and drives them through here.
 			application.NewService(bridge.NewWindowService(closeGuard.ShouldAllowClose)),
 		},
-		SingleInstance: &application.SingleInstanceOptions{
-			UniqueID: "gitee.com.ethanbourne789.yiioffice",
-			// A file opened from Explorer while YiiOffice runs is handed to the
-			// running instance instead of starting a second window.
-			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
-				openFilesFromArgs(homeSvc, data.Args)
-			},
-		},
+		SingleInstance: singleInstance,
 		ShouldQuit: func() bool {
+			if headless {
+				// The hidden export window's tab may report dirty state; never
+				// raise a native "save changes?" prompt in a CLI run.
+				return true
+			}
 			return closeGuard.ShouldAllowClose()
 		},
 		OnShutdown: func() {
@@ -325,31 +359,73 @@ func main() {
 		app.RegisterService(application.NewService(updateSvc))
 	}
 
-	win := app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:          "YiiOffice",
-		Width:          1280,
-		Height:         800,
-		URL:            "/",
-		Frameless:      true,
-		StartState:     application.WindowStateMaximised,
-		EnableFileDrop: true,
-		Windows: application.WindowsWindow{
-			// Lets WebView2 turn the strip's `-webkit-app-region: drag` into a
-			// native caption (move the window, double-click to maximise).
-			// Ignored on runtimes that predate the setting.
-			NonClientRegionSupport: true,
-		},
-	})
+	if !headless {
+		win := app.Window.NewWithOptions(application.WebviewWindowOptions{
+			Title:          "YiiOffice",
+			Width:          1280,
+			Height:         800,
+			URL:            "/",
+			Frameless:      true,
+			StartState:     application.WindowStateMaximised,
+			EnableFileDrop: true,
+			// WebView DevTools are a development-only affordance: a shipped
+			// build must not expose internals to end users. The value comes
+			// from the `production` build tag (devtools_dev.go /
+			// devtools_production.go) — the same tag `task build` passes and
+			// that Wails itself uses to pick its DevTools-enabled variant, so
+			// there is one switch, not two. On Windows Wails ignores this
+			// field and disables DevTools purely from the tag
+			// (webview_window_windows_production.go); setting it keeps the
+			// intent explicit here and covers runtimes that honour the option.
+			DevToolsEnabled: devToolsEnabled,
+			Windows: application.WindowsWindow{
+				// Lets WebView2 turn the strip's `-webkit-app-region: drag` into a
+				// native caption (move the window, double-click to maximise).
+				// Ignored on runtimes that predate the setting.
+				NonClientRegionSupport: true,
+			},
+		})
 
-	installSystemTray(app, win, closeGuard)
+		// Wails resolves dropped-file paths only on the Go side; forward them to
+		// the shell so it can route them through HomeService.OpenPath.
+		bridge.InstallFileDropBridge(win)
 
-	// Files passed on the command line (file association or a second launch
-	// before the running instance existed).
-	openFilesFromArgs(homeSvc, os.Args[1:])
+		installSystemTray(app, win, closeGuard)
+
+		// Files passed on the command line (file association or a second launch
+		// before the running instance existed).
+		openFilesFromArgs(homeSvc, os.Args[1:])
+	}
+
+	if headless {
+		// The export waits for the renderer's ready signal, which can only arrive
+		// after app.Run() has started the runtime and page load. Run it
+		// concurrently and quit once the outcome (success or timeout) is known.
+		outcomeCh := make(chan export.HeadlessOutcome, 1)
+		go func() {
+			out := export.RunHeadlessExport(headlessReq, export.DefaultExporters(export.ExportOptions{Tabs: tabHost}))
+			outcomeCh <- out
+			app.Quit()
+		}()
+
+		if err := app.Run(); err != nil {
+			log.Fatal(err)
+		}
+
+		headlessExit(<-outcomeCh, headlessReq.JSON)
+		return
+	}
 
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// headlessExit prints the result envelope and terminates the process with the
+// documented exit code (0 success, 1 conversion/config, 2 input, 3 timeout).
+func headlessExit(outcome export.HeadlessOutcome, jsonOut bool) {
+	fmt.Fprintln(os.Stdout, export.FormatHeadlessEnvelope(outcome, jsonOut))
+	os.Exit(export.HeadlessExitCode(outcome))
 }
 
 //go:embed build/windows/icon.ico
@@ -404,24 +480,3 @@ func openFilesFromArgs(home *bridge.HomeService, args []string) {
 	}
 }
 
-// runHeadlessExport executes a headless document export and returns the exit code.
-func runHeadlessExport(req export.HeadlessRequest) int {
-	// Build the exporter map.
-	exporters := map[string]export.HeadlessExporter{
-		export.ModuleDocs:     export.ExportDocsHeadless,
-		export.ModuleSheets:   export.ExportSheetsPdfHeadless,
-		export.ModuleSlides:   export.ExportSlidesPdfHeadless,
-		export.ModuleMarkdown: export.ExportMarkdownPdfHeadless,
-	}
-
-	outcome := export.RunHeadlessExport(req, exporters)
-
-	// Format and print the result envelope.
-	envelope := export.FormatHeadlessEnvelope(outcome, req.JSON)
-	fmt.Println(envelope)
-
-	// Flush stdout before exit (up to 2 seconds).
-	time.Sleep(100 * time.Millisecond)
-
-	return export.HeadlessExitCode(outcome)
-}

@@ -34,15 +34,20 @@ func (s *MarkdownService) SaveDocument(text string, docPath string, suggestedNam
 		}
 		selected, canceled, err := saveFileDialog(name)
 		if err != nil {
-			return SaveDocumentResult{Error: err.Error()}
+			return SaveDocumentResult{Error: codedMessage(ErrSaveDialogFailed, err.Error())}
 		}
 		if canceled {
 			return SaveDocumentResult{OK: true, Canceled: true}
 		}
 		path = selected
 	}
+	// Authorise before touching the filesystem: a rejected path must not even
+	// get its parent directory created.
+	if _, err := AuthoriseWrite(path); err != nil {
+		return SaveDocumentResult{Error: codedMessage(ErrSavePathNotAuthorised, err.Error())}
+	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return SaveDocumentResult{Error: fmt.Sprintf("create directory: %v", err)}
+		return SaveDocumentResult{Error: codedMessage(ErrSaveDirectoryFailed, err.Error())}
 	}
 	if err := s.Save(path, base64.StdEncoding.EncodeToString([]byte(text))); err != nil {
 		return SaveDocumentResult{Error: err.Error()}
@@ -59,7 +64,7 @@ func (s *MarkdownService) SaveImageBeside(docPath string, base64Data string, ext
 	}
 	data, err := base64.StdEncoding.DecodeString(base64Data)
 	if err != nil {
-		return "", fmt.Errorf("decode image: %w", err)
+		return "", codedError(ErrSaveDecodeFailed, err)
 	}
 	cleanExt := strings.ToLower(strings.TrimPrefix(ext, "."))
 	switch cleanExt {
@@ -71,11 +76,11 @@ func (s *MarkdownService) SaveImageBeside(docPath string, base64Data string, ext
 	// allowed exactly when the document itself was opened through a granted
 	// path (a dialog pick or the Home open funnel).
 	if _, err := AuthoriseWrite(docPath); err != nil {
-		return "", fmt.Errorf("document not opened through a trusted path: %w", err)
+		return "", codedError(ErrSavePathNotAuthorised, err)
 	}
 	assetsDir := filepath.Join(filepath.Dir(docPath), "assets")
 	if err := os.MkdirAll(assetsDir, 0o755); err != nil {
-		return "", fmt.Errorf("create assets directory: %w", err)
+		return "", codedError(ErrSaveDirectoryFailed, err)
 	}
 	GrantDir(assetsDir)
 	name := fmt.Sprintf("image-%d.%s", time.Now().UnixNano(), cleanExt)
@@ -107,11 +112,11 @@ func NewMarkdownService(rm *host.RecentManager, roots func() []string) *Markdown
 func (s *MarkdownService) ReadFile(path string) (string, error) {
 	authorised, err := authoriseLocalFileRead(s.roots, recentDocumentDirs(s.rm), path)
 	if err != nil {
-		return "", fmt.Errorf("read file: %w", err)
+		return "", codedError(ErrOpenPathNotAuthorised, err)
 	}
 	data, err := os.ReadFile(authorised)
 	if err != nil {
-		return "", fmt.Errorf("read file: %w", err)
+		return "", codedError(ErrOpenReadFailed, err)
 	}
 	return string(data), nil
 }
@@ -135,7 +140,7 @@ func (s *MarkdownService) Save(path string, content string) error {
 func (s *MarkdownService) SaveImage(path string, content string) (string, error) {
 	data, err := base64.StdEncoding.DecodeString(content)
 	if err != nil {
-		return "", fmt.Errorf("decode image: %w", err)
+		return "", codedError(ErrSaveDecodeFailed, err)
 	}
 	if err := atomicSaveBytes(path, data, nil); err != nil {
 		return "", err
@@ -152,11 +157,11 @@ func (s *MarkdownService) SaveImage(path string, content string) (string, error)
 func (s *MarkdownService) ReadImage(path string) (string, error) {
 	authorised, err := s.authoriseImageRead(path)
 	if err != nil {
-		return "", err
+		return "", codedError(ErrOpenPathNotAuthorised, err)
 	}
 	data, err := os.ReadFile(authorised)
 	if err != nil {
-		return "", fmt.Errorf("read image: %w", err)
+		return "", codedError(ErrOpenReadFailed, err)
 	}
 	return base64.StdEncoding.EncodeToString(data), nil
 }
@@ -170,7 +175,8 @@ func (s *MarkdownService) authoriseImageRead(path string) (string, error) {
 // PickImage opens a native file dialog for image selection and returns the
 // path. The dialog helper records the grant used by later reads and writes.
 func (s *MarkdownService) PickImage() (string, error) {
-	return openSingleImageDialog()
+	path, err := openSingleImageDialog()
+	return path, codedError(ErrOpenDialogFailed, err)
 }
 
 // SaveImageAsResult is returned by SaveImageAs.
@@ -189,7 +195,7 @@ type SaveImageAsResult struct {
 // will later trust.
 func (s *MarkdownService) SaveImageAs(src string) SaveImageAsResult {
 	if strings.HasPrefix(src, "http://") || strings.HasPrefix(src, "https://") {
-		return SaveImageAsResult{Error: "remote image sources are not supported"}
+		return SaveImageAsResult{Error: codedMessage(ErrOpenUnsupportedType, "remote image sources are not supported")}
 	}
 	return saveImageSourceAs(src, s.roots, recentDocumentDirs(s.rm))
 }
@@ -207,7 +213,7 @@ type ExportDocxResult struct {
 func (s *MarkdownService) ExportDocx(base64Data string, suggestedName string, mode string) ExportDocxResult {
 	data, err := base64.StdEncoding.DecodeString(base64Data)
 	if err != nil {
-		return ExportDocxResult{OK: false, Error: fmt.Sprintf("decode base64: %v", err)}
+		return ExportDocxResult{OK: false, Error: codedMessage(ErrExportDecodeFailed, err.Error())}
 	}
 	// The name is renderer-supplied: sanitize before it reaches any
 	// filepath.Join (openInDocs) or dialog default.
@@ -222,13 +228,17 @@ func (s *MarkdownService) ExportDocx(base64Data string, suggestedName string, mo
 		var canceled bool
 		path, canceled, err = saveFileDialog(name)
 		if err == nil && !canceled {
-			err = os.WriteFile(path, data, 0o644)
+			if werr := os.WriteFile(path, data, 0o644); werr != nil {
+				return ExportDocxResult{OK: false, Error: codedMessage(ErrExportWriteFailed, werr.Error())}
+			}
 		} else if err == nil && canceled {
 			return ExportDocxResult{OK: true, Canceled: true}
+		} else if err != nil {
+			return ExportDocxResult{OK: false, Error: codedMessage(ErrExportDialogFailed, err.Error())}
 		}
 	}
 	if err != nil {
-		return ExportDocxResult{OK: false, Error: err.Error()}
+		return ExportDocxResult{OK: false, Error: codedMessage(ErrExportWriteFailed, err.Error())}
 	}
 	return ExportDocxResult{OK: true, Path: path}
 }
@@ -255,7 +265,7 @@ func (s *MarkdownService) ExportPdf(html string, suggestedName string, outPath s
 	if outPath != "" {
 		authorised, err := AuthoriseWrite(outPath)
 		if err != nil {
-			return ExportPdfResult{OK: false, Error: err.Error()}
+			return ExportPdfResult{OK: false, Error: codedMessage(ErrExportTargetNotAuthorised, err.Error())}
 		}
 		path = authorised
 	} else {
@@ -263,14 +273,14 @@ func (s *MarkdownService) ExportPdf(html string, suggestedName string, outPath s
 		var err error
 		path, canceled, err = saveFileDialog(name)
 		if err != nil {
-			return ExportPdfResult{OK: false, Error: err.Error()}
+			return ExportPdfResult{OK: false, Error: codedMessage(ErrExportDialogFailed, err.Error())}
 		}
 		if canceled {
 			return ExportPdfResult{OK: true, Canceled: true}
 		}
 	}
 	if err := platform.PrintHTMLToPdf(html, path, platform.PrintOptions{}); err != nil {
-		return ExportPdfResult{OK: false, Error: fmt.Sprintf("export pdf: %v", err)}
+		return ExportPdfResult{OK: false, Error: codedMessage(ErrExportRenderFailed, err.Error())}
 	}
 	return ExportPdfResult{OK: true, Path: path}
 }

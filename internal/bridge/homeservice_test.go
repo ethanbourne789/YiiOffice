@@ -1,6 +1,7 @@
 package bridge
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -185,9 +186,10 @@ func TestHomeServiceRecents(t *testing.T) {
 	tmp := t.TempDir()
 	svc := newTestHomeService(t, tmp)
 
-	recents := svc.Recents(0, 50)
-	// GetRecents returns nil when there are no recents (not empty slice)
-	_ = recents // nil or empty slice, both are valid
+	page := svc.Recents(RecentPageQuery{Limit: 50})
+	if page.Total != 0 || page.TotalAll != 0 || len(page.Entries) != 0 {
+		t.Fatalf("expected an empty first page, got %+v", page)
+	}
 }
 
 func TestHomeServiceRemoveRecent(t *testing.T) {
@@ -616,8 +618,8 @@ func TestHomeServiceSearchFilesWithNilIndex(t *testing.T) {
 	if page.Unavailable == nil {
 		t.Fatal("expected unavailable reason when index is not ready")
 	}
-	if *page.Unavailable != "sidecar not running" {
-		t.Fatalf("expected reason 'sidecar not running', got %s", *page.Unavailable)
+	if page.Unavailable.Reason != "sidecar not running" {
+		t.Fatalf("expected reason 'sidecar not running', got %s", page.Unavailable.Reason)
 	}
 }
 
@@ -636,8 +638,8 @@ func TestHomeServiceSearchFilesWithReadyIndexButNilLifecycle(t *testing.T) {
 	if page.Unavailable == nil {
 		t.Fatal("expected unavailable reason when idxLc is nil")
 	}
-	if *page.Unavailable != "index not initialized" {
-		t.Fatalf("expected reason 'index not initialized', got %s", *page.Unavailable)
+	if page.Unavailable.Reason != "index not initialized" {
+		t.Fatalf("expected reason 'index not initialized', got %s", page.Unavailable.Reason)
 	}
 }
 
@@ -656,6 +658,160 @@ func waitForIndexHits(t *testing.T, store *index.FileIndexStore, q string, want 
 		time.Sleep(50 * time.Millisecond)
 	}
 	t.Fatalf("timeout waiting for %q to have %d hits", q, want)
+}
+
+// TestHomeServiceRecentsCursorPaging follows the cursor to the end of a list
+// larger than the old 200-entry cap and requires every row exactly once.
+func TestHomeServiceRecentsCursorPaging(t *testing.T) {
+	dir := t.TempDir()
+	rm := host.NewRecentManager(dir)
+	for i := 0; i < 320; i++ {
+		rm.AddRecent(fmt.Sprintf(`c:\recents\file-%03d.docx`, i))
+	}
+	svc := NewHomeService("test", nil, rm, nil, nil, nil, nil, nil, nil, nil)
+
+	seen := make(map[string]bool, 320)
+	cursor := ""
+	for pages := 0; ; pages++ {
+		if pages > 20 {
+			t.Fatal("cursor paging did not terminate")
+		}
+		page := svc.Recents(RecentPageQuery{Cursor: cursor, Limit: 40})
+		if page.TotalAll != 320 || page.Total != 320 {
+			t.Fatalf("counters drifted: total=%d totalAll=%d", page.Total, page.TotalAll)
+		}
+		for _, e := range page.Entries {
+			if seen[e.Path] {
+				t.Fatalf("duplicate row %q", e.Path)
+			}
+			seen[e.Path] = true
+		}
+		if page.NextCursor == "" {
+			break
+		}
+		cursor = page.NextCursor
+	}
+	if len(seen) != 320 {
+		t.Fatalf("expected all 320 rows, got %d", len(seen))
+	}
+}
+
+// TestHomeServiceRecentsCursorStableOnInsert pins the cursor contract: a file
+// opened while the user is scrolled must not shift the next page, which is the
+// failure mode of offset paging.
+func TestHomeServiceRecentsCursorStableOnInsert(t *testing.T) {
+	dir := t.TempDir()
+	rm := host.NewRecentManager(dir)
+	for i := 0; i < 90; i++ {
+		rm.AddRecent(fmt.Sprintf(`c:\recents\file-%03d.docx`, i))
+	}
+	svc := NewHomeService("test", nil, rm, nil, nil, nil, nil, nil, nil, nil)
+
+	first := svc.Recents(RecentPageQuery{Limit: 30})
+	rm.AddRecent(`c:\recents\opened-while-scrolling.xlsx`)
+
+	next := svc.Recents(RecentPageQuery{Cursor: first.NextCursor, Limit: 30})
+	if next.TotalAll != 91 {
+		t.Fatalf("expected the new recent in the collection counter, got %d", next.TotalAll)
+	}
+	if len(next.Entries) != 30 {
+		t.Fatalf("expected a full next page, got %d", len(next.Entries))
+	}
+	if next.Entries[0].Path != `c:\recents\file-059.docx` {
+		t.Fatalf("expected the next page to continue at file-059, got %q", next.Entries[0].Path)
+	}
+	for _, e := range next.Entries {
+		if e.Path == `c:\recents\file-060.docx` {
+			t.Fatal("the next page repeated the last row of the first page")
+		}
+		if e.Path == `c:\recents\opened-while-scrolling.xlsx` {
+			t.Fatal("a row inserted above the cursor leaked into the next page")
+		}
+	}
+}
+
+// TestHomeServiceRecentsCursorFilter covers the filtered view the sidebar pills
+// produce: total shrinks to the family, totalAll stays global, and the cursor
+// keeps walking the filtered set.
+func TestHomeServiceRecentsCursorFilter(t *testing.T) {
+	dir := t.TempDir()
+	rm := host.NewRecentManager(dir)
+	for i := 0; i < 30; i++ {
+		rm.AddRecent(fmt.Sprintf(`c:\recents\file-%03d.xlsx`, i))
+		rm.AddRecent(fmt.Sprintf(`c:\recents\file-%03d.docx`, i))
+	}
+	svc := NewHomeService("test", nil, rm, nil, nil, nil, nil, nil, nil, nil)
+
+	page := svc.Recents(RecentPageQuery{Ext: "xlsx", Limit: 0})
+	if page.Total != 30 || page.TotalAll != 60 || len(page.Entries) != 0 {
+		t.Fatalf("counters-only page wrong: total=%d totalAll=%d rows=%d", page.Total, page.TotalAll, len(page.Entries))
+	}
+
+	cursor := ""
+	got := 0
+	for {
+		p := svc.Recents(RecentPageQuery{Ext: "xlsx", Cursor: cursor, Limit: 12})
+		for _, e := range p.Entries {
+			if e.Ext != "xlsx" {
+				t.Fatalf("filter leaked %q", e.Path)
+			}
+		}
+		got += len(p.Entries)
+		if p.NextCursor == "" {
+			break
+		}
+		cursor = p.NextCursor
+	}
+	if got != 30 {
+		t.Fatalf("expected 30 filtered rows across pages, got %d", got)
+	}
+}
+
+// TestHomeServiceSearchFilesIndexContract locks the shape the renderer polls:
+// page.index must be the live {indexed,pending,scanning} object. Returning a
+// bare string made the polling loop never restart, so results stayed stale
+// until the user retyped the query.
+func TestHomeServiceSearchFilesIndexContract(t *testing.T) {
+	dir := t.TempDir()
+	dataDir := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(dir, "contract.txt"), []byte("contract token"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	fm := host.NewFolderManager(dataDir, func() string { return dir })
+	lc, err := index.Init(dataDir, fm.RootPaths())
+	if err != nil {
+		t.Fatalf("index.Init: %v", err)
+	}
+	defer func() {
+		_ = lc.Shutdown()
+		index.SetIndexStatus(false, "")
+	}()
+
+	deadline := time.Now().Add(8 * time.Second)
+	for !index.GetIndexStatus().Ready && time.Now().Before(deadline) {
+		time.Sleep(50 * time.Millisecond)
+	}
+	if !index.GetIndexStatus().Ready {
+		t.Fatal("index never became ready")
+	}
+
+	rm := host.NewRecentManager(dataDir)
+	svc := NewHomeService("test", nil, rm, fm, nil, nil, nil, lc, nil, nil)
+	page, err := svc.SearchFiles(FileSearchQuery{Q: "contract"})
+	if err != nil {
+		t.Fatalf("SearchFiles: %v", err)
+	}
+	if page.Unavailable != nil {
+		t.Fatalf("unexpected unavailable page: %s", page.Unavailable.Reason)
+	}
+	if page.Index.Indexed < 1 {
+		t.Fatalf("expected the indexed file count to be reported, got %+v", page.Index)
+	}
+	if page.Index.Pending != 0 || page.Index.Scanning {
+		t.Fatalf("expected an idle index between scans, got %+v", page.Index)
+	}
 }
 
 // TestHomeServiceFolderRootsSyncIndex verifies that the real folder-root

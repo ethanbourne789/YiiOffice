@@ -13,8 +13,12 @@ import (
 	"gitee.com/ethanbourne789/yiioffice/internal/fsutil"
 )
 
-const maxRecents = 200
 const defaultRecentPageSize = 50
+
+// recentSoftCap is the number of entries kept in recent.json. It is a soft
+// cap: starred paths are never evicted, because starring is an explicit user
+// decision and "not opened for a while" should not erase it.
+const recentSoftCap = 2000
 
 // RecentEntry is a single recent file record.
 type RecentEntry struct {
@@ -75,7 +79,7 @@ func (rm *RecentManager) load() {
 	}
 	// Load starred
 	var starredData struct {
-		Groups []string    `json:"groups"`
+		Groups []string      `json:"groups"`
 		Files  []StarredFile `json:"files"`
 	}
 	raw, err = os.ReadFile(rm.starredFile())
@@ -96,14 +100,23 @@ func (rm *RecentManager) saveRecents() {
 
 func (rm *RecentManager) saveStarred() {
 	data := struct {
-		Groups []string    `json:"groups"`
+		Groups []string      `json:"groups"`
 		Files  []StarredFile `json:"files"`
 	}{Groups: rm.starredGroups, Files: rm.starred}
 	fsutil.WriteJSONAtomic(rm.starredFile(), data, 0o644)
 }
 
-// AddRecent adds a path to the recent files list.
+// AddRecent adds a path to the recent files list. Blank paths and paths that
+// collapse to "." are dropped silently: they come from open/save handlers
+// whose path resolution failed, and a log line per rejected open would only
+// add noise — an invalid row in the UI is strictly worse than a missing one,
+// so there is nothing actionable to report. Rejecting before the dedupe
+// append also keeps an empty path from displacing a real record.
 func (rm *RecentManager) AddRecent(path string) {
+	path = filepath.Clean(strings.TrimSpace(path))
+	if path == "" || path == "." {
+		return
+	}
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
 	now := time.Now().UnixMilli()
@@ -115,10 +128,47 @@ func (rm *RecentManager) AddRecent(path string) {
 		}
 	}
 	rm.recents = append([]RecentEntry{{Path: path, Ts: now}}, rm.recents...)
-	if len(rm.recents) > maxRecents {
-		rm.recents = rm.recents[:maxRecents]
-	}
+	rm.trimRecents()
 	rm.saveRecents()
+}
+
+// trimRecents keeps the newest recentSoftCap records plus every starred path.
+// Callers must hold rm.mu. Passing the index is enough because the list is
+// newest first: anything past recentSoftCap is only kept when it is starred.
+// With more starred files than the cap the list exceeds recentSoftCap rather
+// than breaking the starring promise; the bound is recentSoftCap + the number
+// of starred files that are also recent, and starring is a user action (it
+// shrinks again when those files are unstarred and the next open trims).
+func (rm *RecentManager) trimRecents() {
+	if len(rm.recents) <= recentSoftCap {
+		return
+	}
+	stars := make(map[string]struct{}, len(rm.starred))
+	for _, s := range rm.starred {
+		stars[strings.ToLower(s.Path)] = struct{}{}
+	}
+	kept := make([]RecentEntry, 0, len(rm.recents))
+	for i, r := range rm.recents {
+		if i < recentSoftCap {
+			kept = append(kept, r)
+			continue
+		}
+		if _, starred := stars[strings.ToLower(r.Path)]; starred {
+			kept = append(kept, r)
+		}
+	}
+	rm.recents = kept
+}
+
+// RecentsSnapshot returns a copy of the recent records in display order
+// (newest first, as AddRecent maintains it), without stat-ing any file. The
+// caller is free to filter and page it; the copy keeps that out of rm.mu.
+func (rm *RecentManager) RecentsSnapshot() []RecentEntry {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+	recents := make([]RecentEntry, len(rm.recents))
+	copy(recents, rm.recents)
+	return recents
 }
 
 // GetRecents returns a paginated list of recent files with file stats.

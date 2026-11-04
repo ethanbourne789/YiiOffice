@@ -105,6 +105,17 @@ export function OpenFile(path: string): $CancellablePromise<workbook$0.FileInfo 
 }
 
 /**
+ * OpenFileWithPassword opens an encrypted workbook with the password the user
+ * typed. The path comes from a previous password-required open, which already
+ * passed the same grant check, so the retry is authorised by construction.
+ */
+export function OpenFileWithPassword(path: string, password: string): $CancellablePromise<workbook$0.FileInfo | null> {
+    return $Call.ByID(3774208238, path, password).then(($result: any) => {
+        return $$createType7($result);
+    });
+}
+
+/**
  * ReadFormulas returns every formula cell of a sheet.
  */
 export function ReadFormulas(req: $models.WorkbookSheetRequest): $CancellablePromise<workbook$0.FormulaCellsResult | null> {

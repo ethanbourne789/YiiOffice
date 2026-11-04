@@ -91,11 +91,29 @@ type PrinterInfo struct {
 func (s *WorkbookService) OpenFile(path string) (*workbook.FileInfo, error) {
 	authorised, err := authoriseLocalFileRead(nil, recentDocumentDirs(s.rm), path)
 	if err != nil {
-		return nil, err
+		return nil, codedError(ErrOpenPathNotAuthorised, err)
 	}
 	info, err := s.eng.Open(authorised)
 	if err != nil {
-		return nil, err
+		return nil, codedError(ErrOpenReadFailed, err)
+	}
+	if s.rm != nil {
+		s.rm.AddRecent(authorised)
+	}
+	return info, nil
+}
+
+// OpenFileWithPassword opens an encrypted workbook with the password the user
+// typed. The path comes from a previous password-required open, which already
+// passed the same grant check, so the retry is authorised by construction.
+func (s *WorkbookService) OpenFileWithPassword(path, password string) (*workbook.FileInfo, error) {
+	authorised, err := authoriseLocalFileRead(nil, recentDocumentDirs(s.rm), path)
+	if err != nil {
+		return nil, codedError(ErrOpenPathNotAuthorised, err)
+	}
+	info, err := s.eng.OpenWithPassword(authorised, password)
+	if err != nil {
+		return nil, codedError(ErrOpenReadFailed, err)
 	}
 	if s.rm != nil {
 		s.rm.AddRecent(authorised)
@@ -108,14 +126,14 @@ func (s *WorkbookService) OpenFile(path string) (*workbook.FileInfo, error) {
 func (s *WorkbookService) SelectWorkbook() (*workbook.FileInfo, error) {
 	app := platform.App()
 	if app == nil {
-		return nil, fmt.Errorf("app not available")
+		return nil, fmt.Errorf("%s", ErrAppUnavailable)
 	}
 	path, err := app.Dialog.OpenFile().
 		SetTitle("Open Workbook").
 		AddFilter("Excel Workbook", "*.xlsx;*.xlsm;*.xltx;*.csv").
 		PromptForSingleSelection()
 	if err != nil {
-		return nil, err
+		return nil, codedError(ErrOpenDialogFailed, err)
 	}
 	if path == "" {
 		return nil, nil
@@ -181,7 +199,7 @@ func (s *WorkbookService) SaveWorkbook(req workbook.SaveRequest) (*workbook.Save
 		}
 		path, canceled, err := saveFileDialog(suggested)
 		if err != nil {
-			return nil, err
+			return nil, codedError(ErrSaveDialogFailed, err)
 		}
 		if canceled {
 			return &workbook.SaveResult{Canceled: true}, nil
@@ -191,13 +209,13 @@ func (s *WorkbookService) SaveWorkbook(req workbook.SaveRequest) (*workbook.Save
 	if req.TargetPath != "" {
 		authorised, err := AuthoriseWrite(req.TargetPath)
 		if err != nil {
-			return nil, err
+			return nil, codedError(ErrSavePathNotAuthorised, err)
 		}
 		req.TargetPath = authorised
 	}
 	result, err := s.eng.Save(req)
 	if err != nil {
-		return nil, err
+		return nil, codedError(ErrSaveWriteFailed, err)
 	}
 	if result.File != nil && s.rm != nil && result.File.Path != "" {
 		s.rm.AddRecent(result.File.Path)
@@ -237,16 +255,16 @@ func (s *WorkbookService) ExportCsv(path string, content string) (string, error)
 	}
 	authorised, err := AuthoriseWrite(path)
 	if err != nil {
-		return "", err
+		return "", codedError(ErrExportTargetNotAuthorised, err)
 	}
 	dir := filepath.Dir(authorised)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return "", fmt.Errorf("create directory: %w", err)
+			return "", codedError(ErrExportWriteFailed, err)
 		}
 	}
 	if err := os.WriteFile(authorised, data, 0o644); err != nil {
-		return "", fmt.Errorf("write csv: %w", err)
+		return "", codedError(ErrExportWriteFailed, err)
 	}
 	return authorised, nil
 }
@@ -256,11 +274,11 @@ func (s *WorkbookService) ExportCsv(path string, content string) (string, error)
 func (s *WorkbookService) FilesRead(path string) (string, error) {
 	authorised, err := authoriseLocalFileRead(nil, recentDocumentDirs(s.rm), path)
 	if err != nil {
-		return "", err
+		return "", codedError(ErrOpenPathNotAuthorised, err)
 	}
 	data, err := os.ReadFile(authorised)
 	if err != nil {
-		return "", fmt.Errorf("read file: %w", err)
+		return "", codedError(ErrOpenReadFailed, err)
 	}
 	return base64.StdEncoding.EncodeToString(data), nil
 }
@@ -320,13 +338,13 @@ func (s *WorkbookService) ExportPdf(fileName string, html string) (WorkbookExpor
 	}
 	path, canceled, err := saveFileDialog(fileName)
 	if err != nil {
-		return WorkbookExportPdfResult{}, err
+		return WorkbookExportPdfResult{}, codedError(ErrExportDialogFailed, err)
 	}
 	if canceled {
 		return WorkbookExportPdfResult{Canceled: true}, nil
 	}
 	if err := platform.PrintHTMLToPdf(html, path, platform.PrintOptions{}); err != nil {
-		return WorkbookExportPdfResult{}, fmt.Errorf("export pdf: %w", err)
+		return WorkbookExportPdfResult{}, codedError(ErrExportRenderFailed, err)
 	}
 	return WorkbookExportPdfResult{Canceled: false, Path: path}, nil
 }

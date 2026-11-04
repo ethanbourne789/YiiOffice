@@ -19,6 +19,8 @@ type FileIndexer struct {
 	done      chan struct{}
 	running   bool
 	stopped   bool
+	scanning  bool
+	pending   int
 	wg        sync.WaitGroup
 
 	// firstScan is closed after the first full scan completes without being
@@ -73,6 +75,32 @@ func (ix *FileIndexer) FirstScanDone() <-chan struct{} {
 	return ix.firstScan
 }
 
+// Status reports the running scan's progress: the number of files still
+// queued for indexing and whether a scan is in progress. Between scans both
+// values are zero/false.
+func (ix *FileIndexer) Status() (pending int, scanning bool) {
+	ix.mu.Lock()
+	defer ix.mu.Unlock()
+	return ix.pending, ix.scanning
+}
+
+// setScanProgress updates the values reported by Status.
+func (ix *FileIndexer) setScanProgress(scanning bool, pending int) {
+	ix.mu.Lock()
+	defer ix.mu.Unlock()
+	ix.scanning = scanning
+	ix.pending = pending
+}
+
+// indexedOne records one queued file leaving the scan's back log.
+func (ix *FileIndexer) indexedOne() {
+	ix.mu.Lock()
+	defer ix.mu.Unlock()
+	if ix.pending > 0 {
+		ix.pending--
+	}
+}
+
 // Stop shuts down the indexer: it signals the loop, which aborts any
 // in-flight scan early, and waits for the loop goroutine to exit. Safe to
 // call more than once; only the first call closes the done channel.
@@ -116,6 +144,9 @@ func (ix *FileIndexer) loop() {
 const scanParallelism = 4
 
 func (ix *FileIndexer) run() {
+	ix.setScanProgress(true, 0)
+	defer ix.setScanProgress(false, 0)
+
 	ix.mu.Lock()
 	roots := make([]string, len(ix.roots))
 	copy(roots, ix.roots)
@@ -233,6 +264,7 @@ func (ix *FileIndexer) run() {
 	// done channel is polled per file: a Stop during a large first scan
 	// aborts quickly instead of blocking Shutdown (and store.Close) until
 	// every file has been processed.
+	ix.setScanProgress(true, len(changed))
 	for _, f := range changed {
 		select {
 		case <-ix.done:
@@ -242,6 +274,7 @@ func (ix *FileIndexer) run() {
 		if err := ix.indexFile(f); err != nil {
 			platform.Logger().Warn("index: failed to index file", "path", f.Path, "error", err)
 		}
+		ix.indexedOne()
 	}
 
 	// Completed without shutdown: the first full scan is done.

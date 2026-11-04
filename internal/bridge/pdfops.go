@@ -32,7 +32,7 @@ const pdfOpTimeout = 120 * time.Second
 func pickFolder(title string) (string, error) {
 	app := platform.App()
 	if app == nil {
-		return "", fmt.Errorf("app not available")
+		return "", fmt.Errorf("%s", ErrAppUnavailable)
 	}
 	dir, err := app.Dialog.OpenFile().
 		SetTitle(title).
@@ -40,17 +40,20 @@ func pickFolder(title string) (string, error) {
 		CanChooseDirectories(true).
 		CanCreateDirectories(true).
 		PromptForSingleSelection()
-	if err == nil && dir != "" {
+	if err != nil {
+		return "", codedError(ErrPdfOpDialogFailed, err)
+	}
+	if dir != "" {
 		GrantDir(dir)
 	}
-	return dir, err
+	return dir, nil
 }
 
 // pickOtherPdf opens a PDF picker; the returned list is empty when canceled.
 func pickOtherPdf(title string) ([]string, error) {
 	files, err := pickFilesByKind(title, "pdf")
 	if err != nil {
-		return nil, err
+		return nil, codedError(ErrPdfOpDialogFailed, err)
 	}
 	return files, nil
 }
@@ -64,7 +67,8 @@ func savePdfDialog(suggestedName string) (string, bool, error) {
 	if !strings.HasSuffix(strings.ToLower(name), ".pdf") {
 		name += ".pdf"
 	}
-	return saveFileDialog(name)
+	path, canceled, err := saveFileDialog(name)
+	return path, canceled, codedError(ErrPdfOpDialogFailed, err)
 }
 
 // tempPdfNear reserves a temp PDF path in the directory of near, so an in-place
@@ -72,7 +76,7 @@ func savePdfDialog(suggestedName string) (string, bool, error) {
 func tempPdfNear(near string) (string, error) {
 	f, err := os.CreateTemp(filepath.Dir(near), "pdfop-*.pdf")
 	if err != nil {
-		return "", fmt.Errorf("create temp pdf: %w", err)
+		return "", codedError(ErrPdfOpFailed, err)
 	}
 	name := f.Name()
 	f.Close()
@@ -84,7 +88,7 @@ func tempPdfNear(near string) (string, error) {
 func replaceWithTemp(tmp, target string) error {
 	if err := os.Rename(tmp, target); err != nil {
 		os.Remove(tmp)
-		return fmt.Errorf("replace document: %w", err)
+		return codedError(ErrPdfOpFailed, err)
 	}
 	return nil
 }
@@ -108,7 +112,7 @@ func (s *PdfService) ExtractPagesToFile(filePath string, pages []int, suggestedN
 	}
 	count, err := pdfengine.ExtractRangeToFile(ctx, src, out, pages)
 	if err != nil {
-		return PdfOpResult{Error: err.Error()}
+		return PdfOpResult{Error: codedMessage(ErrPdfOpFailed, err.Error())}
 	}
 	return PdfOpResult{OK: true, Path: out, Count: count}
 }
@@ -135,7 +139,7 @@ func (s *PdfService) InsertPdfFromDialog(filePath string, afterPageIndex int) Pd
 	inserted, err := pdfengine.InsertPdfToFile(ctx, filePath, files[0], afterPageIndex, tmp)
 	if err != nil {
 		os.Remove(tmp)
-		return PdfOpResult{Error: err.Error()}
+		return PdfOpResult{Error: codedMessage(ErrPdfOpFailed, err.Error())}
 	}
 	if err := replaceWithTemp(tmp, filePath); err != nil {
 		return PdfOpResult{Error: err.Error()}
@@ -165,7 +169,7 @@ func (s *PdfService) ReplacePagesFromDialog(filePath string, pages []int) PdfOpR
 	removed, inserted, err := pdfengine.ReplaceWithPdfToFile(ctx, filePath, files[0], pages, tmp)
 	if err != nil {
 		os.Remove(tmp)
-		return PdfOpResult{Error: err.Error()}
+		return PdfOpResult{Error: codedMessage(ErrPdfOpFailed, err.Error())}
 	}
 	if err := replaceWithTemp(tmp, filePath); err != nil {
 		return PdfOpResult{Error: err.Error()}
@@ -200,7 +204,7 @@ func (s *PdfService) MergePdfFromDialog(filePath string, suggestedName string) P
 	inFiles := append([]string{src}, files...)
 	pageCount, err := pdfengine.MergeFiles(ctx, inFiles, out)
 	if err != nil {
-		return PdfOpResult{Error: err.Error()}
+		return PdfOpResult{Error: codedMessage(ErrPdfOpFailed, err.Error())}
 	}
 	return PdfOpResult{OK: true, Path: out, Pages: pageCount}
 }
@@ -222,7 +226,7 @@ func (s *PdfService) SplitPdfToFolder(filePath string, chunkSize int) PdfOpResul
 	}
 	files, err := pdfengine.SplitToDir(ctx, src, chunkSize, dir)
 	if err != nil {
-		return PdfOpResult{Error: err.Error()}
+		return PdfOpResult{Error: codedMessage(ErrPdfOpFailed, err.Error())}
 	}
 	return PdfOpResult{OK: true, SavedDir: dir, Count: len(files)}
 }
@@ -254,7 +258,7 @@ func (s *PdfService) MergePagesToFile(filePath string, pages []int, pagesPerShee
 	}
 	pageCount, err := pdfengine.NUpToFile(ctx, src, pages, pagesPerSheet, strings.Join(opts, ","), out)
 	if err != nil {
-		return PdfOpResult{Error: err.Error()}
+		return PdfOpResult{Error: codedMessage(ErrPdfOpFailed, err.Error())}
 	}
 	return PdfOpResult{OK: true, Path: out, Pages: pageCount}
 }
@@ -276,7 +280,7 @@ func (s *PdfService) SplitPagesToFile(filePath string, pages []int, rows, cols i
 	}
 	pageCount, err := pdfengine.CutToFile(ctx, src, pages, rows, cols, out)
 	if err != nil {
-		return PdfOpResult{Error: err.Error()}
+		return PdfOpResult{Error: codedMessage(ErrPdfOpFailed, err.Error())}
 	}
 	return PdfOpResult{OK: true, Path: out, Pages: pageCount}
 }
@@ -294,7 +298,7 @@ func (s *PdfService) InsertBlankPageAfter(filePath string, afterPageIndex int) P
 	// InsertBlankPage inserts before a 1-based page number.
 	page := afterPageIndex + 2
 	if _, err := pdfengine.InsertBlankPage(ctx, filePath, page); err != nil {
-		return PdfOpResult{Error: err.Error()}
+		return PdfOpResult{Error: codedMessage(ErrPdfOpFailed, err.Error())}
 	}
 	return PdfOpResult{OK: true, Path: filePath}
 }
@@ -308,7 +312,7 @@ func (s *PdfService) CropPagesFractional(filePath string, pages []int, left, top
 	ctx, cancel := context.WithTimeout(context.Background(), pdfOpTimeout)
 	defer cancel()
 	if err := pdfengine.CropFractionInPlace(ctx, filePath, pages, [4]float64{left, top, right, bottom}); err != nil {
-		return PdfOpResult{Error: err.Error()}
+		return PdfOpResult{Error: codedMessage(ErrPdfOpFailed, err.Error())}
 	}
 	return PdfOpResult{OK: true, Path: filePath}
 }
@@ -331,7 +335,7 @@ func (s *PdfService) ExportImagesToFolder(filePath string, pages []int) PdfOpRes
 	}
 	result, err := pdfengine.ExportImages(ctx, src, pages, dir)
 	if err != nil {
-		return PdfOpResult{Error: err.Error()}
+		return PdfOpResult{Error: codedMessage(ErrPdfOpFailed, err.Error())}
 	}
 	count := 0
 	if m, ok := result.(map[string]any); ok {
@@ -346,7 +350,7 @@ func (s *PdfService) ExportImagesToFolder(filePath string, pages []int) PdfOpRes
 // data: prefix) into a picked folder as `<baseName>-<page>.png`.
 func (s *PdfService) ExportPageImages(images []string, pageNumbers []int, baseName string) PdfOpResult {
 	if len(images) == 0 {
-		return PdfOpResult{Error: "no page images to export"}
+		return PdfOpResult{Error: codedMessage(ErrPdfOpFailed, "no page images to export")}
 	}
 	dir, err := pickFolder("Export Pages as Images")
 	if err != nil {
@@ -363,7 +367,7 @@ func (s *PdfService) ExportPageImages(images []string, pageNumbers []int, baseNa
 	for i, encoded := range images {
 		data, derr := base64.StdEncoding.DecodeString(encoded)
 		if derr != nil {
-			return PdfOpResult{Error: fmt.Sprintf("decode page %d: %v", i+1, derr)}
+			return PdfOpResult{Error: codedMessage(ErrPdfOpDecodeFailed, fmt.Sprintf("page %d: %v", i+1, derr))}
 		}
 		pageNr := i + 1
 		if i < len(pageNumbers) && pageNumbers[i] > 0 {
@@ -371,7 +375,7 @@ func (s *PdfService) ExportPageImages(images []string, pageNumbers []int, baseNa
 		}
 		path := filepath.Join(dir, fmt.Sprintf("%s-%03d.png", base, pageNr))
 		if werr := os.WriteFile(path, data, 0o644); werr != nil {
-			return PdfOpResult{Error: fmt.Sprintf("write page %d: %v", pageNr, werr)}
+			return PdfOpResult{Error: codedMessage(ErrPdfOpFailed, fmt.Sprintf("write page %d: %v", pageNr, werr))}
 		}
 		written++
 	}

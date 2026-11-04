@@ -5,6 +5,7 @@ import * as DocsService from "./docsservice.js";
 import * as ExportService from "./exportservice.js";
 import * as HomeService from "./homeservice.js";
 import * as MarkdownService from "./markdownservice.js";
+import * as NotificationService from "./notificationservice.js";
 import * as PdfService from "./pdfservice.js";
 import * as ShellService from "./shellservice.js";
 import * as SlidesService from "./slidesservice.js";
@@ -16,6 +17,7 @@ export {
     ExportService,
     HomeService,
     MarkdownService,
+    NotificationService,
     PdfService,
     ShellService,
     SlidesService,
@@ -33,12 +35,16 @@ export {
     ExportFolder,
     ExportPdfResult,
     ExportResult,
+    FileSearchIndex,
     FileSearchPage,
     FileSearchQuery,
+    FileSearchUnavailable,
     PdfOpResult,
     PickedAttachment,
     PickedImage,
     PrinterInfo,
+    RecentPageQuery,
+    RecentPageResult,
     RenameResult,
     SaveDocumentResult,
     SaveImageAsResult,

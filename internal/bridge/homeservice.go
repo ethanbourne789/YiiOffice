@@ -1,9 +1,12 @@
 package bridge
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"gitee.com/ethanbourne789/yiioffice/internal/host"
 	"gitee.com/ethanbourne789/yiioffice/internal/index"
@@ -127,7 +130,7 @@ func (s *HomeService) GetDefaultSaveDir() string {
 func (s *HomeService) PickDefaultSaveDir() (string, error) {
 	app := platform.App()
 	if app == nil {
-		return "", fmt.Errorf("app not available")
+		return "", fmt.Errorf("%s", ErrAppUnavailable)
 	}
 	dir, err := app.Dialog.OpenFile().
 		SetTitle("Choose Save Folder").
@@ -135,11 +138,14 @@ func (s *HomeService) PickDefaultSaveDir() (string, error) {
 		CanChooseDirectories(true).
 		CanCreateDirectories(true).
 		PromptForSingleSelection()
-	if err != nil || dir == "" {
-		return "", err
+	if err != nil {
+		return "", codedError(ErrSaveDialogFailed, err)
+	}
+	if dir == "" {
+		return "", nil
 	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", fmt.Errorf("create save folder: %w", err)
+		return "", codedError(ErrSaveDirectoryFailed, err)
 	}
 	GrantDir(dir)
 	if err := s.store.SetDefaultSaveDir(dir); err != nil {
@@ -150,12 +156,120 @@ func (s *HomeService) PickDefaultSaveDir() (string, error) {
 
 // --- Recents & starred ---
 
-// Recents returns the recent files page.
-func (s *HomeService) Recents(offset int, limit int) []host.DocumentEntry {
-	if limit == 0 {
-		limit = 50
+const defaultRecentPageSize = 50
+
+// recentCursorToken encodes the last row of a page. ts alone is not a total
+// order (several opens can share a millisecond), so the path disambiguates and
+// lets the next page resume after that exact record instead of an offset that
+// would shift when a new recent is prepended.
+func recentCursorToken(ts int64, path string) string {
+	return base64.RawURLEncoding.EncodeToString([]byte(strconv.FormatInt(ts, 10) + "\x00" + path))
+}
+
+func decodeRecentCursor(token string) (int64, string, bool) {
+	raw, err := base64.RawURLEncoding.DecodeString(token)
+	if err != nil {
+		return 0, "", false
 	}
-	return s.rm.GetRecents(offset, limit)
+	sep := strings.IndexByte(string(raw), 0)
+	if sep < 0 {
+		return 0, "", false
+	}
+	ts, err := strconv.ParseInt(string(raw[:sep]), 10, 64)
+	if err != nil {
+		return 0, "", false
+	}
+	return ts, string(raw[sep+1:]), true
+}
+
+// Recents returns one page of the recent list plus the home counters.
+// Paging is cursor-based: the token names the last row already shown, so rows
+// opened while the user scrolls are inserted above the cursor and are neither
+// repeated nor skipped. A page is a snapshot of the list at call time; a
+// concurrent removal can drop one row from the remaining pages, which the
+// renderer already de-duplicates by path.
+func (s *HomeService) Recents(query RecentPageQuery) *RecentPageResult {
+	all := s.rm.RecentsSnapshot()
+	visible := make([]host.RecentEntry, 0, len(all))
+	allReal := 0
+	family := resolveExtFamily(query.Ext)
+	if strings.EqualFold(strings.TrimSpace(query.Ext), "all") {
+		family = nil
+	}
+	for _, r := range all {
+		// Legacy files may still hold the blank rows the old builds wrote.
+		if p := filepath.Clean(strings.TrimSpace(r.Path)); p == "" || p == "." {
+			continue
+		}
+		allReal++
+		if family != nil && !containsString(family, strings.ToLower(strings.TrimPrefix(filepath.Ext(r.Path), "."))) {
+			continue
+		}
+		visible = append(visible, r)
+	}
+
+	page := &RecentPageResult{Entries: []host.DocumentEntry{}, Total: len(visible), TotalAll: allReal}
+
+	start := 0
+	if query.Cursor != "" {
+		if ts, path, ok := decodeRecentCursor(query.Cursor); ok {
+			found := -1
+			for i, r := range visible {
+				if r.Ts == ts && strings.EqualFold(r.Path, path) {
+					found = i
+					break
+				}
+			}
+			if found >= 0 {
+				start = found + 1
+			} else {
+				// The cursor row was removed between pages; the array is newest
+				// first, so resume at the first older record.
+				start = len(visible)
+				for i, r := range visible {
+					if r.Ts < ts {
+						start = i
+						break
+					}
+				}
+			}
+		}
+	}
+
+	limit := query.Limit
+	if limit < 0 {
+		limit = defaultRecentPageSize
+	}
+	if limit == 0 || start >= len(visible) {
+		return page
+	}
+	end := start + limit
+	if end > len(visible) {
+		end = len(visible)
+	}
+
+	rows := make([]host.DocumentEntry, 0, end-start)
+	for _, r := range visible[start:end] {
+		entry := host.StatDocument(r.Path)
+		entry.Starred = s.rm.IsStarred(r.Path)
+		rows = append(rows, entry)
+	}
+	page.Entries = rows
+	if end < len(visible) {
+		last := visible[end-1]
+		page.NextCursor = recentCursorToken(last.Ts, last.Path)
+	}
+	return page
+}
+
+// containsString reports whether want is in list (family lookups are tiny).
+func containsString(list []string, want string) bool {
+	for _, s := range list {
+		if s == want {
+			return true
+		}
+	}
+	return false
 }
 
 // RemoveRecent removes a single path from the recent list.
@@ -205,7 +319,7 @@ func (s *HomeService) NewPdf() { s.newTab(host.TabKindPDF, "Untitled PDF") }
 func (s *HomeService) OpenPath(path string) error {
 	kind, ok := host.RouteByExt(path)
 	if !ok {
-		return fmt.Errorf("unsupported file type: %s", path)
+		return fmt.Errorf("%s: unsupported file type: %s", ErrOpenUnsupportedType, path)
 	}
 	// Opening a document is the trusted grant point: this exact file was
 	// routed from the sidebar, recents, a dialog or the shell, so later
@@ -235,9 +349,28 @@ func (s *HomeService) RevealPath(path string) error {
 	return s.revealPath(path)
 }
 
+// fileOpRoots is the root set destructive file-manager operations may touch:
+// the sidebar roots plus the user profile — the same set reads are authorised
+// against. A nil folder manager still yields the profile root.
+func (s *HomeService) fileOpRoots() []string {
+	var configured func() []string
+	if s.fm != nil {
+		configured = s.fm.RootPaths
+	}
+	return localReadRoots(configured)
+}
+
 // RenameFile renames a file and returns a result with the new path.
 func (s *HomeService) RenameFile(path string, newName string) RenameResult {
-	newPath, err := s.fo.Rename(path, sanitizeFileName(newName))
+	name := sanitizeFileName(newName)
+	roots := s.fileOpRoots()
+	if _, err := authoriseDestructive(roots, path); err != nil {
+		return RenameResult{Error: err.Error()}
+	}
+	if _, err := authoriseWriteInRoots(roots, filepath.Join(filepath.Dir(path), name)); err != nil {
+		return RenameResult{Error: err.Error()}
+	}
+	newPath, err := s.fo.Rename(path, name)
 	if err != nil {
 		return RenameResult{Error: err.Error()}
 	}
@@ -245,10 +378,37 @@ func (s *HomeService) RenameFile(path string, newName string) RenameResult {
 }
 
 // DuplicateFile duplicates a file and returns the new path.
-func (s *HomeService) DuplicateFile(path string) (string, error) { return s.fo.Duplicate(path) }
+func (s *HomeService) DuplicateFile(path string) (string, error) {
+	roots := s.fileOpRoots()
+	resolved, err := authoriseDestructive(roots, path)
+	if err != nil {
+		return "", err
+	}
+	// The copy lands beside the source, so it inherits the source's
+	// authorisation: duplicating cannot place bytes in a folder the source
+	// was not already in.
+	if err := authoriseWriteBeside(roots, resolved, filepath.Dir(path)); err != nil {
+		return "", err
+	}
+	return s.fo.Duplicate(path)
+}
 
-// DeleteFiles deletes the given paths and returns those that failed.
-func (s *HomeService) DeleteFiles(paths []string) []string { return s.fo.Delete(paths) }
+// DeleteFiles deletes the given paths and returns those that failed. An
+// unauthorised path is reported as failed instead of being removed.
+func (s *HomeService) DeleteFiles(paths []string) []string {
+	roots := s.fileOpRoots()
+	allowed := make([]string, 0, len(paths))
+	rejected := make([]string, 0, len(paths))
+	for _, p := range paths {
+		if _, err := authoriseDestructive(roots, p); err != nil {
+			rejected = append(rejected, p)
+			continue
+		}
+		allowed = append(allowed, p)
+	}
+	failed := s.fo.Delete(allowed)
+	return append(rejected, failed...)
+}
 
 // OpenTrash opens the system Recycle Bin.
 func (s *HomeService) OpenTrash() { platform.OpenExternal("shell:RecycleBin") }
@@ -262,7 +422,7 @@ func (s *HomeService) FolderRoots() []host.FolderRoot { return s.fm.GetRoots() }
 func (s *HomeService) AddFolderRoot() (*host.FolderRoot, error) {
 	app := platform.App()
 	if app == nil {
-		return nil, fmt.Errorf("app not available")
+		return nil, fmt.Errorf("%s", ErrAppUnavailable)
 	}
 	dir, err := app.Dialog.OpenFile().
 		SetTitle("Add Folder").
@@ -270,7 +430,7 @@ func (s *HomeService) AddFolderRoot() (*host.FolderRoot, error) {
 		CanChooseDirectories(true).
 		PromptForSingleSelection()
 	if err != nil {
-		return nil, err
+		return nil, codedError(ErrOpenDialogFailed, err)
 	}
 	if dir == "" {
 		return nil, nil
@@ -324,7 +484,14 @@ func (s *HomeService) ListFolder(path string) host.FolderListing {
 // CreateFolder creates a folder under the given parent.
 func (s *HomeService) CreateFolder(parentPath string, name string) RenameResult {
 	name = sanitizeFileName(name)
+	roots := s.fileOpRoots()
+	if _, err := authoriseDirInRoots(roots, parentPath); err != nil {
+		return RenameResult{Error: err.Error()}
+	}
 	path := filepath.Join(parentPath, name)
+	if _, err := authoriseWriteInRoots(roots, path); err != nil {
+		return RenameResult{Error: err.Error()}
+	}
 	if err := s.fm.CreateFolder(parentPath, name); err != nil {
 		return RenameResult{Error: err.Error()}
 	}
@@ -334,15 +501,36 @@ func (s *HomeService) CreateFolder(parentPath string, name string) RenameResult 
 // RenameFolder renames a folder and returns a result with the new path.
 func (s *HomeService) RenameFolder(oldPath string, newName string) RenameResult {
 	newName = sanitizeFileName(newName)
+	roots := s.fileOpRoots()
+	if _, err := authoriseDestructive(roots, oldPath); err != nil {
+		return RenameResult{Error: err.Error()}
+	}
 	newPath := filepath.Join(filepath.Dir(oldPath), newName)
+	if _, err := authoriseWriteInRoots(roots, newPath); err != nil {
+		return RenameResult{Error: err.Error()}
+	}
 	if err := s.fm.RenameFolder(oldPath, newName); err != nil {
 		return RenameResult{Error: err.Error()}
 	}
 	return RenameResult{OK: true, Path: newPath}
 }
 
-// MovePaths moves items into a destination directory.
+// MovePaths moves items into a destination directory. Every source and the
+// destination are authorised before anything moves, so one rejected path
+// cannot leave a batch partially executed.
 func (s *HomeService) MovePaths(paths []string, destDir string) error {
+	if len(paths) == 0 {
+		return nil
+	}
+	roots := s.fileOpRoots()
+	if _, err := authoriseDirInRoots(roots, destDir); err != nil {
+		return err
+	}
+	for _, p := range paths {
+		if _, err := authoriseDestructive(roots, p); err != nil {
+			return err
+		}
+	}
 	failed := s.fm.MovePaths(paths, destDir)
 	if len(failed) > 0 {
 		return fmt.Errorf("failed to move %d items", len(failed))
@@ -350,8 +538,27 @@ func (s *HomeService) MovePaths(paths []string, destDir string) error {
 	return nil
 }
 
-// DeleteFolder deletes a folder by path.
-func (s *HomeService) DeleteFolder(path string) error { return s.fm.DeleteFolder(path) }
+// DeleteFolder deletes a folder by path. The whole subtree is authorised
+// before anything is removed: if one entry resolves outside the exposed
+// folders the delete is refused outright rather than executed partially.
+func (s *HomeService) DeleteFolder(path string) error {
+	roots := s.fileOpRoots()
+	resolved, err := authoriseDestructive(roots, path)
+	if err != nil {
+		return err
+	}
+	info, err := os.Stat(resolved)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("not a directory: %s", path)
+	}
+	if err := validateDeleteTree(resolved, roots); err != nil {
+		return err
+	}
+	return s.fm.DeleteFolder(path)
+}
 
 // --- Default app ---
 
@@ -409,16 +616,36 @@ func (s *HomeService) RefreshEnabledAssociations() {
 
 // --- Search ---
 
+// searchIndexInfo reports the live index state the search UI polls while the
+// background scan is still catching up.
+func (s *HomeService) searchIndexInfo() FileSearchIndex {
+	if s.idxLc == nil {
+		return FileSearchIndex{}
+	}
+	indexed, err := s.idxLc.Store().CountFiles()
+	if err != nil {
+		indexed = 0
+	}
+	pending, scanning := s.idxLc.Indexer().Status()
+	return FileSearchIndex{Indexed: indexed, Pending: pending, Scanning: scanning}
+}
+
 // SearchFiles runs a full-text search and returns the paged results.
 func (s *HomeService) SearchFiles(query FileSearchQuery) (*FileSearchPage, error) {
 	status := index.GetIndexStatus()
 	if !status.Ready {
 		reason := status.Reason
-		return &FileSearchPage{Hits: []SearchHitWithStar{}, Unavailable: &reason}, nil
+		return &FileSearchPage{
+			Hits: []SearchHitWithStar{}, Index: s.searchIndexInfo(),
+			Unavailable: &FileSearchUnavailable{Reason: reason},
+		}, nil
 	}
 	if s.idxLc == nil {
 		reason := "index not initialized"
-		return &FileSearchPage{Hits: []SearchHitWithStar{}, Unavailable: &reason}, nil
+		return &FileSearchPage{
+			Hits: []SearchHitWithStar{}, Index: s.searchIndexInfo(),
+			Unavailable: &FileSearchUnavailable{Reason: reason},
+		}, nil
 	}
 
 	runes := []rune(query.Q)
@@ -450,5 +677,5 @@ func (s *HomeService) SearchFiles(query FileSearchQuery) (*FileSearchPage, error
 			Excerpt: excerpt, Starred: s.rm.IsStarred(h.Path),
 		}
 	}
-	return &FileSearchPage{Hits: hits, Total: result.Total, Index: "ok"}, nil
+	return &FileSearchPage{Hits: hits, Total: result.Total, Index: s.searchIndexInfo()}, nil
 }

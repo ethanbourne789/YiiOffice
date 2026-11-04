@@ -50,7 +50,8 @@ export function CreateFolder(parentPath: string, name: string): $CancellableProm
 }
 
 /**
- * DeleteFiles deletes the given paths and returns those that failed.
+ * DeleteFiles deletes the given paths and returns those that failed. An
+ * unauthorised path is reported as failed instead of being removed.
  */
 export function DeleteFiles(paths: string[]): $CancellablePromise<string[]> {
     return $Call.ByID(605717068, paths).then(($result: any) => {
@@ -59,7 +60,9 @@ export function DeleteFiles(paths: string[]): $CancellablePromise<string[]> {
 }
 
 /**
- * DeleteFolder deletes a folder by path.
+ * DeleteFolder deletes a folder by path. The whole subtree is authorised
+ * before anything is removed: if one entry resolves outside the exposed
+ * folders the delete is refused outright rather than executed partially.
  */
 export function DeleteFolder(path: string): $CancellablePromise<void> {
     return $Call.ByID(534670097, path);
@@ -164,7 +167,9 @@ export function ListFolder(path: string): $CancellablePromise<host$0.FolderListi
 }
 
 /**
- * MovePaths moves items into a destination directory.
+ * MovePaths moves items into a destination directory. Every source and the
+ * destination are authorised before anything moves, so one rejected path
+ * cannot leave a batch partially executed.
  */
 export function MovePaths(paths: string[], destDir: string): $CancellablePromise<void> {
     return $Call.ByID(638660725, paths, destDir);
@@ -236,10 +241,15 @@ export function PickDefaultSaveDir(): $CancellablePromise<string> {
 }
 
 /**
- * Recents returns the recent files page.
+ * Recents returns one page of the recent list plus the home counters.
+ * Paging is cursor-based: the token names the last row already shown, so rows
+ * opened while the user scrolls are inserted above the cursor and are neither
+ * repeated nor skipped. A page is a snapshot of the list at call time; a
+ * concurrent removal can drop one row from the remaining pages, which the
+ * renderer already de-duplicates by path.
  */
-export function Recents(offset: number, limit: number): $CancellablePromise<host$0.DocumentEntry[]> {
-    return $Call.ByID(3234937562, offset, limit).then(($result: any) => {
+export function Recents(query: $models.RecentPageQuery): $CancellablePromise<$models.RecentPageResult | null> {
+    return $Call.ByID(3234937562, query).then(($result: any) => {
         return $$createType11($result);
     });
 }
@@ -356,7 +366,7 @@ export function SetTheme(theme: string): $CancellablePromise<void> {
  */
 export function Starred(): $CancellablePromise<host$0.DocumentEntry[]> {
     return $Call.ByID(4235624813).then(($result: any) => {
-        return $$createType11($result);
+        return $$createType15($result);
     });
 }
 
@@ -374,7 +384,7 @@ export function StarredGroups(): $CancellablePromise<string[]> {
  */
 export function StatPaths(paths: string[]): $CancellablePromise<host$0.FileInfo[]> {
     return $Call.ByID(2758891496, paths).then(($result: any) => {
-        return $$createType15($result);
+        return $$createType17($result);
     });
 }
 
@@ -412,9 +422,11 @@ const $$createType6 = $Create.Map($Create.Any, $Create.Any);
 const $$createType7 = host$0.FileAssocEntry.createFrom;
 const $$createType8 = $Create.Array($$createType7);
 const $$createType9 = host$0.FolderListing.createFrom;
-const $$createType10 = host$0.DocumentEntry.createFrom;
-const $$createType11 = $Create.Array($$createType10);
+const $$createType10 = $models.RecentPageResult.createFrom;
+const $$createType11 = $Create.Nullable($$createType10);
 const $$createType12 = $models.FileSearchPage.createFrom;
 const $$createType13 = $Create.Nullable($$createType12);
-const $$createType14 = host$0.FileInfo.createFrom;
+const $$createType14 = host$0.DocumentEntry.createFrom;
 const $$createType15 = $Create.Array($$createType14);
+const $$createType16 = host$0.FileInfo.createFrom;
+const $$createType17 = $Create.Array($$createType16);

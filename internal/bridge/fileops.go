@@ -2,7 +2,6 @@ package bridge
 
 import (
 	"encoding/base64"
-	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -18,32 +17,32 @@ import (
 func atomicSaveBytes(path string, data []byte, fn func()) error {
 	authorised, err := AuthoriseWrite(path)
 	if err != nil {
-		return err
+		return codedError(ErrSavePathNotAuthorised, err)
 	}
 	path = authorised
 	dir := filepath.Dir(path)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return fmt.Errorf("create directory: %w", err)
+			return codedError(ErrSaveDirectoryFailed, err)
 		}
 	}
 	tmp, err := os.CreateTemp(dir, "*.tmp")
 	if err != nil {
-		return fmt.Errorf("create temp: %w", err)
+		return codedError(ErrSaveWriteFailed, err)
 	}
 	tmpName := tmp.Name()
 	if _, err := tmp.Write(data); err != nil {
 		tmp.Close()
 		os.Remove(tmpName)
-		return fmt.Errorf("write temp: %w", err)
+		return codedError(ErrSaveWriteFailed, err)
 	}
 	if err := tmp.Close(); err != nil {
 		os.Remove(tmpName)
-		return fmt.Errorf("close temp: %w", err)
+		return codedError(ErrSaveWriteFailed, err)
 	}
 	if err := os.Rename(tmpName, path); err != nil {
 		os.Remove(tmpName)
-		return fmt.Errorf("rename: %w", err)
+		return codedError(ErrSaveWriteFailed, err)
 	}
 	if fn != nil {
 		fn()
@@ -57,7 +56,7 @@ func atomicSaveBytes(path string, data []byte, fn func()) error {
 func atomicBase64Save(path, content string, fn func()) error {
 	data, err := base64.StdEncoding.DecodeString(content)
 	if err != nil {
-		return fmt.Errorf("decode content: %w", err)
+		return codedError(ErrSaveDecodeFailed, err)
 	}
 	return atomicSaveBytes(path, data, fn)
 }

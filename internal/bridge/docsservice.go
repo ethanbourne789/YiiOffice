@@ -47,11 +47,11 @@ func docsFileSave(path, content string, idxLc *index.Lifecycle) error {
 func (s *DocsService) OpenPath(path string) (string, error) {
 	authorised, err := authoriseLocalFileRead(s.roots, recentDocumentDirs(s.rm), path)
 	if err != nil {
-		return "", fmt.Errorf("read file: %w", err)
+		return "", codedError(ErrOpenPathNotAuthorised, err)
 	}
 	data, err := os.ReadFile(authorised)
 	if err != nil {
-		return "", fmt.Errorf("read file: %w", err)
+		return "", codedError(ErrOpenReadFailed, err)
 	}
 	return base64.StdEncoding.EncodeToString(data), nil
 }
@@ -86,7 +86,7 @@ func (s *DocsService) Opened(path string) {
 func (s *DocsService) PickFiles(kind string) ([]string, error) {
 	files, err := pickFilesByKind("Insert Media", kind)
 	if err != nil {
-		return nil, err
+		return nil, codedError(ErrOpenDialogFailed, err)
 	}
 	if files == nil {
 		files = []string{}
@@ -110,7 +110,7 @@ func (s *DocsService) PickImage() (*PickedImage, error) {
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("read image: %w", err)
+		return nil, codedError(ErrOpenReadFailed, err)
 	}
 	return &PickedImage{
 		Base64: base64.StdEncoding.EncodeToString(data),
@@ -124,7 +124,7 @@ func (s *DocsService) PickImage() (*PickedImage, error) {
 // MarkdownService.
 func (s *DocsService) SaveImageAs(src string) SaveImageAsResult {
 	if strings.HasPrefix(src, "http://") || strings.HasPrefix(src, "https://") {
-		return SaveImageAsResult{Error: "remote image sources are not supported"}
+		return SaveImageAsResult{Error: codedMessage(ErrOpenUnsupportedType, "remote image sources are not supported")}
 	}
 	return saveImageSourceAs(src, s.roots, recentDocumentDirs(s.rm))
 }
@@ -170,7 +170,7 @@ func (s *DocsService) OpenDocx() DocxOpenResult {
 	path := files[0]
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return DocxOpenResult{Error: fmt.Sprintf("read file: %v", err)}
+		return DocxOpenResult{Error: codedMessage(ErrOpenReadFailed, err.Error())}
 	}
 	s.Opened(path)
 	return DocxOpenResult{Path: path, Base64: base64.StdEncoding.EncodeToString(data)}
@@ -181,15 +181,15 @@ func (s *DocsService) OpenDocx() DocxOpenResult {
 // authorised roots.
 func (s *DocsService) OpenDocxPath(path string) DocxOpenResult {
 	if path == "" {
-		return DocxOpenResult{Error: "empty path"}
+		return DocxOpenResult{Error: ErrOpenPathInvalid}
 	}
 	authorised, err := authoriseLocalFileRead(s.roots, recentDocumentDirs(s.rm), path)
 	if err != nil {
-		return DocxOpenResult{Error: fmt.Sprintf("read file: %v", err)}
+		return DocxOpenResult{Error: codedMessage(ErrOpenPathNotAuthorised, err.Error())}
 	}
 	data, err := os.ReadFile(authorised)
 	if err != nil {
-		return DocxOpenResult{Error: fmt.Sprintf("read file: %v", err)}
+		return DocxOpenResult{Error: codedMessage(ErrOpenReadFailed, err.Error())}
 	}
 	s.Opened(authorised)
 	return DocxOpenResult{Path: authorised, Base64: base64.StdEncoding.EncodeToString(data)}
@@ -205,7 +205,7 @@ func (s *DocsService) OpenDocxDecrypt(path, _password string) DocxOpenResult {
 // SaveDocx writes base64-decoded content to the given path.
 func (s *DocsService) SaveDocx(path, content string, _auto bool) DocxSaveResult {
 	if path == "" {
-		return DocxSaveResult{Error: "empty path"}
+		return DocxSaveResult{Error: ErrSavePathInvalid}
 	}
 	if err := docsFileSave(path, content, s.idxLc); err != nil {
 		return DocxSaveResult{Error: err.Error()}
@@ -225,7 +225,7 @@ func (s *DocsService) SaveDocxAs(suggestedName, content, srcPath string) DocxSav
 	}
 	path, canceled, err := saveFileDialog(name)
 	if err != nil {
-		return DocxSaveResult{Error: err.Error()}
+		return DocxSaveResult{Error: codedMessage(ErrSaveDialogFailed, err.Error())}
 	}
 	if canceled {
 		return DocxSaveResult{}

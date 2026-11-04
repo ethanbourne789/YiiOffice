@@ -26,18 +26,21 @@ func NewPdfService(rm *host.RecentManager) *PdfService {
 // authoriseRead validates a PDF source path for reading: granted this session
 // (dialog pick or Home open funnel) or inside the guard roots.
 func (s *PdfService) authoriseRead(path string) (string, error) {
-	return authoriseLocalFileRead(nil, recentDocumentDirs(s.rm), path)
+	authorised, err := authoriseLocalFileRead(nil, recentDocumentDirs(s.rm), path)
+	return authorised, codedError(ErrOpenPathNotAuthorised, err)
 }
 
 // authoriseTarget validates an in-place write target against the session
 // grants: the document must have been opened or picked through a trusted flow.
 func (s *PdfService) authoriseTarget(path string) (string, error) {
-	return AuthoriseWrite(path)
+	authorised, err := AuthoriseWrite(path)
+	return authorised, codedError(ErrPdfOpNotAuthorised, err)
 }
 
 // authoriseTargetDir validates a folder write target (split / export-to-folder).
 func (s *PdfService) authoriseTargetDir(dir string) (string, error) {
-	return AuthoriseWriteDir(dir)
+	authorised, err := AuthoriseWriteDir(dir)
+	return authorised, codedError(ErrPdfOpNotAuthorised, err)
 }
 
 // derivedSiblingPath mirrors pdfengine's derived-output naming (the source's
@@ -55,11 +58,11 @@ func derivedSiblingPath(inFile, suffix string) string {
 func (s *PdfService) ReadFile(path string) (string, error) {
 	authorised, err := s.authoriseRead(path)
 	if err != nil {
-		return "", err
+		return "", codedError(ErrOpenPathNotAuthorised, err)
 	}
 	data, err := os.ReadFile(authorised)
 	if err != nil {
-		return "", fmt.Errorf("read file: %w", err)
+		return "", codedError(ErrOpenReadFailed, err)
 	}
 	return base64.StdEncoding.EncodeToString(data), nil
 }
@@ -67,7 +70,7 @@ func (s *PdfService) ReadFile(path string) (string, error) {
 // Save atomically writes base64-decoded content to the given path.
 func (s *PdfService) Save(path string, content string) error {
 	if path == "." || path == "" {
-		return fmt.Errorf("invalid save path: %q", path)
+		return codedError(ErrSavePathInvalid, fmt.Errorf("invalid save path: %q", path))
 	}
 	return atomicBase64Save(path, content, func() {
 		if s.rm != nil {

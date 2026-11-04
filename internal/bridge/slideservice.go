@@ -2,7 +2,6 @@ package bridge
 
 import (
 	"encoding/base64"
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -30,11 +29,11 @@ func NewSlidesService(rm *host.RecentManager) *SlidesService {
 func (s *SlidesService) OpenPath(path string) (string, error) {
 	authorised, err := authoriseLocalFileRead(nil, recentDocumentDirs(s.rm), path)
 	if err != nil {
-		return "", fmt.Errorf("read file: %w", err)
+		return "", codedError(ErrOpenPathNotAuthorised, err)
 	}
 	data, err := os.ReadFile(authorised)
 	if err != nil {
-		return "", fmt.Errorf("read file: %w", err)
+		return "", codedError(ErrOpenReadFailed, err)
 	}
 	return base64.StdEncoding.EncodeToString(data), nil
 }
@@ -67,7 +66,7 @@ func (s *SlidesService) FilesReadImage(path string) (string, error) {
 func (s *SlidesService) PickFiles(kind string) ([]string, error) {
 	files, err := pickFilesByKind("Insert Media", kind)
 	if err != nil {
-		return nil, err
+		return nil, codedError(ErrOpenDialogFailed, err)
 	}
 	if files == nil {
 		files = []string{}
@@ -90,11 +89,11 @@ type PickedAttachment struct {
 func (s *SlidesService) FilesAdd(path string) PickedAttachment {
 	authorised, err := authoriseLocalFileRead(nil, recentDocumentDirs(s.rm), path)
 	if err != nil {
-		return PickedAttachment{Error: fmt.Sprintf("media path not authorised: %v", err)}
+		return PickedAttachment{Error: codedMessage(ErrOpenPathNotAuthorised, err.Error())}
 	}
 	data, err := os.ReadFile(authorised)
 	if err != nil {
-		return PickedAttachment{Error: fmt.Sprintf("read media: %v", err)}
+		return PickedAttachment{Error: codedMessage(ErrOpenReadFailed, err.Error())}
 	}
 	return PickedAttachment{
 		OK:     true,

@@ -344,6 +344,15 @@ func (s *FileIndexStore) GetBody(path string) (*string, error) {
 	return &v, nil
 }
 
+// CountFiles returns how many files the index currently holds.
+func (s *FileIndexStore) CountFiles() (int, error) {
+	var n int
+	if err := s.db.QueryRow("SELECT COUNT(*) FROM files").Scan(&n); err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
 // GetIndexedFiles returns all indexed files (for diffing).
 func (s *FileIndexStore) GetIndexedFiles() ([]IndexedFile, error) {
 	rows, err := s.db.Query("SELECT path, mtime_ms, size_bytes, status FROM files")

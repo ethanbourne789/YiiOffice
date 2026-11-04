@@ -7,6 +7,9 @@ import { Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as host$0 from "../host/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as index$0 from "../index/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -227,13 +230,48 @@ export class ExportResult {
 }
 
 /**
+ * FileSearchIndex mirrors the frontend FileSearchPage.index object: how many
+ * files the index holds, how many of the running scan's files are still queued,
+ * and whether a scan is in progress. The search UI polls while pending > 0 or
+ * scanning is true, so these values have to describe the live scan.
+ */
+export class FileSearchIndex {
+    "indexed": number;
+    "pending": number;
+    "scanning": boolean;
+
+    /** Creates a new FileSearchIndex instance. */
+    constructor($$source: Partial<FileSearchIndex> = {}) {
+        if (!("indexed" in $$source)) {
+            this["indexed"] = 0;
+        }
+        if (!("pending" in $$source)) {
+            this["pending"] = 0;
+        }
+        if (!("scanning" in $$source)) {
+            this["scanning"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FileSearchIndex instance from a string or object.
+     */
+    static createFrom($$source: any = {}): FileSearchIndex {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new FileSearchIndex($$parsedSource as Partial<FileSearchIndex>);
+    }
+}
+
+/**
  * FileSearchPage mirrors the frontend FileSearchPage.
  */
 export class FileSearchPage {
     "hits": SearchHitWithStar[];
     "total": number;
-    "index": string;
-    "unavailable"?: string | null;
+    "index": FileSearchIndex;
+    "unavailable"?: FileSearchUnavailable | null;
 
     /** Creates a new FileSearchPage instance. */
     constructor($$source: Partial<FileSearchPage> = {}) {
@@ -244,7 +282,7 @@ export class FileSearchPage {
             this["total"] = 0;
         }
         if (!("index" in $$source)) {
-            this["index"] = "";
+            this["index"] = (new FileSearchIndex());
         }
 
         Object.assign(this, $$source);
@@ -255,9 +293,17 @@ export class FileSearchPage {
      */
     static createFrom($$source: any = {}): FileSearchPage {
         const $$createField0_0 = $$createType1;
+        const $$createField2_0 = $$createType2;
+        const $$createField3_0 = $$createType4;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("hits" in $$parsedSource) {
             $$parsedSource["hits"] = $$createField0_0($$parsedSource["hits"]);
+        }
+        if ("index" in $$parsedSource) {
+            $$parsedSource["index"] = $$createField2_0($$parsedSource["index"]);
+        }
+        if ("unavailable" in $$parsedSource) {
+            $$parsedSource["unavailable"] = $$createField3_0($$parsedSource["unavailable"]);
         }
         return new FileSearchPage($$parsedSource as Partial<FileSearchPage>);
     }
@@ -287,6 +333,30 @@ export class FileSearchQuery {
     static createFrom($$source: any = {}): FileSearchQuery {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new FileSearchQuery($$parsedSource as Partial<FileSearchQuery>);
+    }
+}
+
+/**
+ * FileSearchUnavailable mirrors the frontend FileSearchPage.unavailable object.
+ */
+export class FileSearchUnavailable {
+    "reason": string;
+
+    /** Creates a new FileSearchUnavailable instance. */
+    constructor($$source: Partial<FileSearchUnavailable> = {}) {
+        if (!("reason" in $$source)) {
+            this["reason"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FileSearchUnavailable instance from a string or object.
+     */
+    static createFrom($$source: any = {}): FileSearchUnavailable {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new FileSearchUnavailable($$parsedSource as Partial<FileSearchUnavailable>);
     }
 }
 
@@ -423,6 +493,73 @@ export class PrinterInfo {
 }
 
 /**
+ * RecentPageQuery is a recents page request. Cursor is the opaque token
+ * returned as RecentPageResult.NextCursor by the previous page; an empty
+ * cursor starts at the newest record. Ext scopes the page to one filter family
+ * and, like Limit, does not affect the counters.
+ */
+export class RecentPageQuery {
+    "cursor"?: string;
+    "limit"?: number;
+    "ext"?: string;
+
+    /** Creates a new RecentPageQuery instance. */
+    constructor($$source: Partial<RecentPageQuery> = {}) {
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new RecentPageQuery instance from a string or object.
+     */
+    static createFrom($$source: any = {}): RecentPageQuery {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new RecentPageQuery($$parsedSource as Partial<RecentPageQuery>);
+    }
+}
+
+/**
+ * RecentPageResult is one page of recents plus the counters the home screen
+ * needs: Total is the filtered count, TotalAll the unfiltered collection size.
+ */
+export class RecentPageResult {
+    "entries": host$0.DocumentEntry[];
+    "total": number;
+    "totalAll": number;
+    "nextCursor": string;
+
+    /** Creates a new RecentPageResult instance. */
+    constructor($$source: Partial<RecentPageResult> = {}) {
+        if (!("entries" in $$source)) {
+            this["entries"] = [];
+        }
+        if (!("total" in $$source)) {
+            this["total"] = 0;
+        }
+        if (!("totalAll" in $$source)) {
+            this["totalAll"] = 0;
+        }
+        if (!("nextCursor" in $$source)) {
+            this["nextCursor"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new RecentPageResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): RecentPageResult {
+        const $$createField0_0 = $$createType6;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("entries" in $$parsedSource) {
+            $$parsedSource["entries"] = $$createField0_0($$parsedSource["entries"]);
+        }
+        return new RecentPageResult($$parsedSource as Partial<RecentPageResult>);
+    }
+}
+
+/**
  * RenameResult reports whether a rename/create succeeded. JSON shape matches
  * frontend RenameResult ({ok, path?, error?}).
  */
@@ -554,8 +691,8 @@ export class SearchHitWithStar {
      * Creates a new SearchHitWithStar instance from a string or object.
      */
     static createFrom($$source: any = {}): SearchHitWithStar {
-        const $$createField5_0 = $$createType3;
-        const $$createField6_0 = $$createType4;
+        const $$createField5_0 = $$createType8;
+        const $$createField6_0 = $$createType9;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("snippet" in $$parsedSource) {
             $$parsedSource["snippet"] = $$createField5_0($$parsedSource["snippet"]);
@@ -715,7 +852,7 @@ export class WorkbookRangeReadRequest {
      * Creates a new WorkbookRangeReadRequest instance from a string or object.
      */
     static createFrom($$source: any = {}): WorkbookRangeReadRequest {
-        const $$createField2_0 = $$createType5;
+        const $$createField2_0 = $$createType10;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("range" in $$parsedSource) {
             $$parsedSource["range"] = $$createField2_0($$parsedSource["range"]);
@@ -755,7 +892,12 @@ export class WorkbookSheetRequest {
 // Private type creation functions
 const $$createType0 = SearchHitWithStar.createFrom;
 const $$createType1 = $Create.Array($$createType0);
-const $$createType2 = index$0.SnippetPart.createFrom;
-const $$createType3 = $Create.Array($$createType2);
-const $$createType4 = $Create.Array($Create.Any);
-const $$createType5 = workbook$0.CellArea.createFrom;
+const $$createType2 = FileSearchIndex.createFrom;
+const $$createType3 = FileSearchUnavailable.createFrom;
+const $$createType4 = $Create.Nullable($$createType3);
+const $$createType5 = host$0.DocumentEntry.createFrom;
+const $$createType6 = $Create.Array($$createType5);
+const $$createType7 = index$0.SnippetPart.createFrom;
+const $$createType8 = $Create.Array($$createType7);
+const $$createType9 = $Create.Array($Create.Any);
+const $$createType10 = workbook$0.CellArea.createFrom;
