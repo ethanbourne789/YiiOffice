@@ -20,6 +20,7 @@ export {
     FormulaCellsResult,
     Freeze,
     Hyperlink,
+    HyperlinkEdit,
     MediaResult,
     PageMargins,
     PageSetup,

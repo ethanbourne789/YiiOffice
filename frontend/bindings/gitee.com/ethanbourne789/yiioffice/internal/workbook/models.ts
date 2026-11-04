@@ -800,6 +800,49 @@ export class Hyperlink {
 }
 
 /**
+ * HyperlinkEdit is one hyperlink change in post-operation coordinates.
+ * 
+ * Target carries the destination: a "#Sheet!A1" value (or an explicit
+ * Location) is written as an internal workbook anchor, anything else as an
+ * external relationship. An empty Target and Location removes the link.
+ * Display and Tooltip are optional <display>/<tooltip> attributes; Display
+ * never writes the cell value, only the hyperlink metadata.
+ */
+export class HyperlinkEdit {
+    "sheetId": string;
+    "cell"?: string;
+    "row": number;
+    "column": number;
+    "target"?: string;
+    "location"?: string;
+    "display"?: string | null;
+    "tooltip"?: string | null;
+
+    /** Creates a new HyperlinkEdit instance. */
+    constructor($$source: Partial<HyperlinkEdit> = {}) {
+        if (!("sheetId" in $$source)) {
+            this["sheetId"] = "";
+        }
+        if (!("row" in $$source)) {
+            this["row"] = 0;
+        }
+        if (!("column" in $$source)) {
+            this["column"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new HyperlinkEdit instance from a string or object.
+     */
+    static createFrom($$source: any = {}): HyperlinkEdit {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new HyperlinkEdit($$parsedSource as Partial<HyperlinkEdit>);
+    }
+}
+
+/**
  * MediaResult is one embedded picture payload.
  */
 export class MediaResult {
@@ -1357,6 +1400,7 @@ export class SaveRequest {
     "edits": CellEdit[];
     "bulkConstantFills"?: BulkFill[];
     "structuralOps": StructuralOp[];
+    "hyperlinkEdits"?: HyperlinkEdit[];
 
     /** Creates a new SaveRequest instance. */
     constructor($$source: Partial<SaveRequest> = {}) {
@@ -1383,6 +1427,7 @@ export class SaveRequest {
         const $$createField7_0 = $$createType43;
         const $$createField8_0 = $$createType45;
         const $$createField9_0 = $$createType47;
+        const $$createField10_0 = $$createType49;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("edits" in $$parsedSource) {
             $$parsedSource["edits"] = $$createField7_0($$parsedSource["edits"]);
@@ -1392,6 +1437,9 @@ export class SaveRequest {
         }
         if ("structuralOps" in $$parsedSource) {
             $$parsedSource["structuralOps"] = $$createField9_0($$parsedSource["structuralOps"]);
+        }
+        if ("hyperlinkEdits" in $$parsedSource) {
+            $$parsedSource["hyperlinkEdits"] = $$createField10_0($$parsedSource["hyperlinkEdits"]);
         }
         return new SaveRequest($$parsedSource as Partial<SaveRequest>);
     }
@@ -1422,7 +1470,7 @@ export class SaveResult {
      * Creates a new SaveResult instance from a string or object.
      */
     static createFrom($$source: any = {}): SaveResult {
-        const $$createField2_0 = $$createType49;
+        const $$createField2_0 = $$createType51;
         const $$createField3_0 = $$createType4;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("file" in $$parsedSource) {
@@ -1527,10 +1575,10 @@ export class SheetMeta {
      * Creates a new SheetMeta instance from a string or object.
      */
     static createFrom($$source: any = {}): SheetMeta {
-        const $$createField4_0 = $$createType51;
-        const $$createField7_0 = $$createType53;
-        const $$createField16_0 = $$createType55;
-        const $$createField17_0 = $$createType57;
+        const $$createField4_0 = $$createType53;
+        const $$createField7_0 = $$createType55;
+        const $$createField16_0 = $$createType57;
+        const $$createField17_0 = $$createType59;
         const $$createField18_0 = $$createType3;
         const $$createField19_0 = $$createType9;
         const $$createField20_0 = $$createType9;
@@ -1756,13 +1804,15 @@ const $$createType44 = BulkFill.createFrom;
 const $$createType45 = $Create.Array($$createType44);
 const $$createType46 = StructuralOp.createFrom;
 const $$createType47 = $Create.Array($$createType46);
-const $$createType48 = FileInfo.createFrom;
-const $$createType49 = $Create.Nullable($$createType48);
-const $$createType50 = ColumnWidth.createFrom;
-const $$createType51 = $Create.Array($$createType50);
-const $$createType52 = Freeze.createFrom;
-const $$createType53 = $Create.Nullable($$createType52);
-const $$createType54 = SheetTable.createFrom;
-const $$createType55 = $Create.Array($$createType54);
-const $$createType56 = Comment.createFrom;
+const $$createType48 = HyperlinkEdit.createFrom;
+const $$createType49 = $Create.Array($$createType48);
+const $$createType50 = FileInfo.createFrom;
+const $$createType51 = $Create.Nullable($$createType50);
+const $$createType52 = ColumnWidth.createFrom;
+const $$createType53 = $Create.Array($$createType52);
+const $$createType54 = Freeze.createFrom;
+const $$createType55 = $Create.Nullable($$createType54);
+const $$createType56 = SheetTable.createFrom;
 const $$createType57 = $Create.Array($$createType56);
+const $$createType58 = Comment.createFrom;
+const $$createType59 = $Create.Array($$createType58);
