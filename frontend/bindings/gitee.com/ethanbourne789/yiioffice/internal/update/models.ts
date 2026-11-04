@@ -65,8 +65,9 @@ export class LatestRelease {
     "checkedAt": string;
 
     /**
-     * Message carries diagnostics only (the upstream reason for "error", or the
-     * exact pair that could not be compared). It is never UI copy.
+     * Message carries a stable error code plus diagnostics (the upstream reason
+     * for "error", or the exact pair that could not be compared). The shell maps
+     * the code to localized copy; the raw text is never shown as-is.
      */
     "message"?: string;
 
