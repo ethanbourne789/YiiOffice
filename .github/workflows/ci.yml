@@ -4,6 +4,9 @@ name: CI
 # the backend, and typecheck+tests+full renderer build for the frontend.
 # E2E (Playwright) drives a server build of the app (`-tags server`) so the tests
 # exercise the real Go services, not a stubbed bridge.
+# Two extra gates keep regressions out that the build alone cannot catch:
+# `bindings` fails when the committed wails3 output is stale, and `race` runs the
+# workbook session locks under the Go race detector.
 
 on:
   push:
@@ -37,6 +40,77 @@ jobs:
             -ldflags="-w -s -H windowsgui -X gitee.com/ethanbourne789/yiioffice/internal/buildinfo.Version=ci" `
             -o build/bin/YiiOffice-ci.exe .
 
+  bindings:
+    name: Bindings (drift check)
+    runs-on: windows-latest
+    # Regenerates the bindings with the same flags the E2E job uses and fails if
+    # the tracked output differs. Without this, a Go-side signature change that
+    # nobody regenerated would keep compiling against stale TypeScript.
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install wails3 CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
+      # `-clean=true` wipes the whole bindings tree, and wails3 only emits what it
+      # generates: hand-maintained declarations (tracked *.d.ts) are deleted too.
+      # Snapshot the tree so those can be restored from the committed copy, and
+      # the diff then only covers what the generator is responsible for.
+      - name: Snapshot bindings
+        shell: pwsh
+        run: |
+          Copy-Item frontend/bindings (Join-Path $env:RUNNER_TEMP 'bindings-before') -Recurse -Force
+      - name: Regenerate bindings
+        run: wails3 generate bindings -ts -f '-tags=server,production' -clean=true -time-type=Date
+      - name: Fail on drift
+        shell: pwsh
+        run: |
+          $bindings = 'frontend/bindings'
+          $backup = Join-Path $env:RUNNER_TEMP 'bindings-before'
+          # Copy-Item with a non-existent destination puts the snapshot's *contents*
+          # directly under $backup, so the 'frontend/bindings/' prefix must be
+          # stripped before joining. Index still lists the tracked files after the
+          # generator deletes them.
+          $prefix = 'frontend/bindings/'
+          foreach ($rel in (git ls-files $bindings | Where-Object { $_ -like '*.d.ts' })) {
+            if (-not (Test-Path $rel)) {
+              $src = Join-Path $backup $rel.Substring($prefix.Length)
+              Copy-Item $src $rel -Force
+              Write-Host "Restored declaration deleted by the generator: $rel"
+            }
+          }
+          # Stage the regenerated tree before comparing. On windows-latest
+          # core.autocrlf=true, the LF output of wails3 shows up as "modified" even
+          # though the blobs are byte-identical; `git add` normalizes that away
+          # while still flagging real content drift.
+          git add -A -- $bindings
+          # Porcelain catches modified files as well as output the generator adds.
+          $drift = @(git status --porcelain -- $bindings)
+          if ($drift.Count -gt 0) {
+            Write-Host "::error::frontend/bindings is stale. Regenerate with: wails3 generate bindings -ts -f '-tags=server,production' -clean=true -time-type=Date"
+            $drift | ForEach-Object { Write-Host $_ }
+            git --no-pager diff --cached --stat -- $bindings
+            exit 1
+          }
+          Write-Host 'bindings match the committed output'
+
+  race:
+    name: Go race (workbook)
+    runs-on: ubuntu-latest
+    # The -race detector needs cgo, which windows-latest has no gcc for; Linux
+    # runners ship one. workbook is pure Go (no windows-only imports), so the
+    # package compiles and its tests run unchanged there.
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: go test -race ./internal/workbook/
+        run: go test -race ./internal/workbook/
+
   frontend:
     name: Frontend (install + typecheck + test + build)
     runs-on: windows-latest
@@ -51,7 +125,7 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
-        run: npm install
+        run: npm ci
       - name: Typecheck all workspaces
         run: npm run typecheck
       - name: Unit tests (all workspaces)
