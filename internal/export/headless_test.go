@@ -179,16 +179,18 @@ func TestHeadlessModuleForAllTypes(t *testing.T) {
 		want string
 	}{
 		{"file.docx", "docs"},
-		{"file.doc", "docs"},
 		{"file.xlsx", "sheets"},
-		{"file.xls", "sheets"},
+		{"file.xlsm", "sheets"},
 		{"file.csv", "sheets"},
 		{"file.tsv", "sheets"},
 		{"file.pptx", "slides"},
-		{"file.ppt", "slides"},
 		{"file.md", "markdown"},
 		{"file.markdown", "markdown"},
 		{"file.txt", ""},
+		{"file.doc", ""},
+		{"file.xls", ""},
+		{"file.ppt", ""},
+		{"file.html", ""},
 	}
 	for _, tt := range tests {
 		got := headlessModuleFor(tt.path)

@@ -13,6 +13,8 @@
  * which pulls in node: builtins) so every editor module reports the same way.
  */
 
+import HEADLESS_FORMATS from "./headless-formats.json";
+
 /** Editor module that owns a given input extension. */
 export type HeadlessExportModule = "docs" | "sheets" | "slides" | "markdown";
 
@@ -74,28 +76,36 @@ export type HeadlessExportOutcome =
   | { ok: true; input: string; outPath: string }
   | { ok: false; code: Exclude<HeadlessExitCode, 0>; message: string };
 
-const MODULE_BY_EXTENSION: ReadonlyArray<
-  readonly [RegExp, HeadlessExportModule]
-> = [
-  [/\.docx$/i, "docs"],
-  [/\.(html|htm)$/i, "docs"],
-  [/\.(xlsx|xlsm|xls|csv|tsv)$/i, "sheets"],
-  [/\.pptx$/i, "slides"],
-  [/\.(md|markdown)$/i, "markdown"],
-];
+/**
+ * Extension → module table. The list itself lives in `headless-formats.json`
+ * next to this file; the Go CLI mirrors it in `internal/export/cli.go`, and
+ * `TestHeadlessFormatsMatchFrontend` fails if the two ever diverge.
+ *
+ * `.doc` / `.xls` / `.ppt` and `.html` / `.htm` are deliberately absent: the
+ * docs/sheets/slides renderers cannot open 97-2003 binaries, and HTML is only
+ * an export target, so accepting them here would promise conversions that fail.
+ */
+const MODULE_BY_EXTENSION: Record<string, HeadlessExportModule> =
+  Object.fromEntries(
+    (Object.keys(HEADLESS_FORMATS) as HeadlessExportModule[]).flatMap(
+      (module) => HEADLESS_FORMATS[module].map((ext) => [ext, module] as const),
+    ),
+  );
 
 /** Which editor module can render this input, or null when the extension is unsupported. */
 export function headlessModuleFor(
   inputPath: string,
 ): HeadlessExportModule | null {
-  for (const [pattern, module] of MODULE_BY_EXTENSION)
-    if (pattern.test(inputPath)) return module;
-  return null;
+  const dot = inputPath.lastIndexOf(".");
+  if (dot < 0) return null;
+  return MODULE_BY_EXTENSION[inputPath.slice(dot + 1).toLowerCase()] ?? null;
 }
 
 /** Extensions the headless entry accepts, for error messages. */
-export const HEADLESS_SUPPORTED_EXTENSIONS =
-  ".docx, .html, .htm, .xlsx, .xlsm, .xls, .csv, .pptx, .md, .markdown";
+export const HEADLESS_SUPPORTED_EXTENSIONS = Object.values(HEADLESS_FORMATS)
+  .flat()
+  .map((ext) => `.${ext}`)
+  .join(", ");
 
 /** `--flag value` and `--flag=value` both read the same. */
 function readOption(

@@ -157,7 +157,7 @@ func main() {
 		// failed silently (host.RouteByExt has nowhere to route it).
 		files, err := app.Dialog.OpenFile().
 			SetTitle("Open File").
-			AddFilter("Office Documents", "*.docx;*.xlsx;*.xlsm;*.csv;*.tsv;*.pptx;*.pdf;*.md;*.markdown").
+			AddFilter("Office Documents", "*.docx;*.xlsx;*.xlsm;*.csv;*.tsv;*.pptx;*.pdf;*.md;*.markdown;*.txt;*.json").
 			PromptForMultipleSelection()
 		return files, err
 	}

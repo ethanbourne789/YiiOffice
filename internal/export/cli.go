@@ -127,28 +127,69 @@ func ParseHeadlessUsageError() HeadlessOutcome {
 	}
 }
 
+// headlessInputTypes maps every accepted input extension to the editor module
+// that can actually open it. The same list lives in
+// frontend/packages/desktop-utils/src/headless-formats.json;
+// TestHeadlessFormatsMatchFrontend fails when the two disagree.
+//
+// Legacy 97-2003 binaries (.doc/.xls/.ppt) and HTML (.html/.htm) are
+// deliberately absent: the renderers only parse OOXML/text formats, and HTML
+// is an export target, not an input.
+var headlessInputTypes = []struct {
+	ext    string
+	module string
+}{
+	{"docx", "docs"},
+	{"xlsx", "sheets"},
+	{"xlsm", "sheets"},
+	{"csv", "sheets"},
+	{"tsv", "sheets"},
+	{"pptx", "slides"},
+	{"md", "markdown"},
+	{"markdown", "markdown"},
+}
+
 // headlessModuleFor returns the editor module name for a given file extension.
 // It returns an empty string if the extension is not recognized.
 func headlessModuleFor(inputPath string) string {
 	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(inputPath), "."))
-	switch ext {
-	case "docx", "doc":
-		return "docs"
-	case "xlsx", "xls", "xlsm", "csv", "tsv":
-		return "sheets"
-	case "pptx", "ppt":
-		return "slides"
-	case "md", "markdown":
-		return "markdown"
+	for _, t := range headlessInputTypes {
+		if ext == t.ext {
+			return t.module
+		}
 	}
 	return ""
+}
+
+// supportedHeadlessExtensions lists the accepted extensions for error messages.
+func supportedHeadlessExtensions() string {
+	exts := make([]string, 0, len(headlessInputTypes))
+	for _, t := range headlessInputTypes {
+		exts = append(exts, "."+t.ext)
+	}
+	return strings.Join(exts, ", ")
+}
+
+// isLegacyOfficeExt reports whether the path uses a 97-2003 binary extension
+// that the headless entry refuses instead of attempting a doomed conversion.
+func isLegacyOfficeExt(inputPath string) bool {
+	switch strings.ToLower(strings.TrimPrefix(filepath.Ext(inputPath), ".")) {
+	case "doc", "xls", "ppt":
+		return true
+	}
+	return false
 }
 
 // ValidateRequest checks that the input path, output format, and targets are valid.
 func ValidateRequest(req HeadlessRequest) error {
 	module := headlessModuleFor(req.Input)
 	if module == "" {
-		return errors.New("unsupported input file type: " + req.Input)
+		msg := "unsupported input file type: " + req.Input +
+			" (supported: " + supportedHeadlessExtensions() + ")"
+		if isLegacyOfficeExt(req.Input) {
+			msg += "; save legacy .doc/.xls/.ppt files as .docx/.xlsx/.pptx first"
+		}
+		return errors.New(msg)
 	}
 
 	targets, ok := HeadlessTargets[module]

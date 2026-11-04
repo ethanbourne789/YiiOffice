@@ -1,6 +1,10 @@
 package export
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -98,14 +102,21 @@ func TestHeadlessModuleFor(t *testing.T) {
 		want string
 	}{
 		{"doc.docx", "docs"},
-		{"doc.doc", "docs"},
 		{"sheet.xlsx", "sheets"},
+		{"sheet.xlsm", "sheets"},
 		{"data.csv", "sheets"},
+		{"data.tsv", "sheets"},
 		{"deck.pptx", "slides"},
 		{"notes.md", "markdown"},
 		{"notes.markdown", "markdown"},
 		{"image.png", ""},
 		{"setup.exe", ""},
+		// Legacy binaries and HTML inputs are rejected: the renderers cannot
+		// open 97-2003 files and HTML is an export target only.
+		{"legacy.doc", ""},
+		{"legacy.xls", ""},
+		{"legacy.ppt", ""},
+		{"page.html", ""},
 	}
 	for _, tc := range cases {
 		got := headlessModuleFor(tc.path)
@@ -148,6 +159,94 @@ func TestValidateRequestUnsupportedType(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for png input")
 	}
+}
+
+// The rejection happens during validation, so it keeps the existing bad-args
+// exit code instead of inventing a new one.
+func TestUnsupportedInputUsesBadArgsExitCode(t *testing.T) {
+	for _, input := range []string{"old.doc", "old.xls", "old.ppt", "page.html", "x.png"} {
+		req := HeadlessRequest{Input: input, To: "pdf", Out: "out.pdf"}
+		if code := HeadlessExitCode(RunHeadlessExport(req, nil)); code != ExitBadArgs {
+			t.Errorf("%s: exit code = %d, want %d", input, code, ExitBadArgs)
+		}
+	}
+}
+
+func TestValidateRequestLegacyErrorIsReadable(t *testing.T) {
+	for _, input := range []string{"old.doc", "old.xls", "old.ppt"} {
+		err := ValidateRequest(HeadlessRequest{Input: input, To: "pdf", Out: "out.pdf"})
+		if err == nil {
+			t.Fatalf("%s: expected an error", input)
+		}
+		msg := err.Error()
+		if !strings.Contains(msg, "supported:") {
+			t.Errorf("%s: error should list supported extensions, got %q", input, msg)
+		}
+		if !strings.Contains(msg, "save legacy") {
+			t.Errorf("%s: error should tell the user to save in a modern format, got %q", input, msg)
+		}
+	}
+
+	// HTML is unsupported for a different reason, so it must not claim the
+	// 97-2003 remedy.
+	err := ValidateRequest(HeadlessRequest{Input: "page.html", To: "pdf", Out: "out.pdf"})
+	if err == nil {
+		t.Fatal("expected an error for html input")
+	}
+	if strings.Contains(err.Error(), "save legacy") {
+		t.Errorf("html error should not mention legacy formats: %q", err.Error())
+	}
+}
+
+// TestHeadlessFormatsMatchFrontend locks the Go CLI list to the renderer's
+// canonical JSON. Editing either side alone turns this test red.
+func TestHeadlessFormatsMatchFrontend(t *testing.T) {
+	path := filepath.Join("..", "..", "frontend", "packages", "desktop-utils", "src", "headless-formats.json")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read canonical format list: %v", err)
+	}
+
+	var frontend map[string][]string
+	if err := json.Unmarshal(raw, &frontend); err != nil {
+		t.Fatalf("parse canonical format list: %v", err)
+	}
+
+	goModules := make(map[string][]string, len(frontend))
+	for _, entry := range headlessInputTypes {
+		goModules[entry.module] = append(goModules[entry.module], entry.ext)
+	}
+
+	if len(goModules) != len(frontend) {
+		t.Fatalf("module count differs: Go has %d (%v), frontend JSON has %d (%v)",
+			len(goModules), sortedModuleNames(goModules), len(frontend), sortedModuleNames(frontend))
+	}
+
+	for module, rawWant := range frontend {
+		gotExts, ok := goModules[module]
+		if !ok {
+			t.Fatalf("module %q exists in the frontend JSON but not in Go", module)
+		}
+		wantExts := make([]string, 0, len(rawWant))
+		for _, ext := range rawWant {
+			wantExts = append(wantExts, strings.TrimPrefix(ext, "."))
+		}
+		sort.Strings(gotExts)
+		sort.Strings(wantExts)
+		if strings.Join(gotExts, ",") != strings.Join(wantExts, ",") {
+			t.Errorf("module %q differs: Go accepts %v, frontend JSON accepts %v",
+				module, gotExts, wantExts)
+		}
+	}
+}
+
+func sortedModuleNames(modules map[string][]string) []string {
+	names := make([]string, 0, len(modules))
+	for name := range modules {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 func TestHeadlessTargetsDocsHasHTML(t *testing.T) {

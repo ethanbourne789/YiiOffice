@@ -4,6 +4,7 @@ import {
   HEADLESS_EXIT,
   formatHeadlessEnvelope,
   headlessExitCode,
+  HEADLESS_SUPPORTED_EXTENSIONS,
   headlessModuleFor,
   parseHeadlessExportArgv,
   pollUntilReady,
@@ -83,23 +84,36 @@ describe('headlessModuleFor', () => {
   it.each([
     ['/x/a.docx', 'docs'],
     ['/x/a.xlsx', 'sheets'],
+    ['/x/a.xlsm', 'sheets'],
     ['/x/a.XLSM', 'sheets'],
-    ['/x/a.xls', 'sheets'],
     ['/x/a.csv', 'sheets'],
     ['/x/a.tsv', 'sheets'],
     ['/x/a.pptx', 'slides'],
     ['/x/a.md', 'markdown'],
     ['/x/a.markdown', 'markdown'],
-    ['/x/a.html', 'docs'],
-    ['/x/a.htm', 'docs'],
   ])('routes %s to %s', (path, module) => {
     expect(headlessModuleFor(path)).toBe(module)
   })
 
-  it('returns null for an unsupported extension', () => {
-    expect(headlessModuleFor('/x/a.pdf')).toBeNull()
-    expect(headlessModuleFor('/x/a.doc')).toBeNull()
+  // The renderers cannot open 97-2003 binaries, and HTML is an export target
+  // only, so accepting these would promise conversions that always fail.
+  it.each(['/x/a.doc', '/x/a.xls', '/x/a.ppt', '/x/a.html', '/x/a.htm', '/x/a.pdf'])(
+    'rejects unsupported input %s',
+    (path) => {
+      expect(headlessModuleFor(path)).toBeNull()
+    },
+  )
+
+  it('falls back to null when there is no extension', () => {
     expect(headlessModuleFor('/x/noext')).toBeNull()
+  })
+
+  // Mirrors internal/export/cli.go; TestHeadlessFormatsMatchFrontend keeps the
+  // two lists equal, and this snapshot keeps the shared JSON honest.
+  it('advertises exactly the extensions in headless-formats.json', () => {
+    expect(HEADLESS_SUPPORTED_EXTENSIONS).toBe(
+      '.docx, .xlsx, .xlsm, .csv, .tsv, .pptx, .md, .markdown',
+    )
   })
 })
 

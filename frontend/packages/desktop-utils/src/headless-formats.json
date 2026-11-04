@@ -1,0 +1,6 @@
+{
+  "docs": ["docx"],
+  "sheets": ["xlsx", "xlsm", "csv", "tsv"],
+  "slides": ["pptx"],
+  "markdown": ["md", "markdown"]
+}
