@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"time"
 
+	"gitee.com/ethanbourne789/yiioffice/internal/platform"
+
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/updater"
 	"github.com/wailsapp/wails/v3/pkg/updater/providers/github"
@@ -25,26 +27,57 @@ type Status struct {
 	Available      bool   `json:"available"`
 	Version        string `json:"version,omitempty"`
 	Notes          string `json:"notes,omitempty"`
+
+	// Integrity is "sha256" when the release publishes a checksum sidecar
+	// that DownloadAndInstall enforces before installing, or "missing" when
+	// it does not. A missing sidecar does not block an update (older releases
+	// predate them), but the caller should warn the user before confirming.
+	Integrity string `json:"integrity,omitempty"`
 }
+
+const (
+	// integritySHA256 means the install will be verified against a published
+	// SHA-256 digest and refused on a mismatch.
+	integritySHA256 = "sha256"
+	// integrityMissing means the release has no sidecar: the install proceeds
+	// unverified.
+	integrityMissing = "missing"
+)
 
 // Service exposes the updater lifecycle to the shell.
 type Service struct {
 	updater *updater.Updater
+
+	// The read-only check in latest.go needs none of the updater's state, so it
+	// keeps its own copy of the feed base URL, the running version and the
+	// Gitee-compatible HTTP client used to build the provider.
+	base        string
+	current     string
+	checkClient *http.Client
 }
 
 // newProvider builds the GitHub-shaped release provider for base. The HTTP
 // client carries the Gitee compatibility transport (see giteecompat.go): the
 // v3.1.0 provider reads the asset "url" field, which Gitee omits in favour
-// of browser_download_url.
-func newProvider(base string) (*github.Provider, error) {
-	return github.New(github.Config{
-		Repository: repository,
-		BaseURL:    base,
-		HTTPClient: &http.Client{
-			Timeout:   30 * time.Second,
-			Transport: giteeCompatTransport{base: http.DefaultTransport},
-		},
+// of browser_download_url. The provider also resolves the release's SHA-256
+// sidecar so every downloadable release carries a digest to enforce.
+func newProvider(base string) (*checksumProvider, error) {
+	client := &http.Client{
+		Timeout:   30 * time.Second,
+		Transport: giteeCompatTransport{base: http.DefaultTransport},
+	}
+	p := &checksumProvider{client: client}
+	inner, err := github.New(github.Config{
+		Repository:   repository,
+		BaseURL:      base,
+		HTTPClient:   client,
+		AssetMatcher: p.assets.match,
 	})
+	if err != nil {
+		return nil, err
+	}
+	p.Provider = inner
+	return p, nil
 }
 
 // New configures the application-wide updater with the Gitee release feed.
@@ -63,7 +96,12 @@ func New(app *application.App, currentVersion string) (*Service, error) {
 	}); err != nil {
 		return nil, fmt.Errorf("configure updater: %w", err)
 	}
-	return &Service{updater: app.Updater}, nil
+	return &Service{
+		updater:     app.Updater,
+		base:        giteeAPIBase,
+		current:     currentVersion,
+		checkClient: provider.client,
+	}, nil
 }
 
 // CheckForUpdate asks the release feed whether a newer build exists. It never
@@ -80,13 +118,25 @@ func (s *Service) CheckForUpdate() (*Status, error) {
 	status.Available = true
 	status.Version = rel.Version
 	status.Notes = rel.Notes
+	if rel.Verification != nil && len(rel.Verification.Digest) > 0 {
+		status.Integrity = integritySHA256
+	} else {
+		status.Integrity = integrityMissing
+		platform.Logger().Warn("update release has no checksum sidecar",
+			"version", rel.Version, "asset", rel.Artifact.Filename)
+	}
 	return status, nil
 }
 
-// DownloadAndInstall fetches the release found by the last CheckForUpdate and
-// stages it for the restart. Progress arrives on the updater's own events.
+// DownloadAndInstall fetches the release found by the last CheckForUpdate,
+// verifies it against the published SHA-256 digest, and stages it for the
+// restart. A mismatch aborts the install and the staged bytes are discarded;
+// progress arrives on the updater's own events.
 func (s *Service) DownloadAndInstall() error {
-	return s.updater.DownloadAndInstall(context.Background())
+	if err := s.updater.DownloadAndInstall(context.Background()); err != nil {
+		return fmt.Errorf("update aborted: %w", err)
+	}
+	return nil
 }
 
 // RestartApp swaps the staged update in and relaunches the application.

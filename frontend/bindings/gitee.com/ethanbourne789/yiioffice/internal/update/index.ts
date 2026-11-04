@@ -7,5 +7,6 @@ export {
 };
 
 export {
+    LatestRelease,
     Status
 } from "./models.js";

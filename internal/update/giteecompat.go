@@ -92,7 +92,7 @@ func patchAssets(v any) bool {
 		if !ok {
 			continue
 		}
-		if url, hasURL := asset["url"].(string); (!hasURL || url == "") {
+		if url, hasURL := asset["url"].(string); !hasURL || url == "" {
 			if bdu, is := asset["browser_download_url"].(string); is && bdu != "" {
 				asset["url"] = bdu
 				changed = true

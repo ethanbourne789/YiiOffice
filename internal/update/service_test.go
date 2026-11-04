@@ -101,3 +101,45 @@ func TestCheckRejectsReleaseWithoutMatchingAsset(t *testing.T) {
 		t.Fatal("expected an error when the release has no windows asset")
 	}
 }
+
+// Every release published so far names the installer
+// "YiiOffice_<version>_setup.exe" — no platform, no arch, which
+// DefaultAssetMatcher requires. The provider's matcher falls back to the
+// _setup.exe suffix so the official Check can still pick the file.
+func TestCheckFindsReleaseWithLegacyAssetName(t *testing.T) {
+	server := releaseServer(t, `{
+		"tag_name":"v0.14.0",
+		"name":"YiiOffice 0.14.0",
+		"body":"notes",
+		"assets":[{"name":"YiiOffice_0.14.0_setup.exe","browser_download_url":"https://example.com/setup.exe"}]
+	}`)
+
+	rel, err := check(t, server.URL, "0.13.0")
+	if err != nil {
+		t.Fatalf("check: %v", err)
+	}
+	if rel == nil {
+		t.Fatal("expected a release")
+	}
+	if rel.Artifact.Filename != "YiiOffice_0.14.0_setup.exe" {
+		t.Errorf("artifact = %q", rel.Artifact.Filename)
+	}
+}
+
+// Pins the upstream behaviour CheckNow has to work around: a non-semver tag
+// makes github.Provider.Check return (nil, nil) — indistinguishable from
+// "up to date" (wails v3.1.0 providers/github/github.go:131-133).
+func TestCheckTreatsNonSemverTagAsUpToDate(t *testing.T) {
+	server := releaseServer(t, `{
+		"tag_name":"YiiOffice",
+		"assets":[{"name":"YiiOffice_0.13.0_setup.exe","browser_download_url":"https://example.com/setup.exe"}]
+	}`)
+
+	rel, err := check(t, server.URL, "0.13.0")
+	if err != nil {
+		t.Fatalf("check: %v", err)
+	}
+	if rel != nil {
+		t.Errorf("expected the non-semver tag to be reported as up to date, got %+v", rel)
+	}
+}

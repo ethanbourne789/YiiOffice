@@ -6,6 +6,95 @@
 import { Create as $Create } from "@wailsio/runtime";
 
 /**
+ * LatestRelease is the outcome of a manual, read-only update check.
+ * 
+ * Status is one of:
+ * 
+ *   - "latest": the feed's newest release is not newer than CurrentVersion
+ *     (or the feed has no release at all);
+ *   - "update-available": the newest release is strictly newer;
+ *   - "incomparable": a release exists but its tag and/or the running version
+ *     is not a semantic version, so no ordering can be derived — the release
+ *     is reported as "a newer publication exists, ordering unknown";
+ *   - "error": the feed could not be read; Message carries the reason.
+ * 
+ * LatestSemver is empty whenever the tag is not semver, which is exactly the
+ * condition that produces "incomparable".
+ */
+export class LatestRelease {
+    "status": string;
+    "currentVersion": string;
+
+    /**
+     * LatestVersion is the feed's raw release identifier (the tag name), kept
+     * verbatim so a non-semver tag like "YiiOffice" still identifies the release.
+     */
+    "latestVersion"?: string;
+
+    /**
+     * LatestSemver is the same version in normalized semver form ("0.14.0"),
+     * or empty when the tag is not a semantic version.
+     */
+    "latestSemver"?: string;
+
+    /**
+     * ReleaseName is the release's display title, when the feed provides one.
+     */
+    "releaseName"?: string;
+
+    /**
+     * PublishedAt is the release timestamp in RFC3339/UTC. It is empty when the
+     * feed provides none; PublishedAtSource says which field it came from
+     * ("published_at" for GitHub, "created_at" for Gitee, which has no
+     * published_at — verified against the live feed).
+     */
+    "publishedAt"?: string;
+    "publishedAtSource"?: string;
+    "notes"?: string;
+    "notesTruncated"?: boolean;
+
+    /**
+     * ReleaseURL is the human-facing release page. It is empty when the feed
+     * offers no page URL we are willing to hand to the system browser.
+     */
+    "releaseUrl"?: string;
+
+    /**
+     * CheckedAt is when this answer was produced (RFC3339/UTC).
+     */
+    "checkedAt": string;
+
+    /**
+     * Message carries diagnostics only (the upstream reason for "error", or the
+     * exact pair that could not be compared). It is never UI copy.
+     */
+    "message"?: string;
+
+    /** Creates a new LatestRelease instance. */
+    constructor($$source: Partial<LatestRelease> = {}) {
+        if (!("status" in $$source)) {
+            this["status"] = "";
+        }
+        if (!("currentVersion" in $$source)) {
+            this["currentVersion"] = "";
+        }
+        if (!("checkedAt" in $$source)) {
+            this["checkedAt"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new LatestRelease instance from a string or object.
+     */
+    static createFrom($$source: any = {}): LatestRelease {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new LatestRelease($$parsedSource as Partial<LatestRelease>);
+    }
+}
+
+/**
  * Status is the outcome of a manual update check.
  */
 export class Status {
@@ -13,6 +102,14 @@ export class Status {
     "available": boolean;
     "version"?: string;
     "notes"?: string;
+
+    /**
+     * Integrity is "sha256" when the release publishes a checksum sidecar
+     * that DownloadAndInstall enforces before installing, or "missing" when
+     * it does not. A missing sidecar does not block an update (older releases
+     * predate them), but the caller should warn the user before confirming.
+     */
+    "integrity"?: string;
 
     /** Creates a new Status instance. */
     constructor($$source: Partial<Status> = {}) {

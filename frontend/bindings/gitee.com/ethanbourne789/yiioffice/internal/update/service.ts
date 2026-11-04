@@ -25,8 +25,33 @@ export function CheckForUpdate(): $CancellablePromise<$models.Status | null> {
 }
 
 /**
- * DownloadAndInstall fetches the release found by the last CheckForUpdate and
- * stages it for the restart. Progress arrives on the updater's own events.
+ * CheckNow reads the newest release from the feed and reports whether it is
+ * newer than the running version. It is read-only: nothing is downloaded, no
+ * checksum is read, and the updater's install state is untouched.
+ * 
+ * It deliberately does not delegate the decision to updater.Check. The official
+ * GitHub provider (wails v3.1.0 pkg/updater/providers/github/github.go:131-133)
+ * hard-codes golang.org/x/mod/semver between the fetch and the return, with no
+ * hook to replace or bypass it: a non-semver tag (today's Gitee release is
+ * tagged "YiiOffice") makes it return (nil, nil), which is indistinguishable
+ * from "up to date". It also rejects releases whose assets do not match
+ * windows/amd64 (github.go:135-139), and it enforces the checksum sidecar that
+ * this check must not read. Those three behaviours are exactly what a
+ * manual-mode check has to look past, so the release object is read directly
+ * and only the version comparison is reused — via the same x/mod/semver the
+ * upstream provider uses, so ordering semantics stay identical.
+ */
+export function CheckNow(): $CancellablePromise<$models.LatestRelease | null> {
+    return $Call.ByID(2706484245).then(($result: any) => {
+        return $$createType3($result);
+    });
+}
+
+/**
+ * DownloadAndInstall fetches the release found by the last CheckForUpdate,
+ * verifies it against the published SHA-256 digest, and stages it for the
+ * restart. A mismatch aborts the install and the staged bytes are discarded;
+ * progress arrives on the updater's own events.
  */
 export function DownloadAndInstall(): $CancellablePromise<void> {
     return $Call.ByID(3121230349);
@@ -42,3 +67,5 @@ export function RestartApp(): $CancellablePromise<void> {
 // Private type creation functions
 const $$createType0 = $models.Status.createFrom;
 const $$createType1 = $Create.Nullable($$createType0);
+const $$createType2 = $models.LatestRelease.createFrom;
+const $$createType3 = $Create.Nullable($$createType2);
