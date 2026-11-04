@@ -36,7 +36,7 @@ import {
   rejectAllRevisions,
   rejectCurrentRevision,
 } from './editor/revisions'
-import { t } from './i18n/locale'
+import { bridgeErrorText, t } from './i18n/locale'
 
 /** Renumber note refs (footnote/endnote) of a given kind in document order. */
 function renumber(tr: import('@tiptap/pm/state').Transaction, kind: 'footnote' | 'endnote'): void {
@@ -374,6 +374,6 @@ export async function compareWithFile(ctx: ReviewContext): Promise<void> {
     )
     ctx.setCompareResult({ otherName: other.name, entries })
   } catch (err) {
-    ctx.setStatus(t('appCompareFailed', { error: String(err) }))
+    ctx.setStatus(t('appCompareFailed', { error: bridgeErrorText(err) }))
   }
 }

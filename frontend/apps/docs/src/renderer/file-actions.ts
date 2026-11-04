@@ -76,7 +76,7 @@ import {
   type InkAnnotation,
   type InkTool,
 } from './editor/ink'
-import { t, getLang } from './i18n/locale'
+import { bridgeErrorText, t, getLang } from './i18n/locale'
 import { isDocDirty, resetCrossDocEditState } from './doc-dirty'
 import { pruneUnreferencedNumbering } from './numbering-actions'
 import { applySectPrRewrites, type SectPrRewrite } from './sectpr-rewrite'
@@ -86,7 +86,7 @@ import { hangulSpaceWideningFor, setDocFontTable, setHangulSpaceWidening } from 
 import { adoptEmbeddedFonts } from './embedded-fonts'
 import { defaultEastAsiaFontFor } from './font-list'
 import { hasPrintableHeaderFooter } from './pagination'
-import { exportHtmlFile, exportPdfFile, mergePdfParts, pickExportFolder, renderPdfBase64, takeTempPdf, writeBase64File } from '@yiioffice/wails-bridge'
+import { exportHtmlFile, exportPdfFile, mergePdfParts, pickExportFolder, renderPdfBase64, systemNotify, takeTempPdf, writeBase64File } from '@yiioffice/wails-bridge'
 import { showToast } from '@yiioffice/ui'
 import { buildStandaloneHtml } from './html-export'
 /** An export waiting for the pagination preview to mount; resolve settles the caller's exportPdf promise. */
@@ -515,8 +515,8 @@ export async function loadFile(
   } catch (err) {
     if (generation !== openGeneration) return 'superseded'
     // visible failure: the status-bar line alone is easy to miss under the start screen
-    ctx.setStatus(t('appOpenFailed', { error: String(err) }))
-    showToast(t('appOpenFailed', { error: String(err) }), 'error')
+    ctx.setStatus(t('appOpenFailed', { error: bridgeErrorText(err) }))
+    showToast(t('appOpenFailed', { error: bridgeErrorText(err) }), 'error')
     return 'failed'
   }
 }
@@ -609,7 +609,7 @@ export async function newFile(ctx: FileActionContext): Promise<boolean | undefin
     return true
   } catch (err) {
     if (generation !== openGeneration) return
-    ctx.setStatus(t('appNewFailed', { error: String(err) }))
+    ctx.setStatus(t('appNewFailed', { error: bridgeErrorText(err) }))
     return false
   }
 }
@@ -957,8 +957,8 @@ async function saveOnce(
         explicitTarget.overwrite,
       )
       if (!result.ok) {
-        ctx.setStatus(t('appSaveFailed', { error: result.error ?? '' }))
-        showToast(t('appSaveFailed', { error: result.error ?? '' }), 'error')
+        ctx.setStatus(t('appSaveFailed', { error: bridgeErrorText(result.error) }))
+        showToast(t('appSaveFailed', { error: bridgeErrorText(result.error) }), 'error')
         explicitTarget.onError?.(result.error ?? '')
         return false
       }
@@ -977,8 +977,10 @@ async function saveOnce(
         : await window.desktop.saveDocxNew(newDocName ?? autoName ?? doc.fileName, buffer)
       if (!result.ok) {
         if (result.error) {
-          ctx.setStatus(t('appSaveFailed', { error: result.error }))
-          if (!auto) showToast(t('appSaveFailed', { error: result.error }), 'error')
+          const status = t('appSaveFailed', { error: bridgeErrorText(result.error) })
+          ctx.setStatus(status)
+          if (!auto) showToast(status, 'error')
+          systemNotify(status, { whenUnfocused: !auto })
         }
         return false
       }
@@ -992,8 +994,10 @@ async function saveOnce(
         // external-modified: the main process already prompted (or the autosave
         // deferred to a manual save) — stay dirty, no second dialog/error banner
         if (result.reason !== 'external-modified') {
-          ctx.setStatus(t('appSaveFailed', { error: result.error ?? '' }))
-          if (!auto) showToast(t('appSaveFailed', { error: result.error ?? '' }), 'error')
+          const status = t('appSaveFailed', { error: bridgeErrorText(result.error) })
+          ctx.setStatus(status)
+          if (!auto) showToast(status, 'error')
+          systemNotify(status, { whenUnfocused: !auto })
         }
         return false
       }
@@ -1129,8 +1133,10 @@ async function saveOnce(
     if (!auto) showToast(t('appSaved'))
     return true
   } catch (err) {
-    ctx.setStatus(t('appSaveFailed', { error: String(err) }))
-    if (!auto) showToast(t('appSaveFailed', { error: String(err) }), 'error')
+    const status = t('appSaveFailed', { error: bridgeErrorText(err) })
+    ctx.setStatus(status)
+    if (!auto) showToast(status, 'error')
+    systemNotify(status, { whenUnfocused: !auto })
     return false
   } finally {
     ctx.saveInFlightRef.current = false
@@ -1185,22 +1191,23 @@ async function printGroupsMerged(
       }
     }
   } catch (err) {
-    ctx.setStatus(t('appExportPdfFailed', { error: String(err) }))
+    ctx.setStatus(t('appExportPdfFailed', { error: bridgeErrorText(err) }))
     return false
   } finally {
     appRoot?.classList.remove('pv-exporting')
   }
   const result = await mergePdfParts(parts, outPath ?? '', fileName)
   const mixed = groups.some((g) => g.w !== groups[0].w || g.h !== groups[0].h)
-  ctx.setStatus(
-    result.ok
-      ? mixed
-        ? t('appExportedPdfMixed', { path: result.path ?? '', n: parts.length })
-        : t('appExportedPdf', { path: result.path ?? '' })
-      : result.error
-        ? t('appExportPdfFailed', { error: result.error })
-        : t('appExportPdfCanceled'),
-  )
+  const status = result.ok
+    ? mixed
+      ? t('appExportedPdfMixed', { path: result.path ?? '', n: parts.length })
+      : t('appExportedPdf', { path: result.path ?? '' })
+    : result.error
+      ? t('appExportPdfFailed', { error: bridgeErrorText(result.error) })
+      : t('appExportPdfCanceled')
+  ctx.setStatus(status)
+  // Cancelling the save dialog is a deliberate user action: no notification.
+  if (!outPath && (result.ok || result.error)) systemNotify(status)
   return result.ok
 }
 
@@ -1288,7 +1295,9 @@ export async function exportPdf(ctx: FileActionContext, outPath?: string): Promi
     }
     const root = ctx.editor?.view.dom as HTMLElement | undefined
     if (!root) {
-      ctx.setStatus(t('appExportPdfFailed', { error: 'editor not ready' }))
+      const status = t('appExportPdfFailed', { error: t('errGeneric') })
+      ctx.setStatus(status)
+      if (!outPath) systemNotify(status, { whenUnfocused: false })
       return false
     }
     // section sizes are twips (1/1440 in); the renderer works in inches
@@ -1305,7 +1314,9 @@ export async function exportPdf(ctx: FileActionContext, outPath?: string): Promi
     })
     const result = await exportPdfFile(html, outPath ?? '', doc.fileName, wTwip / 1440, hTwip / 1440)
     if (result.ok) {
-      ctx.setStatus(t('appExportedPdf', { path: result.path ?? '' }))
+      const status = t('appExportedPdf', { path: result.path ?? '' })
+      ctx.setStatus(status)
+      if (!outPath) systemNotify(status)
       return true
     }
     if (!result.error) {
@@ -1332,8 +1343,10 @@ export async function exportImages(ctx: FileActionContext): Promise<boolean> {
   const target = await pickExportFolder('Export as Images')
   if (!target) return false
   ctx.setStatus(t('appExportingImages'))
-  const fail = (error: string) => {
-    ctx.setStatus(t('appExportImagesFailed', { error }))
+  const fail = (error: unknown) => {
+    const status = t('appExportImagesFailed', { error: bridgeErrorText(error) })
+    ctx.setStatus(status)
+    systemNotify(status, { whenUnfocused: false })
     return false
   }
   // The PDF stage keeps its own status lines (progress, busy, cancel, failure
@@ -1390,7 +1403,9 @@ export async function exportImages(ctx: FileActionContext): Promise<boolean> {
         const r = await writeBase64File(filePath, btoa(b64))
         if (!r.ok) return fail(r.error ?? '')
       }
-      ctx.setStatus(t('appExportImagesDone', { count, dir: target.dir }))
+      const status = t('appExportImagesDone', { count, dir: target.dir })
+      ctx.setStatus(status)
+      systemNotify(status)
       return true
     } finally {
       await task.destroy()
@@ -1422,12 +1437,12 @@ export async function exportHtml(ctx: FileActionContext, outPath?: string): Prom
     textWidthPx: Number.isFinite(textWidthPx) ? textWidthPx : root.clientWidth,
   })
   const result = await exportHtmlFile(html, outPath ?? '', doc.fileName)
-  ctx.setStatus(
-    result.ok
-      ? t('appExportedHtml', { path: result.path ?? '' })
-      : result.error
-        ? t('appExportHtmlFailed', { error: result.error })
-        : t('appExportHtmlCanceled'),
-  )
+  const status = result.ok
+    ? t('appExportedHtml', { path: result.path ?? '' })
+    : result.error
+      ? t('appExportHtmlFailed', { error: bridgeErrorText(result.error) })
+      : t('appExportHtmlCanceled')
+  ctx.setStatus(status)
+  if (!outPath && (result.ok || result.error)) systemNotify(status)
   return result.ok
 }
