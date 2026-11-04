@@ -21,7 +21,13 @@ func testRoot() fstest.MapFS {
 		"markdown/index.html":                  {Data: []byte("<html>markdown</html>")},
 		"shell/assets/main.css":                {Data: []byte("body{}")},
 		"shell/assets/main.js":                 {Data: []byte("console.log('shell')")},
+		"shell/assets/main-d2rDcZic.js":        {Data: []byte("console.log('hashed')")},
+		"docs/assets/app-CLgt6pCn.css":         {Data: []byte("body{}")},
 		"pdf/assets/pdf.worker.min-abc123.mjs": {Data: []byte("onmessage=()=>{}")},
+		// content-addressed (8-char Vite hash) and unhashed static payloads
+		// live side by side under the same assets/ directory
+		"pdf/assets/pdf.worker.min-CIqJB0yW.mjs": {Data: []byte("onmessage=()=>{}")},
+		"pdf/assets/cmaps/Adobe-CNS1-UCS2.bcmap": {Data: []byte("cmap")},
 	}
 }
 
@@ -142,6 +148,57 @@ func TestRootRelativeShellAssets(t *testing.T) {
 	rec = do(t, testRoot(), "/assets/main.js")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("js got %d", rec.Code)
+	}
+}
+
+// TestHashedAssetsAreImmutable: Vite's content-addressed bundles are immutable
+// by name, and this is the header that stops every new tab from re-downloading
+// the ~9.6MB of renderer bundles.
+func TestHashedAssetsAreImmutable(t *testing.T) {
+	for _, target := range []string{
+		"/assets/main-d2rDcZic.js",                // shell bundle at "/"
+		"/docs/assets/app-CLgt6pCn.css",           // app bundle
+		"/pdf/assets/pdf.worker.min-CIqJB0yW.mjs", // worker (8-char hash)
+	} {
+		rec := do(t, testRoot(), target)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s: got %d", target, rec.Code)
+		}
+		if got := rec.Header().Get("Cache-Control"); got != immutableAssets {
+			t.Errorf("%s: cache-control = %q, want %q", target, got, immutableAssets)
+		}
+	}
+}
+
+// TestEntryDocumentsRevalidate: the entry HTML (and the SPA fallback that
+// resolves to it) must be revalidated so a rebuilt bundle is picked up.
+func TestEntryDocumentsRevalidate(t *testing.T) {
+	for _, target := range []string{"/", "/docs/", "/docs/index.html", "/docs/deep/link"} {
+		rec := do(t, testRoot(), target)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s: got %d", target, rec.Code)
+		}
+		if got := rec.Header().Get("Cache-Control"); got != revalidatingAssets {
+			t.Errorf("%s: cache-control = %q, want %q", target, got, revalidatingAssets)
+		}
+	}
+}
+
+// TestUnhashedAssetsRevalidate: an assets/ path that is not content-addressed
+// (pdf.js cmaps, standard fonts) keeps its old name across rebuilds, so it must
+// not inherit the immutable policy just because it sits under assets/.
+func TestUnhashedAssetsRevalidate(t *testing.T) {
+	for _, target := range []string{
+		"/pdf/assets/cmaps/Adobe-CNS1-UCS2.bcmap",
+		"/assets/main.js",
+	} {
+		rec := do(t, testRoot(), target)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s: got %d", target, rec.Code)
+		}
+		if got := rec.Header().Get("Cache-Control"); got != revalidatingAssets {
+			t.Errorf("%s: cache-control = %q, want %q", target, got, revalidatingAssets)
+		}
 	}
 }
 

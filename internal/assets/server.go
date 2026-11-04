@@ -205,6 +205,58 @@ func (s *Server) serveApp(w http.ResponseWriter, r *http.Request, app, name stri
 	s.serveFile(w, r, sub, target)
 }
 
+// immutableAssets is the cache policy for Vite's content-addressed bundles:
+// the hash in the file name changes whenever the bytes do, so a response may
+// never be revalidated. Refreshing a tab used to re-download the whole ~9.6MB
+// of renderer bundles because embed.FS reports a zero ModTime and ServeContent
+// therefore emitted no validators at all.
+const immutableAssets = "public, max-age=31536000, immutable"
+
+// revalidatingAssets applies to entry documents (index.html and the SPA
+// fallback) and to any unhashed file: the browser may store it, but must ask
+// before reusing it. `no-cache` rather than `no-store` keeps the stored copy
+// eligible for a conditional request once a validator exists; a serving
+// process that ships the same bytes can then answer 304 instead of resending.
+const revalidatingAssets = "no-cache"
+
+// isImmutableAsset reports whether name is a content-hashed file under an
+// assets/ directory, the only place Vite emits content-addressed output. The
+// name, not the directory, decides: unhashed static payloads (pdf.js cmaps,
+// standard fonts) share that prefix and must keep revalidating.
+//
+// Vite's default hash is eight base64url characters appended as the last dash
+// segment — `index-d2rDcZic.js`, `pdf.worker.min-CIqJB0yW.mjs`,
+// `Caladea-Bold-D8qQyaGr.ttf`. Some chunk names already carry their own hash
+// (`architecture-WOLXFQ4H-DuO9-Eo4.js`), so any segment qualifies. Requiring
+// an uppercase letter or digit rejects long lowercase words such as
+// `Adobe-CNS1-UCS2.bcmap`, where `UCS2` is an encoding name, not a hash.
+func isImmutableAsset(name string) bool {
+	base := path.Base(name)
+	dot := strings.LastIndexByte(base, '.')
+	if dot < 0 {
+		return false
+	}
+	inAssetsDir := false
+	for _, segment := range strings.Split(path.Dir(name), "/") {
+		if segment == "assets" {
+			inAssetsDir = true
+			break
+		}
+	}
+	if !inAssetsDir {
+		return false
+	}
+	for _, token := range strings.Split(base[:dot], "-") {
+		if len(token) != 8 || !strings.ContainsAny(token, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") {
+			continue
+		}
+		if !strings.ContainsRune(token, '.') {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Server) serveFile(w http.ResponseWriter, r *http.Request, sub fs.FS, name string) {
 	f, err := sub.Open(name)
 	if err != nil {
@@ -216,6 +268,11 @@ func (s *Server) serveFile(w http.ResponseWriter, r *http.Request, sub fs.FS, na
 	if err != nil || fi.IsDir() {
 		http.NotFound(w, r)
 		return
+	}
+	if isImmutableAsset(name) {
+		w.Header().Set("Cache-Control", immutableAssets)
+	} else {
+		w.Header().Set("Cache-Control", revalidatingAssets)
 	}
 	if sr, ok := f.(io.ReadSeeker); ok {
 		http.ServeContent(w, r, fi.Name(), fi.ModTime(), sr)
