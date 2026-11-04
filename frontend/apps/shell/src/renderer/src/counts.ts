@@ -2,9 +2,13 @@ import type { Lang, Params } from '@yiioffice/i18n'
 import type { RecentPage } from '../../shared/home-api'
 import type { StringKey } from './locale'
 
-/** Sidebar counts use the same filtered total as the visible list. */
-export function visiblePageCount(page: Pick<RecentPage, 'total'>): number {
-  return page.total
+/**
+ * Sidebar counters describe the whole collection, never the filtered slice:
+ * picking "表格" narrows the list and the heading, not how many recent files
+ * the user has.
+ */
+export function visiblePageCount(page: Pick<RecentPage, 'totalAll'>): number {
+  return page.totalAll
 }
 
 type ExtraCategory = Exclude<Intl.LDMLPluralRule, 'one' | 'other'>
