@@ -1,4 +1,5 @@
 import { on } from './transport'
+import { headlessExportChannel } from './headless-export-bridge'
 import type { AppTheme } from './types'
 import {
   OpenPath,
@@ -227,6 +228,9 @@ export interface SlidesDesktopApi {
 }
 
 export function createSlidesDesktopApi(): SlidesDesktopApi {
+  // Eager: emits `slides:headless-ready` at runtime start so the CLI knows the
+  // consume listener is installed before it sends the export job.
+  const headless = headlessExportChannel('slides')
   return {
     // File I/O - Go backend via the Wails bindings
     async openPptx(_fitWidthPx) {
@@ -385,9 +389,9 @@ export function createSlidesDesktopApi(): SlidesDesktopApi {
       return !!(await callEdit('isDirty'))
     },
     reportCloseSaveResult: () => undefined,
-    headlessExportDone: () => undefined,
+    headlessExportDone: (result) => headless.done(result),
     async consumeHeadlessExport() {
-      return null
+      return (await headless.consume())?.outPath ?? null
     },
     setAutoSavePref: () => undefined,
     async getAutoSaveDefault() {
@@ -545,7 +549,8 @@ export function createSlidesDesktopApi(): SlidesDesktopApi {
     async getRecentFiles() {
       try {
         const { Recents } = await import('@bindings/gitee.com/ethanbourne789/yiioffice/internal/bridge/homeservice')
-        return Recents(0, 50)
+        const page = await Recents({ cursor: '', limit: 50 })
+        return Array.isArray(page?.entries) ? page.entries : []
       } catch {
         return []
       }

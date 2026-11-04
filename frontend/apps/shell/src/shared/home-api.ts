@@ -38,8 +38,10 @@ export interface RecentEntry {
 
 /** paged query for the home file lists */
 export interface RecentQuery {
-  /** number of entries to skip (default 0) */
+  /** number of entries to skip (default 0); starred() only — recents uses cursor */
   offset?: number
+  /** recents() only: opaque token from the previous page; omit to start over */
+  cursor?: string
   /** page size; 0 returns no entries but still reports totals (default 50) */
   limit?: number
   /** restrict to one extension ('docx' | 'xlsx' | 'pptx'); omit for all */
@@ -54,6 +56,8 @@ export interface RecentPage {
   total: number
   /** total ignoring the ext filter (for the sidebar counters) */
   totalAll: number
+  /** recents() only: token for the next page, '' when the list is exhausted */
+  nextCursor?: string
 }
 
 /** local file search over names, folders and extracted text */
@@ -157,8 +161,8 @@ export interface HomeApi {
   renameFile(path: string, newName: string): Promise<RenameResult>
   /** copy the file next to itself (localized "copy" suffix before .ext) and record it as recent */
   duplicateFile(path: string): Promise<void>
-  /** move files to the trash and drop them from the recent list */
-  deleteFiles(paths: string[]): Promise<void>
+  /** move files to the trash and drop them from the recent list; resolves to the paths that could not be deleted */
+  deleteFiles(paths: string[]): Promise<string[]>
   /** open the OS trash, where deleted files can be restored */
   openTrash(): Promise<void>
   /** the tree roots: the default save folder first, then the folders the user added */

@@ -23,6 +23,12 @@ import type { SlidesDesktopApi } from './slides-bridge'
 import type { WindowControlsApi } from './window-bridge'
 
 export { on, runtime } from './transport'
+export { headlessExportChannel } from './headless-export-bridge'
+export type {
+  HeadlessExportRequest,
+  HeadlessExportResult,
+  HeadlessExportChannel,
+} from './headless-export-bridge'
 export type { HomeBridge } from './home-bridge'
 export type { TabsBridge, TabSummary } from './tabs-bridge'
 export type { AppTheme, UiLanguage } from './types'
@@ -33,6 +39,8 @@ export {
   shellOpenExternal,
 } from './editor-api'
 export type { DesktopApi, MarkdownApi } from './editor-api'
+export { shellCheckLatestRelease } from './shell-bridge'
+export type { LatestRelease } from '@bindings/gitee.com/ethanbourne789/yiioffice/internal/update/models'
 export { createSlidesDesktopApi, registerEditHandlers } from './slides-bridge'
 export type { SlidesDesktopApi } from './slides-bridge'
 export { currentTabId, currentTabPath, setCurrentTabDirty } from './tabs-bridge'
@@ -50,6 +58,9 @@ export {
   listPrinters,
 } from './export-bridge'
 export type { ExportResult, ExportFolder, PrinterInfo } from './export-bridge'
+export { systemNotify } from './notify'
+export type { SystemNotifyOptions } from './notify'
+
 
 /**
  * Globals published for the Electron-compatible renderers.
@@ -111,19 +122,40 @@ export function installExternalLinkGuard(): void {
 }
 
 /**
- * Opens files dropped onto the window as tabs. Wails raises this event when
- * `EnableFileDrop` is set on the window; unsupported extensions are ignored.
+ * Opens files dropped onto the shell window as tabs. Wails resolves the
+ * absolute paths on the Go side only, so `internal/bridge` forwards them as
+ * this event (payload: `{ filenames, x, y }`). Unsupported or missing paths are
+ * already filtered out in Go.
+ *
+ * Only the top-level shell subscribes: editors live in same-origin iframes,
+ * consume their own drops (slides embeds dropped media on the canvas), and a
+ * drop inside an iframe never reaches the top document's Wails drop listener.
  */
 export function installDropOpenBridge(): void {
+  if (window !== window.top) return
   const home = bridgedGlobals().aiOffice
   if (!home?.openPath) return
   try {
     on('common:WindowFilesDropped', (data) => {
       const filenames = (data as { filenames?: unknown } | null)?.filenames
       if (!Array.isArray(filenames)) return
-      for (const name of filenames) {
-        if (typeof name === 'string' && name) void home.openPath?.(name).catch(() => undefined)
-      }
+      const paths = filenames.filter(
+        (name): name is string => typeof name === 'string' && name.length > 0,
+      )
+      if (paths.length === 0) return
+      // Sequential, so a multi-file drop keeps the explorer ordering instead of
+      // racing the tab host.
+      void (async () => {
+        for (const path of paths) {
+          try {
+            await home.openPath?.(path)
+          } catch (error) {
+            // A path can still disappear between the drop and the open; the
+            // remaining files must not be skipped because of it.
+            console.warn('[drop] could not open dropped file', path, error)
+          }
+        }
+      })()
     })
   } catch {
     // The Wails runtime is absent (unit tests, plain browser): no drop events.

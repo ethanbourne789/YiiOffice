@@ -17,6 +17,7 @@ import * as docs from './docs-bridge'
 import * as md from './markdown-bridge'
 import * as exportBridge from './export-bridge'
 import { currentTabPath, setCurrentTabDirty } from './tabs-bridge'
+import { headlessExportChannel, type HeadlessExportRequest } from './headless-export-bridge'
 import { toBase64, normalizeDocxSave, type BinaryPayload } from './binary'
 
 // Shared helper: reuse across all editors without repeating inline .then chains
@@ -83,7 +84,7 @@ export interface DesktopApi {
   openNewTab(path?: string | null): Promise<void>
   /** system print dialog for the current document */
   print(scale?: number): Promise<{ ok: boolean; error?: string }>
-  consumeHeadlessExport(): Promise<string | null>
+  consumeHeadlessExport(): Promise<HeadlessExportRequest | null>
   headlessExportDone(result: { ok: boolean; error?: string }): void
 
   // Spell checking (not hosted yet: the renderer degrades to no suggestions)
@@ -112,6 +113,9 @@ export interface DesktopApi {
 }
 
 export function createDesktopApi(): DesktopApi {
+  // Eager channel creation emits `docs:headless-ready` as soon as the runtime
+  // starts, before React mounts — the CLI waits for this before sending the job.
+  const headless = headlessExportChannel('docs')
   return {
     // Existing methods
     open: (path) => docs.docsOpenPath(path),
@@ -151,12 +155,11 @@ export function createDesktopApi(): DesktopApi {
     // these the renderer throws out of its first effects and React unmounts the
     // whole tree, leaving the tab blank (the "New Docs does nothing" symptom).
     getRecentFiles: async () => {
-      const entries = await _Recents(0, 50)
-      return Array.isArray(entries)
-        ? (entries as { path?: unknown }[])
-            .map((entry) => entry.path)
-            .filter((path): path is string => typeof path === 'string' && path.length > 0)
-        : []
+      const page = await _Recents({ cursor: '', limit: 50 })
+      const entries = Array.isArray(page?.entries) ? (page.entries as { path?: unknown }[]) : []
+      return entries
+        .map((entry) => entry.path)
+        .filter((path): path is string => typeof path === 'string' && path.length > 0)
     },
     onLanguageChanged: (handler) =>
       on('app:language-changed', (data) => {
@@ -180,8 +183,8 @@ export function createDesktopApi(): DesktopApi {
     // No host print pipeline yet: report a clean failure instead of throwing so
     // the print dialog can show its message.
     print: async () => ({ ok: false, error: 'Printing is not available in this build.' }),
-    consumeHeadlessExport: async () => null,
-    headlessExportDone: () => undefined,
+    consumeHeadlessExport: () => headless.consume(),
+    headlessExportDone: (result) => headless.done(result),
     copyImageToClipboard: async () => false,
     spellLanguages: async () => [],
     spellSetLanguages: async () => undefined,
@@ -317,6 +320,7 @@ function resolveDocRelative(docPath: string | null, src: string): string | null 
 }
 
 export function createMarkdownApi(): MarkdownApi {
+  const headless = headlessExportChannel('markdown')
   /** Wraps a shell→renderer event with a payload filter. */
   const subscribe = <T>(event: string, handler: (value: T) => void, accept: (v: unknown) => boolean) =>
     on(event, (data) => {
@@ -326,8 +330,8 @@ export function createMarkdownApi(): MarkdownApi {
   return {
     // Each tab stores its path in the tab host, so the renderer never owns it.
     consumePending: () => currentTabPath(),
-    consumeHeadlessExport: async () => null,
-    headlessExportDone: () => undefined,
+    consumeHeadlessExport: async () => (await headless.consume())?.outPath ?? null,
+    headlessExportDone: (result) => headless.done(result),
     readFile: (path) => md.mdReadFile(path),
     save: async (request) => {
       const docPath = request.mode === 'saveAs' ? '' : ((await currentTabPath()) ?? '')

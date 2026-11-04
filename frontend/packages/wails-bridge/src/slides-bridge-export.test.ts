@@ -26,7 +26,10 @@ const exportBindings = vi.hoisted(() => ({
 vi.mock('@bindings/gitee.com/ethanbourne789/yiioffice/internal/bridge/slidesservice', () => slidesBindings)
 vi.mock('@bindings/gitee.com/ethanbourne789/yiioffice/internal/bridge/exportservice', () => exportBindings)
 vi.mock('./tabs-bridge', () => ({ currentTabPath: vi.fn(async () => '') }))
-vi.mock('./transport', () => ({ on: vi.fn(() => () => undefined) }))
+vi.mock('./transport', () => ({
+  on: vi.fn(() => () => undefined),
+  emit: vi.fn(() => true),
+}))
 
 import { createSlidesDesktopApi } from './slides-bridge'
 

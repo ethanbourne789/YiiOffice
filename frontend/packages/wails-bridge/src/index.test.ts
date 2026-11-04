@@ -77,6 +77,26 @@ describe('wails bridge', () => {
     expect(homeBridge.OpenPath).toHaveBeenCalledWith('C:\\docs\\report.docx')
   })
 
+  it('opens every dropped file in order and ignores unusable entries', async () => {
+    // Wails resolves drop paths in Go and forwards them as this event; the
+    // shell must open each file (and keep going past one failure).
+    const runtime = installFakeRuntime()
+    installBridge()
+    const handler = runtime.Events.On.mock.calls.find(
+      ([name]) => name === 'common:WindowFilesDropped',
+    )?.[1] as ((data: { filenames?: unknown }) => void) | undefined
+    expect(handler).toBeTypeOf('function')
+
+    const order: string[] = []
+    homeBridge.OpenPath.mockImplementation(async (path: string) => {
+      if (path.endsWith('gone.docx')) throw new Error('missing')
+      order.push(path)
+    })
+    handler?.({ filenames: ['C:\\docs\\gone.docx', '', 42, 'C:\\docs\\notes.md'] })
+
+    await vi.waitFor(() => expect(order).toEqual(['C:\\docs\\notes.md']))
+  })
+
   it('routes https links through shell:open-external and blocks navigation', async () => {
     installFakeRuntime()
     installBridge()

@@ -74,6 +74,8 @@ export interface RecentEntry {
 export interface RecentQuery {
   offset?: number
   limit?: number
+  /** recents() only: opaque token from the previous page; omit to start over */
+  cursor?: string
   /** sidebar filter key ('docx' | 'xlsx' | 'pptx' | 'pdf' | 'md'); omit for all */
   ext?: string
   /** starred() only: restrict to one starred group */
@@ -86,6 +88,8 @@ export interface RecentPage {
   total: number
   /** rows ignoring the filters (drives the sidebar counters) */
   totalAll: number
+  /** recents() only: token for the next page, '' when the list is exhausted */
+  nextCursor?: string
 }
 
 /**
@@ -101,8 +105,6 @@ const FILTER_FAMILY: Record<string, readonly string[]> = {
   md: ['md', 'markdown'],
   markdown: ['md', 'markdown'],
 }
-
-const HOME_LIST_CAP = 200
 
 /**
  * Extensions host.RouteByExt can route to an editor. The open dialog filters to
@@ -141,11 +143,22 @@ function filepathJoin(base: string, name: string): string {
 }
 
 /**
+ * true for a row that stands for a real file. Older builds wrote blank-path
+ * records into recent.json ({"path":"","ts":0}); the host stats them into
+ * StatDocument(""), i.e. name ".", no ext, missing — the placeholder rows that
+ * used to leak into the home list and into every counter.
+ */
+function isRealEntry(entry: RecentEntry | null | undefined): entry is RecentEntry {
+  return !!entry && typeof entry.path === 'string' && entry.path.trim() !== ''
+}
+
+/**
  * Pages the full list the way the Electron main process did: the ext/group
  * filters and the totals are applied here because HomeService.Recents only
  * knows offset/limit.
  */
-function pageOf(all: RecentEntry[], query: RecentQuery): RecentPage {
+export function pageOf(rawAll: RecentEntry[], query: RecentQuery): RecentPage {
+  const all = rawAll.filter(isRealEntry)
   const family = familyOf(query.ext)
   const scopedExt = family ? all.filter((e) => family.includes((e.ext || '').toLowerCase())) : all
   const grouped = query.group
@@ -326,14 +339,22 @@ export function createHomeApi(): HomeBridge {
 
     // Recent files
     //
-    // The renderers pass the Electron-shaped query object
-    // (`{offset, limit, ext}`) and expect `{entries, total, totalAll}` back.
-    // HomeService.Recents only pages by offset/limit, so the filter and the
-    // counters are resolved here from the full list.
+    // Cursor paged by the host: it owns the ordering (newest first) and the
+    // ext filter, so pages stay stable when a file is opened mid-scroll and
+    // the counters are computed from the same snapshot as the rows.
     async recents(query, limit) {
       const q = toQuery(query, limit)
-      const all = asEntries(await Recents(0, HOME_LIST_CAP))
-      return pageOf(all, q)
+      const page = await Recents({
+        cursor: q.cursor ?? '',
+        limit: q.limit ?? 0,
+        ext: q.ext ?? '',
+      })
+      return {
+        entries: asEntries(page?.entries),
+        total: page?.total ?? 0,
+        totalAll: page?.totalAll ?? 0,
+        nextCursor: page?.nextCursor ?? '',
+      }
     },
     async removeRecent(path) {
       await RemoveRecent(path)
