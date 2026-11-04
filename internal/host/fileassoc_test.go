@@ -299,8 +299,8 @@ func TestCapabilitiesRoundtrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open file associations: %v", err)
 	}
-	if v, _, err := faKey.GetStringValue(ProgID(".docx")); err != nil || v != ".docx" {
-		t.Errorf("FileAssociations[%s] = %q (err %v)", ProgID(".docx"), v, err)
+	if v, _, err := faKey.GetStringValue(".docx"); err != nil || v != ProgID(".docx") {
+		t.Errorf("FileAssociations[.docx] = %q (err %v)", v, err)
 	}
 	faKey.Close()
 	raKey, err := registry.OpenKey(registry.CURRENT_USER, regApps, registry.QUERY_VALUE)

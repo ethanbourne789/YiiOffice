@@ -23,6 +23,8 @@ SetCompressor /SOLID lzma
 !define APP_EXE "YiiOffice.exe"
 !define APP_UNINSTALL_KEY "YiiOffice"
 !define APP_WEBSITE "https://yiioffice.com"
+; Must match platform.AppUserModelID in internal/platform/aumid.go.
+!define APP_AUMID "YiiOffice.Desktop"
 !define APP_EXTENSIONS ".docx,.xlsx,.pptx,.pdf,.md"
 ; WebView2 Evergreen Runtime registration (same check as Edge's own installer).
 !define WEBVIEW2_CLIENT_KEY "Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
@@ -164,11 +166,12 @@ Section "MainSection"
   ; Desktop shortcut
   CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}"
 
-  ; AppUserModelID: NSIS's CreateShortCut cannot set the AUMID on the .lnk
-  ; property store, and a registry-only "AUMID" would be a fake that Windows
-  ; ignores for taskbar grouping. The correct fix is one line in the Go
-  ; process (SetCurrentProcessExplicitAppUserModelID) — tracked as a TODO in
-  ; internal/platform; intentionally not pseudo-implemented here.
+  ; AppUserModelID: the running process pins its own identity in Go
+  ; (SetCurrentProcessExplicitAppUserModelID, internal/platform/aumid_windows.go)
+  ; with "${APP_AUMID}"; Windows groups taskbar buttons by that ID. Stock NSIS
+  ; cannot write the .lnk property store, so the shortcut carries no explicit
+  ; AUMID and the process-side ID is what keeps grouping stable. If a future
+  ; tool writes the shortcut property it must use the same string.
 
   ; Uninstaller
   WriteUninstaller "$INSTDIR\uninstall.exe"
@@ -200,6 +203,20 @@ Section "Uninstall"
   Pop $0
   Pop $1
 
+  ; taskkill returns before the process is gone; a mapped exe makes the
+  ; RMDir /r below fail. Poll (bounded, ~3s) until tasklist no longer lists it.
+  StrCpy $R6 0
+un_stop_try:
+  nsExec::ExecToStack 'tasklist /FI "IMAGENAME eq ${APP_EXE}" /NH'
+  Pop $0
+  Pop $1
+  ${StrStr} $0 $1 "${APP_EXE}"
+  StrCmp $0 "" un_stop_done
+  Sleep 300
+  IntOp $R6 $R6 + 1
+  IntCmp $R6 10 un_stop_done un_stop_try un_stop_done
+un_stop_done:
+
   ; Remove shortcuts first, before anything else in this section: it is the
   ; cleanup users actually notice when it goes wrong. The current build puts a
   ; single "$SMPROGRAMS\YiiOffice.lnk" in the Start menu root; builds before
@@ -228,6 +245,12 @@ Section "Uninstall"
   DeleteRegKey HKCU "Software\Classes\.pptx\ShellNew"
 
   ; Remove uninstall info + app key (also carries Capabilities and AssocBackup)
+  ; The Default Programs registration writes a value (not a key) under the
+  ; shared RegisteredApplications key, so remove just that value: deleting the
+  ; key would erase other applications' entries. The Go side writes the same
+  ; value at startup (registerCapabilitiesFor), and NSIS cannot call Go during
+  ; uninstall, so the installer removes it directly.
+  DeleteRegValue HKCU "Software\RegisteredApplications" "${APP_NAME}"
   DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_UNINSTALL_KEY}"
   DeleteRegKey HKCU "Software\${APP_NAME}\AssocBackup"
   DeleteRegKey HKCU "Software\${APP_NAME}\Capabilities"
@@ -261,7 +284,7 @@ stop_try:
   ${StrStr} $0 $1 "${APP_EXE}"
   StrCmp $0 "" stop_done
   IntOp $R6 $R6 + 1
-  IntCmp $R6 10 stop_giveup stop_giveup stop_try
+  IntCmp $R6 10 stop_giveup stop_try stop_giveup
 stop_giveup:
   ${IfNot} ${Silent}
     MessageBox MB_OK|MB_ICONEXCLAMATION "$(APP_STILL_RUNNING_TEXT)"

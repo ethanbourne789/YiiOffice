@@ -207,7 +207,11 @@ func registerCapabilitiesFor(appRoot, regAppsRoot, exePath string) error {
 	}
 	ferr := error(nil)
 	for _, ext := range officeTypes {
-		if ferr = faKey.SetStringValue(ProgID(ext), ext); ferr != nil {
+		// Windows expects the value NAME to be the extension and the DATA to be
+		// the ProgID (installer.nsi writes the same pair); reversing them makes
+		// the Default Programs page show the extension as the handler and point
+		// it at a non-existent ProgID.
+		if ferr = faKey.SetStringValue(ext, ProgID(ext)); ferr != nil {
 			break
 		}
 	}
