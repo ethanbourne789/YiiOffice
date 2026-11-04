@@ -64,10 +64,13 @@ tasks:
         msg: "makensis is required to build the installer (install NSIS and add it to PATH)."
 
   package:windows:sha256:
-    summary: Writes a SHA-256 sidecar next to the installer for release integrity checks
+    summary: Writes a sha256sum-style sidecar next to the installer for release integrity checks
+    # Upload BOTH dist/YiiOffice_<version>_setup.exe and its .sha256 asset to the
+    # release, and paste the sidecar's line into the release notes: the updater
+    # reads the .sha256 asset and refuses to install a mismatched download.
     platforms: [windows]
     cmds:
-      - powershell -NoProfile -Command "(Get-FileHash -Algorithm SHA256 'dist/YiiOffice_{{.VERSION}}_setup.exe').Hash | Set-Content -Encoding ascii 'dist/YiiOffice_{{.VERSION}}_setup.exe.sha256'"
+      - powershell -NoProfile -Command "((Get-FileHash -Algorithm SHA256 'dist/YiiOffice_{{.VERSION}}_setup.exe').Hash + '  YiiOffice_{{.VERSION}}_setup.exe') | Set-Content -Encoding ascii 'dist/YiiOffice_{{.VERSION}}_setup.exe.sha256'"
 
   run:
     summary: Builds and runs the application
