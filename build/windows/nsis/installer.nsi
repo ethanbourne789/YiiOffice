@@ -156,10 +156,10 @@ Section "MainSection"
   ; Install directory for recovery
   WriteRegStr HKCU "Software\${APP_NAME}" "" "$INSTDIR"
 
-  ; Start menu shortcuts
-  CreateDirectory "$SMPROGRAMS\${APP_NAME}"
-  CreateShortCut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}"
-  CreateShortCut "$SMPROGRAMS\${APP_NAME}\Uninstall.lnk" "$INSTDIR\uninstall.exe"
+  ; Start menu shortcut: a single entry in the Start menu root, no per-app
+  ; folder. Uninstall is only exposed via the registry Uninstall key
+  ; (Programs and Features), so no uninstall shortcut is created.
+  CreateShortCut "$SMPROGRAMS\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}"
 
   ; Desktop shortcut
   CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}"
@@ -200,6 +200,21 @@ Section "Uninstall"
   Pop $0
   Pop $1
 
+  ; Remove shortcuts first, before anything else in this section: it is the
+  ; cleanup users actually notice when it goes wrong. The current build puts a
+  ; single "$SMPROGRAMS\YiiOffice.lnk" in the Start menu root; builds before
+  ; this change created "$SMPROGRAMS\YiiOffice\" holding the app link plus
+  ; Uninstall.lnk and only tried a non-recursive RMDir on uninstall, which
+  ; cannot delete a non-empty folder — that is why upgraded installs kept the
+  ; folder and its links. Delete every variant explicitly, then drop the legacy
+  ; folder only if nothing else is left in it (non-recursive, so a folder the
+  ; user filled with their own shortcuts is never removed).
+  Delete "$SMPROGRAMS\${APP_NAME}.lnk"
+  Delete "$DESKTOP\${APP_NAME}.lnk"
+  Delete "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk"
+  Delete "$SMPROGRAMS\${APP_NAME}\Uninstall.lnk"
+  RMDir "$SMPROGRAMS\${APP_NAME}"
+
   ; Remove file associations (and restore backed-up defaults)
   !insertmacro UnregisterAssocOne ".docx"
   !insertmacro UnregisterAssocOne ".xlsx"
@@ -218,12 +233,8 @@ Section "Uninstall"
   DeleteRegKey HKCU "Software\${APP_NAME}\Capabilities"
   DeleteRegKey HKCU "Software\${APP_NAME}"
 
-  ; Remove desktop shortcut
-  Delete "$DESKTOP\${APP_NAME}.lnk"
-
   ; Remove files
   RMDir /r "$INSTDIR"
-  RMDir "$SMPROGRAMS\${APP_NAME}"
 SectionEnd
 
 ; A running instance locks the exe and makes the overwrite step fail. Detect

@@ -44,6 +44,14 @@ Section "Install (reference stub - never shipped)"
 SectionEnd
 
 Section "Uninstall"
+  ; Mirrors installer.nsi: all shortcut variants (current root link + legacy
+  ; per-app folder), then the folder only if it is empty.
+  Delete "$SMPROGRAMS\${APP_NAME}.lnk"
+  Delete "$DESKTOP\${APP_NAME}.lnk"
+  Delete "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk"
+  Delete "$SMPROGRAMS\${APP_NAME}\Uninstall.lnk"
+  RMDir "$SMPROGRAMS\${APP_NAME}"
+
   !insertmacro UnregisterAssocOne ".docx"
   !insertmacro UnregisterAssocOne ".xlsx"
   !insertmacro UnregisterAssocOne ".pptx"
@@ -59,5 +67,4 @@ Section "Uninstall"
   DeleteRegKey HKCU "Software\${APP_NAME}\Capabilities"
   DeleteRegKey HKCU "Software\${APP_NAME}"
   RMDir /r "$INSTDIR"
-  RMDir "$SMPROGRAMS\${APP_NAME}"
 SectionEnd
