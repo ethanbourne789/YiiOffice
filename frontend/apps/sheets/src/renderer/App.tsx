@@ -291,14 +291,14 @@ import {
   handleApplyHeaderFooter as handleApplyHeaderFooterImpl,
   handleExportPdf as handleExportPdfImpl,
   handlePageLayoutCommand as handlePageLayoutCommandImpl,
-  createPrintPreviewHost,
-  type PrintPreviewHost,
   type PageLayoutContext,
 } from './page-layout-actions'
 import { handleExportCsv as handleExportCsvImpl, type CsvExportContext } from './csv-export'
 import { effectivePageBreaks, installPageBreakPreview } from './page-break-preview'
 import { mapProtectedRanges } from './protected-ranges'
 import { handleSave as handleSaveImpl, type SaveContext, type SaveOutcome } from './save-actions'
+import { classifyWorkbookOpenError, workbookOpenErrorMessage } from './workbook-open-error'
+import { showWorkbookPasswordDialog } from './workbook-password-dialog'
 import {
   applyChartEdit as applyChartEditImpl,
   applyShapeEdit as applyShapeEditImpl,
@@ -343,7 +343,7 @@ import {
   shiftVisualForStructuralOp,
 } from './edit-journal'
 import { shiftPinnedCells } from './formula-closure'
-import { getLang, t } from './i18n/locale'
+import { bridgeErrorText, getLang, t } from './i18n/locale'
 import { lastSurvivingScreenLine, netAxisDelta, screenToFile } from './view-transform'
 import { selectionFormatEquals, toSelectionFormat, type SelectionFormat } from './selection-format'
 import { ExcelShell, type SelectedShapeRibbon } from './ExcelShell'
@@ -446,7 +446,6 @@ export function App({
   const [pageBreakPreviewSheets, setPageBreakPreviewSheets] = useState<ReadonlySet<string>>(
     new Set(),
   )
-  const [printHost, setPrintHost] = useState<PrintPreviewHost | null>(null)
   const pageBreakLayersRef = useRef<Map<string, { dispose(): void }[]>>(new Map())
   const pageBreakIdRef = useRef(0)
   /// App-level setting, Excel-style: not stored in the file, kept across
@@ -800,7 +799,7 @@ export function App({
         outPath,
         async () => {
           await pollUntilReady(() => lazyWorkbookRef.current !== null, 'no workbook opened', {
-            timeoutMs: 300_000,
+            timeoutMs: 30_000,
           })
           // The PDF layout needs every cell in the grid. Workbooks small enough
           // for formula mode preload themselves; a larger one waits for the
@@ -817,7 +816,7 @@ export function App({
               return false
             },
             'workbook never finished loading',
-            { timeoutMs: 540_000, pollMs: 500 },
+            { timeoutMs: 55_000, pollMs: 500 },
           )
         },
         (target) => handleExportPdfImpl(pageLayoutContext(), target),
@@ -3221,6 +3220,43 @@ export function App({
     if (editor && document.activeElement !== editor) editor.focus()
   }
 
+  /// Errors that carry one of the workbook open codes get a localized
+  /// explanation; anything else falls back to the generic message instead of
+  /// echoing the raw Go error into the status bar.
+  function workbookOpenErrorText(error: unknown): string {
+    switch (classifyWorkbookOpenError(workbookOpenErrorMessage(error))?.kind) {
+      case 'password-incorrect':
+        return t('appWorkbookPasswordIncorrect')
+      case 'encryption-unsupported':
+        return t('appWorkbookEncryptionUnsupported')
+      case 'damaged':
+        return t('appWorkbookDamaged')
+      default:
+        return bridgeErrorText(error, 'appOpenFailed')
+    }
+  }
+
+  /// Password retry loop for an encrypted workbook: the prompt stays open and
+  /// shows Go's "incorrect password" until the user cancels or the open works.
+  async function openEncryptedWorkbook(path: string): Promise<WorkbookFile | null> {
+    const api = window.desktopApi
+    if (!api) return null
+    const name = path.split(/[\\/]/).pop() || path
+    let promptError: string | undefined
+    for (;;) {
+      const password = await showWorkbookPasswordDialog(name, promptError)
+      if (password === null) return null
+      try {
+        return await api.openWorkbookWithPassword(path, password)
+      } catch (error: unknown) {
+        if (classifyWorkbookOpenError(workbookOpenErrorMessage(error))?.kind !== 'password-incorrect') {
+          throw error
+        }
+        promptError = t('appWorkbookPasswordIncorrect')
+      }
+    }
+  }
+
   /// `queued` opens the file path the shell attached to this tab (Home /
   /// double-click) without the native picker; the menu 'open' action keeps
   /// the dialog flow.
@@ -3232,6 +3268,15 @@ export function App({
       workbookOpeningRef.current = false
       setOpeningWorkbook(false)
       focusSheetGrid()
+    }
+    const adoptWorkbook = async (selected: WorkbookFile): Promise<void> => {
+      if (!(await openLazyWorkbook(selected, { onInitialRangeLoaded: finishOpening }))) {
+        finishOpening()
+        setMessage(t('appOpenFailed'))
+        return
+      }
+      setEmptyCsvNotice(selected.emptyCsv === true)
+      setMessage(selected.emptyCsv ? '' : t('appOpened', { name: selected.name }))
     }
     try {
       if (!window.desktopApi) {
@@ -3246,16 +3291,36 @@ export function App({
         finishOpening()
         return
       }
-      if (!(await openLazyWorkbook(selected, { onInitialRangeLoaded: finishOpening }))) {
+      await adoptWorkbook(selected)
+    } catch (error: unknown) {
+      const failure = classifyWorkbookOpenError(workbookOpenErrorMessage(error))
+      if (failure?.kind !== 'password-required') {
+        setMessage(workbookOpenErrorText(error))
         finishOpening()
-        setMessage(t('appOpenFailed'))
         return
       }
-      setEmptyCsvNotice(selected.emptyCsv === true)
-      setMessage(selected.emptyCsv ? '' : t('appOpened', { name: selected.name }))
-    } catch (error: unknown) {
-      setMessage(error instanceof Error ? error.message : t('appOpenFailed'))
+      // The opening overlay sits above dialogs, so clear it before prompting
+      // and re-arm the guard only for the actual load.
       finishOpening()
+      let unlocked: WorkbookFile | null
+      try {
+        unlocked = await openEncryptedWorkbook(failure.path)
+      } catch (retryError: unknown) {
+        setMessage(workbookOpenErrorText(retryError))
+        return
+      }
+      if (!unlocked) {
+        setMessage(t('appOpenCanceled'))
+        return
+      }
+      workbookOpeningRef.current = true
+      setOpeningWorkbook(true)
+      try {
+        await adoptWorkbook(unlocked)
+      } catch (retryError: unknown) {
+        setMessage(workbookOpenErrorText(retryError))
+        finishOpening()
+      }
     }
   }
 
@@ -3306,8 +3371,6 @@ export function App({
     if (action !== 'open' && (openingWorkbook || workbookOpeningRef.current)) return
     if (action === 'open') {
       void handleInspectWorkbook()
-    } else if (action === 'print') {
-      setPrintHost(createPrintPreviewHost(pageLayoutContext()))
     } else if (action === 'export-pdf') {
       void handleExportPdfImpl(pageLayoutContext())
     } else if (action === 'export-csv') {
@@ -3611,8 +3674,6 @@ export function App({
         onAiScopeDismiss={() => {}}
         onAiCitation={() => {}}
         pageLayout={activePageLayout}
-        printHost={printHost}
-        onClosePrint={() => setPrintHost(null)}
         calcManual={calcManual}
         onGoalSeek={(setCell, toValue, byCell) => {
           const runtime = univerRef.current

@@ -1,77 +1,26 @@
 import type { WorkbookCellEdit } from '../shared/desktop-api'
-import {
-  MAX_SAVE_EDITS_TOTAL,
-  SAVE_EDITS_CHUNK_MAX,
-  SAVE_EDITS_INLINE_MAX,
-} from '../shared/ipc-channels'
-
-/// The slice of desktopApi the staging step needs (injectable for tests).
-export interface SaveEditsTransferApi {
-  beginSaveEditsTransfer(request: {
-    sessionId: string
-    transferId: string
-    total: number
-  }): Promise<void>
-  sendSaveEditsChunk(request: {
-    sessionId: string
-    transferId: string
-    seq: number
-    editsJson: string
-  }): Promise<void>
-  abortSaveEditsTransfer(request: { sessionId: string; transferId: string }): Promise<void>
-}
-
-export interface StagedEdits {
-  edits: WorkbookCellEdit[]
-  editsTransferId?: string
-}
+import { MAX_SAVE_EDITS_TOTAL, SAVE_EDITS_CHUNK_MAX } from '../shared/ipc-channels'
 
 /**
- * Prepares a save's cell edits for the IPC hop. Small edit sets ride inline
- * in the save request as before; sets above SAVE_EDITS_INLINE_MAX are
- * uploaded to the main process as JSON-string chunks first (a flat string
- * crosses the context bridge in milliseconds where the same edits as a live
- * array cost microseconds per edit), and the request references the finished
- * transfer instead.
+ * Splits one save's cell edits into sequential save-request batches. Large
+ * edit sets are applied through several ordinary saveWorkbookEdits calls on
+ * the same session (each call writes the workbook and reloads it in place);
+ * the previous chunked-transfer path had no Go-side implementation and every
+ * transfer it staged was silently dropped on save.
  */
-export async function stageEditsForSave(
-  api: SaveEditsTransferApi,
-  sessionId: string,
-  edits: WorkbookCellEdit[],
-): Promise<StagedEdits> {
-  if (edits.length <= SAVE_EDITS_INLINE_MAX) return { edits }
+export function batchSaveEdits(edits: WorkbookCellEdit[]): WorkbookCellEdit[][] {
   if (edits.length > MAX_SAVE_EDITS_TOTAL) {
     throw new Error(
       `This save contains ${edits.length.toLocaleString()} cell edits, above the ` +
         `${MAX_SAVE_EDITS_TOTAL.toLocaleString()} maximum for a single save.`,
     )
   }
-  const transferId = crypto.randomUUID()
-  await api.beginSaveEditsTransfer({ sessionId, transferId, total: edits.length })
-  try {
-    for (let start = 0, seq = 0; start < edits.length; start += SAVE_EDITS_CHUNK_MAX, seq += 1) {
-      await api.sendSaveEditsChunk({
-        sessionId,
-        transferId,
-        seq,
-        editsJson: JSON.stringify(edits.slice(start, start + SAVE_EDITS_CHUNK_MAX)),
-      })
-    }
-  } catch (error) {
-    // Free the partial upload's main-process memory now instead of leaving
-    // it to the idle expiry (and toward the open-transfer cap).
-    await abortStagedEditsTransfer(api, sessionId, transferId)
-    throw error
+  // An empty edit set still needs one request: the save may be writing a
+  // restored recovery session or carrying structural/rich payloads only.
+  if (edits.length === 0) return [[]]
+  const batches: WorkbookCellEdit[][] = []
+  for (let start = 0; start < edits.length; start += SAVE_EDITS_CHUNK_MAX) {
+    batches.push(edits.slice(start, start + SAVE_EDITS_CHUNK_MAX))
   }
-  return { edits: [], editsTransferId: transferId }
-}
-
-/// Best-effort: the transfer also expires on its own if this call fails.
-export async function abortStagedEditsTransfer(
-  api: SaveEditsTransferApi,
-  sessionId: string,
-  transferId: string | undefined,
-): Promise<void> {
-  if (transferId === undefined) return
-  await api.abortSaveEditsTransfer({ sessionId, transferId }).catch(() => undefined)
+  return batches
 }

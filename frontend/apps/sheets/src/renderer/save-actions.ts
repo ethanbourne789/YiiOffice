@@ -5,7 +5,7 @@
  * Extracted from App.tsx; the App component passes a SaveContext built fresh
  * per call so refs and state never go stale.
  */
-import type { WorkbookFile, WorkbookFilterState } from '../shared/desktop-api'
+import type { WorkbookCellEdit, WorkbookFile, WorkbookFilterState } from '../shared/desktop-api'
 import {
   carryLateJournalCells,
   isSheetRemoved,
@@ -29,9 +29,12 @@ import {
 import { activeCsvSheet, handleExportCsv, serializeActiveSheetCsv } from './csv-export'
 import type { CellState } from '@yiioffice/xlsx-gateway/domain/workbook.types'
 import { verifiedFormulaValues } from './formula-values'
-import { t } from './i18n/locale'
-import { abortStagedEditsTransfer, stageEditsForSave, type StagedEdits } from './save-edits-staging'
+import { bridgeErrorText, t } from './i18n/locale'
+import { batchSaveEdits } from './save-edits-staging'
+import { detectUnpersistedSave } from './save-loss'
+import { showUnpersistedSaveConfirm } from './save-loss-dialog'
 import { showToast } from '@yiioffice/ui'
+import { systemNotify } from '@yiioffice/wails-bridge'
 import { captureUndoCarry, hasPendingUndoCarry, stashUndoCarry } from './undo-carry'
 import {
   collectCfStates,
@@ -158,6 +161,9 @@ export async function handleSave(
     const failed = error instanceof Error ? error.message : t('appFilterSnapshotFailed')
     ctx.setMessage(failed)
     if (mode !== 'recovery' && !quiet) showToast(failed, 'error')
+    // A quiet autosave has no in-app toast, so its failure must reach the user
+    // even while the window is in front.
+    if (mode !== 'recovery') systemNotify(failed, { whenUnfocused: !quiet })
     return { ok: false }
   }
   const cfStates = collectCfStates(ctx.univerRef.current, state)
@@ -356,19 +362,70 @@ export async function handleSave(
     }
     return { ok: false }
   }
-  // Edit sets above the inline IPC cap are uploaded to the main process in
-  // chunks first; the request then references the transfer instead.
-  let staged: StagedEdits
+  // The Go engine persists cell edits, hyperlink edits, structural ops and
+  // bulk fills only. Everything else the journal carries (charts, visuals,
+  // pivots, tables, notes, CF, DV, page setup, filters, sparklines, sheet
+  // management, names, theme, protection) is dropped by the request decode.
+  // Make that explicit before writing, so a "Saved" toast can never hide the
+  // loss.
+  if (mode !== 'recovery') {
+    const unpersisted = detectUnpersistedSave({
+      chartEdits,
+      visualEdits,
+      visualAdditions,
+      tableAdditions,
+      tableEdits,
+      pivotAdditions,
+      pivotCacheRefreshPaths,
+      pivotRefreshUpdates,
+      sheetOps,
+      filterStates,
+      cfStates,
+      dvStates,
+      pageSetupStates,
+      noteStates,
+      sheetProtections,
+      sparklineAdditions,
+      definedNamesState,
+      themeState,
+      workbookProtectionState,
+      protectedRangeStates,
+    })
+    if (unpersisted.length > 0) {
+      // AutoSave cannot ask, so it must not clear the journal by writing a
+      // file that silently lacks these changes: skip this tick and leave
+      // everything pending for an explicit, confirmed Save.
+      if (quiet) {
+        ctx.setMessage(t('appUnpersistedAutoSaveSkipped'))
+        return { ok: false }
+      }
+      if (!(await showUnpersistedSaveConfirm(unpersisted))) {
+        ctx.setMessage(t('appSaveCanceled'))
+        return { ok: false }
+      }
+    }
+  }
+  // Large edit sets are split into sequential save requests on the same
+  // session (each call writes the workbook and reloads it in place). The
+  // former chunked-transfer path had no Go-side implementation, so every
+  // edit set above the inline cap was silently discarded.
+  let batches: WorkbookCellEdit[][]
   try {
-    staged = await stageEditsForSave(window.desktopApi, state.file.sessionId, edits)
+    batches = batchSaveEdits(edits)
   } catch (error: unknown) {
     if (mode === 'recovery') return { ok: false }
     const message = stripIpcErrorWrapper(error instanceof Error ? error.message : '')
-    const failed = message || t('appSaveFailed')
+    const failed = bridgeErrorText(message, 'appSaveFailed')
     ctx.setMessage(failed)
     if (!quiet) showToast(failed, 'error')
+    systemNotify(failed, { whenUnfocused: !quiet })
     return { ok: false }
   }
+  // Structural ops must run before the edits that address post-shift rows,
+  // and they are not idempotent — a retried batch would shift twice. So
+  // edit batching only engages when the save has no structural ops.
+  if (structuralOps.length > 0) batches = [edits]
+  const finalBatchIndex = batches.length - 1
   const payload = {
     sessionId: state.file.sessionId,
     mode: mode === 'recovery' ? ('save' as const) : mode,
@@ -377,9 +434,8 @@ export async function handleSave(
     ...(explicitTarget
       ? { targetPath: explicitTarget.path, overwrite: explicitTarget.overwrite }
       : {}),
-    edits: staged.edits,
+    edits,
     bulkConstantFills,
-    ...(staged.editsTransferId === undefined ? {} : { editsTransferId: staged.editsTransferId }),
     structuralOps,
     chartEdits,
     visualEdits,
@@ -406,33 +462,72 @@ export async function handleSave(
     protectedRangeStates,
   }
   if (mode === 'recovery') {
-    // Best-effort; a failure only means this tick's copy is skipped — but an
-    // unconsumed transfer must not sit in main-process memory until expiry.
-    const written = await window.desktopApi.writeWorkbookRecovery(payload).catch(async () => {
-      await abortStagedEditsTransfer(
-        window.desktopApi,
-        state.file.sessionId,
-        staged.editsTransferId,
-      )
-      return { ok: false }
-    })
+    // Best-effort: a failure only means this tick's copy is skipped.
+    const written = await window.desktopApi
+      .writeWorkbookRecovery(payload)
+      .catch(() => ({ ok: false }))
     return { ok: written.ok === true }
   }
+  // Earlier batches write the workbook in place before the final request:
+  // the save-as dialog (and any explicit target) belongs to the first call,
+  // later calls just write the session's now-established path.
+  const mainMode = finalBatchIndex > 0 ? ('save' as const) : mode
   try {
     ctx.setMessage(t('appSavingEdits', { count: total }))
+    for (let index = 0; index < finalBatchIndex; index += 1) {
+      const batchResult = await window.desktopApi.saveWorkbookEdits({
+        sessionId: state.file.sessionId,
+        mode: index === 0 ? mode : 'save',
+        ...(index === 0 && restoreWriteBack ? { restoreWriteBack: true } : {}),
+        ...(quiet ? { quiet: true } : {}),
+        ...(index === 0 && csvContent !== undefined ? { csvContent } : {}),
+        ...(index === 0 && explicitTarget
+          ? { targetPath: explicitTarget.path, overwrite: explicitTarget.overwrite }
+          : {}),
+        edits: batches[index]!,
+        structuralOps: [],
+        chartEdits: [],
+        visualEdits: [],
+        visualAdditions: [],
+        tableAdditions: [],
+        tableEdits: [],
+        pivotAdditions: [],
+        sheetOps: [],
+        sheetOrder: [],
+        filterStates: [],
+        hyperlinkEdits: [],
+        cfStates: [],
+        dvStates: [],
+        pageSetupStates: [],
+        noteStates: [],
+        formulaValues: [],
+        pivotCacheRefreshPaths: [],
+        pivotRefreshUpdates: [],
+        sheetProtections: [],
+        sparklineAdditions: [],
+        definedNamesState: null,
+        themeState: null,
+        workbookProtectionState: null,
+        protectedRangeStates: [],
+      })
+      if (ctx.lazyWorkbookRef.current !== state) return { ok: false }
+      if (batchResult.canceled) {
+        ctx.setMessage(t('appSaveCanceled'))
+        return { ok: false }
+      }
+    }
     const result = await window.desktopApi.saveWorkbookEdits({
       sessionId: state.file.sessionId,
-      mode,
-      ...(restoreWriteBack ? { restoreWriteBack: true } : {}),
+      mode: mainMode,
+      ...(finalBatchIndex === 0 && restoreWriteBack ? { restoreWriteBack: true } : {}),
       ...(quiet ? { quiet: true } : {}),
-      ...(csvContent === undefined ? {} : { csvContent }),
+      ...(finalBatchIndex === 0 && csvContent !== undefined ? { csvContent } : {}),
       // Explicit-path save: main skips the Save-As dialog for these
-      ...(explicitTarget
+      ...(finalBatchIndex === 0 && explicitTarget
         ? { targetPath: explicitTarget.path, overwrite: explicitTarget.overwrite }
         : {}),
-      edits: staged.edits,
+      edits: batches[finalBatchIndex]!,
       bulkConstantFills,
-      ...(staged.editsTransferId === undefined ? {} : { editsTransferId: staged.editsTransferId }),
       structuralOps,
       chartEdits,
       visualEdits,
@@ -565,21 +660,18 @@ export async function handleSave(
       if (!(await reopenCarryingLateEdits(ctx, state, cellsAtSave, result.file))) {
         return { ok: false }
       }
-      const failed = t('appSaveSecondFailed', {
-        reason: error instanceof Error ? error.message : String(error),
-      })
+      const failed = t('appSaveSecondFailed', { reason: bridgeErrorText(error) })
       ctx.setMessage(failed)
       if (!quiet) showToast(failed, 'error')
+      systemNotify(failed, { whenUnfocused: !quiet })
       return { ok: false }
     }
   } catch (error: unknown) {
-    // The save may have failed before consuming the chunked transfer (e.g.
-    // request validation); freeing it is a no-op when it was consumed.
-    await abortStagedEditsTransfer(window.desktopApi, state.file.sessionId, staged.editsTransferId)
     const message = stripIpcErrorWrapper(error instanceof Error ? error.message : '')
-    const failed = localizeSaveError(message) ?? (message || t('appSaveFailed'))
+    const failed = localizeSaveError(message) ?? bridgeErrorText(message, 'appSaveFailed')
     ctx.setMessage(failed)
     if (!quiet) showToast(failed, 'error')
+    systemNotify(failed, { whenUnfocused: !quiet })
     return { ok: false, error: message || failed }
   }
 }

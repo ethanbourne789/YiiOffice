@@ -5,7 +5,7 @@
 
 import { MAX_CSV_EXPORT_CHARS } from '../shared/ipc-channels'
 import { formulaViewSheets } from './formula-view'
-import { t } from './i18n/locale'
+import { bridgeErrorText, t } from './i18n/locale'
 import { showToast } from '@yiioffice/ui'
 import type { LazyWorkbookState, UniverRuntime } from './univer-state'
 
@@ -166,7 +166,7 @@ export async function handleExportCsv(ctx: CsvExportContext, targetPath?: string
     ctx.setMessage(exported)
     showToast(exported)
   } catch (error: unknown) {
-    const failed = error instanceof Error ? error.message : t('appCsvExportFailed')
+    const failed = bridgeErrorText(error, 'appCsvExportFailed')
     ctx.setMessage(failed)
     showToast(failed, 'error')
   }

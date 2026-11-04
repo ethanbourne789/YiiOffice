@@ -5,6 +5,7 @@ import {
   Dropdown,
   SHAPE_GALLERY_GROUPS,
   ShapePreview,
+  showToast,
   useDismissablePopover,
   useRibbonCollapse,
 } from '@yiioffice/ui'
@@ -26,6 +27,7 @@ import {
   UndoIcon,
 } from './ribbon-icons'
 import { sheetContextMenuAction } from './sheet-context-menu'
+import { isUnpersistedObjectCommand, SAVE_PERSISTS_RICH_OBJECTS } from './save-loss'
 
 import { ColorDropdown } from './ColorDropdown'
 import { FormatCellsDialog } from './FormatCellsDialog'
@@ -106,8 +108,6 @@ import { SubtotalDialog, type SubtotalConfig } from './SubtotalDialog'
 import { ConsolidateDialog } from './ConsolidateDialog'
 import type { ConsolidateConfig } from './consolidate'
 import { HeaderFooterDialog, type HeaderFooterResult } from './HeaderFooterDialog'
-import type { PrintPreviewHost } from './page-layout-actions'
-import { PrintDialog } from './PrintDialog'
 import type { HeaderFooterParts } from './edit-journal'
 import { useModalDialog } from './modal-dialog'
 import type { SelectedTableRibbon } from './table-design-actions'
@@ -376,9 +376,6 @@ interface ExcelShellProps {
   readonly onGetConsolidateDefault: () => string
   /// Header & Footer dialog OK; returns an error message, or null on success.
   readonly onApplyHeaderFooter: (result: HeaderFooterResult) => string | null
-  /// Print with Preview, open while non-null.
-  readonly printHost: PrintPreviewHost | null
-  readonly onClosePrint: () => void
   /// Session page-layout settings of the active sheet, echoed by the Page
   /// Layout tab's controls (untouched fields show the app default).
   readonly pageLayout: PageLayoutEcho
@@ -480,8 +477,6 @@ export function ExcelShell({
   onCreateConsolidate,
   onGetConsolidateDefault,
   onApplyHeaderFooter,
-  printHost,
-  onClosePrint,
   onPromptChange: _onPromptChange,
   onSend,
   onStop: _onStop,
@@ -621,7 +616,6 @@ export function ExcelShell({
     return () => document.removeEventListener('contextmenu', onContextMenu)
   }, [])
   const [showHeaderFooter, setShowHeaderFooter] = useState(false)
-  const [printRevision, setPrintRevision] = useState(0)
   const [showAllowEditRanges, setShowAllowEditRanges] = useState(false)
   const [protectSheetMode, setProtectSheetMode] = useState<'protect' | 'unprotect' | null>(null)
   /// Non-null while the Chart Design → Add Chart Element text prompt is open.
@@ -633,6 +627,10 @@ export function ExcelShell({
   onIsCellEditingRef.current = onIsCellEditing
   openingWorkbookRef.current = openingWorkbook
   const dispatchCommand = (command: string): void => {
+    if (!SAVE_PERSISTS_RICH_OBJECTS && isUnpersistedObjectCommand(command)) {
+      showToast(t('appUnpersistedFeatureDisabled'), 'error')
+      return
+    }
     if (command === 'format-cells') setShowFormatCells(true)
     else if (command === 'row-height-open') setAxisSizeTarget('row')
     else if (command === 'col-width-open') setAxisSizeTarget('col')
@@ -1224,23 +1222,12 @@ export function ExcelShell({
             />
           )
         })()}
-      {printHost && (
-        <PrintDialog
-          host={printHost}
-          onClose={onClosePrint}
-          onPageSetup={() => setShowHeaderFooter(true)}
-          revision={printRevision}
-        />
-      )}
       {showHeaderFooter && (
         <HeaderFooterDialog
           initialHeader={pageLayout.header ?? null}
           initialFooter={pageLayout.footer ?? null}
           onApply={onApplyHeaderFooter}
-          onClose={() => {
-            setShowHeaderFooter(false)
-            setPrintRevision((value) => value + 1)
-          }}
+          onClose={() => setShowHeaderFooter(false)}
         />
       )}
       <SheetTabContextMenu
@@ -2251,6 +2238,11 @@ function Ribbon({
   if (activeTab === 'Insert') {
     return (
       <div className="ribbon" data-ribbon-body="">
+        {/* Object-creating entries whose output the Go save cannot persist are
+            hidden rather than left clickable: what is inserted here would be
+            dropped on save. */}
+        {SAVE_PERSISTS_RICH_OBJECTS ? (
+          <>
         <RibbonGroup label={t('appGroupTables')}>
           <RibbonButton
             large
@@ -2433,15 +2425,6 @@ function Ribbon({
             </button>
           </div>
         </RibbonGroup>
-        <RibbonGroup label={t('appGroupLinks')}>
-          <RibbonButton
-            large
-            label={t('appLink')}
-            detail={t('appAtSelection')}
-            symbol="🔗"
-            onClick={() => onCommand('link-open')}
-          />
-        </RibbonGroup>
         <RibbonGroup label={t('appGroupComments')}>
           <RibbonButton
             large
@@ -2465,6 +2448,19 @@ function Ribbon({
             detail={t('appPrintedPages')}
             symbol="🗎"
             onClick={() => onCommand('header-footer-open')}
+          />
+        </RibbonGroup>
+          </>
+        ) : null}
+        {/* Hyperlinks are persisted by the engine (SaveRequest.HyperlinkEdits),
+            so this entry stays outside the rich-object gate. */}
+        <RibbonGroup label={t('appGroupLinks')}>
+          <RibbonButton
+            large
+            label={t('appLink')}
+            detail={t('appAtSelection')}
+            symbol="🔗"
+            onClick={() => onCommand('link-open')}
           />
         </RibbonGroup>
         <RibbonGroup label={t('appGroupSymbols')}>
@@ -2682,6 +2678,15 @@ function Ribbon({
               {t('appPrintCheck')}
             </button>
           </div>
+        </RibbonGroup>
+        <RibbonGroup label={t('appGroupExport')}>
+          <RibbonButton
+            large
+            label={t('appExportPdfTitle')}
+            detail={t('appExportPdfDetail')}
+            symbol="📄"
+            onClick={() => onCommand('export-pdf')}
+          />
         </RibbonGroup>
       </div>
     )
@@ -3628,24 +3633,26 @@ function Ribbon({
             {t('appConditionalFormatting')}
             <CaretIcon />
           </button>
-          <div className="styles-row as-button" data-tip={t('appFormatAsTableTitle')}>
-            <ToolSymbol symbol="▦" />
-            {t('appFormatAsTable')}
-            <CaretIcon />
-            <MenuSelect
-              cover
-              label="Format as Table"
-              options={[
-                { value: 'TableStyleLight1', label: t('appTableStyleLight1') },
-                { value: 'TableStyleLight9', label: t('appTableStyleLight9') },
-                { value: 'TableStyleMedium2', label: t('appTableStyleMedium2') },
-                { value: 'TableStyleMedium4', label: t('appTableStyleMedium4') },
-                { value: 'TableStyleMedium7', label: t('appTableStyleMedium7') },
-                { value: 'TableStyleDark2', label: t('appTableStyleDark2') },
-              ]}
-              onPick={(value) => onCommand(`format-as-table:${value}`)}
-            />
-          </div>
+          {SAVE_PERSISTS_RICH_OBJECTS ? (
+            <div className="styles-row as-button" data-tip={t('appFormatAsTableTitle')}>
+              <ToolSymbol symbol="▦" />
+              {t('appFormatAsTable')}
+              <CaretIcon />
+              <MenuSelect
+                cover
+                label="Format as Table"
+                options={[
+                  { value: 'TableStyleLight1', label: t('appTableStyleLight1') },
+                  { value: 'TableStyleLight9', label: t('appTableStyleLight9') },
+                  { value: 'TableStyleMedium2', label: t('appTableStyleMedium2') },
+                  { value: 'TableStyleMedium4', label: t('appTableStyleMedium4') },
+                  { value: 'TableStyleMedium7', label: t('appTableStyleMedium7') },
+                  { value: 'TableStyleDark2', label: t('appTableStyleDark2') },
+                ]}
+                onPick={(value) => onCommand(`format-as-table:${value}`)}
+              />
+            </div>
+          ) : null}
           <div className="styles-row as-button" data-tip={t('appCellStylesTitle')}>
             <ToolSymbol symbol="🎨" />
             {t('appCellStyles')}

@@ -5,20 +5,12 @@
 /// schema and the preload's hand-rolled validator (which stays zod-free).
 export const MAX_SAVE_EDITS = 1_000_000
 
-/// Above this, the renderer stages edits through the chunked transfer
-/// instead of the inline request: live object graphs cross the context
-/// bridge property by property (~38s for a million edits measured on an M-
-/// series laptop), while the transfer's JSON-string chunks cross as flat
-/// strings in milliseconds.
-export const SAVE_EDITS_INLINE_MAX = 10_000
-
-/// Chunked save-edit transfer: the renderer uploads the edits as
-/// JSON-serialized slices of SAVE_EDITS_CHUNK_MAX edits (a flat string per
-/// IPC message instead of a structured-clone spike), then sends the save
-/// request with an editsTransferId instead of an inline edits array. The
-/// absolute ceiling is MAX_SAVE_EDITS_TOTAL — roughly "one bulk action over
-/// an entire very large sheet"; past that the bottleneck is main-process
-/// memory, not transport.
+/// Chunked save-edit batching: edit sets above SAVE_EDITS_CHUNK_MAX are split
+/// into sequential ordinary save requests on the same session (each request
+/// writes the workbook and reloads it in place), so every edit reaches the
+/// file. The absolute ceiling is MAX_SAVE_EDITS_TOTAL — roughly "one bulk
+/// action over an entire very large sheet"; past that the bottleneck is
+/// main-process memory, not transport.
 export const SAVE_EDITS_CHUNK_MAX = 100_000
 export const MAX_SAVE_EDITS_TOTAL = 10_000_000
 /// Byte-scale sanity cap on one serialized chunk (typical 100k-edit chunks
@@ -85,8 +77,6 @@ export const IPC_CHANNELS = {
   closeSaveRequest: 'workbook:close-save-request',
   closeSaveResult: 'workbook:close-save-result',
   exportPdf: 'workbook:export-pdf',
-  printWorkbook: 'workbook:print',
-  listPrinters: 'workbook:list-printers',
   exportCsv: 'workbook:export-csv',
   csvSaveConfirm: 'workbook:csv-save-confirm',
   /** AI create_document: new standalone file in the default folder (no dialog) */

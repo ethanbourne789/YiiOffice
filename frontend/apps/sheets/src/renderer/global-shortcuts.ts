@@ -68,6 +68,9 @@ const PASTE_SPECIAL = command('paste-special-open')
 const BINDINGS: readonly Binding[] = [
   { code: 'Digit1', chord: { mod: true }, gate: 'grid', action: FORMAT_CELLS },
   { code: 'KeyG', chord: { mod: true }, gate: 'grid', action: GO_TO },
+  // Ctrl/Cmd+P: only PDF export is supported, so the print chord converges on
+  // it instead of opening a print dialog that cannot print.
+  { code: 'KeyP', chord: { mod: true }, gate: 'sheet', action: command('export-pdf') },
   { code: 'F5', chord: {}, gate: 'grid', action: GO_TO },
   {
     code: 'Backquote',

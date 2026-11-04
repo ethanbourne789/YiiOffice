@@ -2516,21 +2516,8 @@ export const workbookExportPdfRequestSchema = z
     /// Headless export mode only (--headless-export): write here instead of
     /// opening the save dialog. Ignored by a normal GUI session.
     outPath: z.string().min(1).max(4096).optional(),
-    /// Print only: silent print on this printer ('' = the system default);
-    /// absent opens the system print dialog.
-    deviceName: z.string().max(255).optional(),
-    copies: z.number().int().min(1).max(999).optional(),
-    collate: z.boolean().optional(),
   })
   .strict()
-
-export const printerInfoSchema = z
-  .object({
-    name: z.string().max(255),
-    displayName: z.string().max(255),
-  })
-  .strict()
-export type PrinterInfo = z.infer<typeof printerInfoSchema>
 
 export const workbookExportPdfResultSchema = z.union([
   z.object({ canceled: z.literal(true) }).strict(),
@@ -2539,14 +2526,6 @@ export const workbookExportPdfResultSchema = z.union([
 
 export type WorkbookExportPdfRequest = z.infer<typeof workbookExportPdfRequestSchema>
 export type WorkbookExportPdfResult = z.infer<typeof workbookExportPdfResultSchema>
-
-/// Print of the same laid-out HTML through the system print dialog. `ok: false`
-/// without an error is the user closing the dialog.
-export const workbookPrintResultSchema = z.union([
-  z.object({ ok: z.literal(true) }).strict(),
-  z.object({ ok: z.literal(false), error: z.string().optional() }).strict(),
-])
-export type WorkbookPrintResult = z.infer<typeof workbookPrintResultSchema>
 
 /// CSV export of the active sheet: the renderer serializes display values,
 /// the main process runs the loss warning + save dialog and writes the bytes.
@@ -2674,6 +2653,9 @@ export interface DesktopApi {
    */
   onChromePressed(handler: () => void): () => void
   selectWorkbook(): Promise<WorkbookFile | null>
+  /// Retry an encrypted open with the password the user typed. The path is the
+  /// one the failed open reported, so the UI never needs a second picker.
+  openWorkbookWithPassword(path: string, password: string): Promise<WorkbookFile | null>
   /** multi-select xlsx picker; each file opens a secondary sidecar session for merge reads */
   selectWorkbooksForMerge(): Promise<WorkbookFile[] | null>
   /** open explicit spreadsheet paths (chat attachments) as merge-source sessions */
@@ -2717,8 +2699,6 @@ export interface DesktopApi {
     baseName: string,
   ): Promise<{ renamed: boolean; name?: string }>
   exportPdf(request: WorkbookExportPdfRequest): Promise<WorkbookExportPdfResult>
-  printWorkbook(request: WorkbookExportPdfRequest): Promise<WorkbookPrintResult>
-  listPrinters(): Promise<PrinterInfo[]>
   exportCsv(request: WorkbookExportCsvRequest): Promise<WorkbookExportCsvResult>
   /// First Save of a CSV session: "keep this format?" confirmation
   /// (renderer modal; no native question dialog exists in this build).
@@ -2764,4 +2744,4 @@ export interface DesktopApi {
 }
 
 export type MenuAction =
-  'open' | 'save' | 'save-as' | 'print' | 'export-pdf' | 'export-csv' | 'undo' | 'redo'
+  'open' | 'save' | 'save-as' | 'export-pdf' | 'export-csv' | 'undo' | 'redo'

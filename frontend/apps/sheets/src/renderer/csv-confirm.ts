@@ -5,7 +5,7 @@
  * .format-cells-dialog / .dialog-actions) to inherit their styling, and
  * reuses the shared Tab trap. Escape and backdrop clicks mean cancel.
  */
-import { trapTab } from './modal-dialog'
+import { installModalBehavior } from '@yiioffice/ui'
 import { t } from './i18n/locale'
 
 export type CsvSaveChoice = 'csv' | 'xlsx' | 'cancel'
@@ -39,20 +39,12 @@ export function showCsvKeepFormatConfirm(): Promise<CsvSaveChoice> {
     text.textContent = t('appCsvKeepBody')
     body.append(heading, text)
 
+    let stopModal: () => void = () => {}
     const finish = (choice: CsvSaveChoice): void => {
-      document.removeEventListener('keydown', onKey)
+      stopModal()
       backdrop.remove()
       active = null
-      if (opener && opener !== document.body && opener.isConnected) opener.focus()
       resolve(choice)
-    }
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        finish('cancel')
-      } else if (event.key === 'Tab') {
-        trapTab(card, event)
-      }
     }
 
     const actions = document.createElement('div')
@@ -72,9 +64,13 @@ export function showCsvKeepFormatConfirm(): Promise<CsvSaveChoice> {
     card.append(body, actions)
     backdrop.append(card)
     backdrop.addEventListener('click', () => finish('cancel'))
-    document.addEventListener('keydown', onKey)
     document.body.append(backdrop)
-    ;(actions.lastElementChild as HTMLButtonElement | null)?.focus()
+    stopModal = installModalBehavior(card, {
+      onClose: () => finish('cancel'),
+      initialFocus: actions.lastElementChild as HTMLElement | null,
+      restoreFocus: true,
+      opener,
+    })
   })
   return active
 }

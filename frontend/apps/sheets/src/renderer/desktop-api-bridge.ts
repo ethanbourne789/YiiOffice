@@ -6,8 +6,9 @@
  * Channel names match the Go bridge constants in internal/bridge/sheets.go.
  * Stub channels return no-op values so the renderer boots cleanly.
  */
-import { on, currentTabPath } from '@yiioffice/wails-bridge'
+import { on, currentTabPath, headlessExportChannel } from '@yiioffice/wails-bridge'
 import * as wb from '@bindings/gitee.com/ethanbourne789/yiioffice/internal/bridge/workbookservice'
+import * as exp from '@bindings/gitee.com/ethanbourne789/yiioffice/internal/bridge/exportservice'
 import {
   GetLanguage as HomeLanguage,
   GetTheme as HomeTheme,
@@ -86,7 +87,6 @@ const MENU_ACTIONS: readonly string[] = [
   'open',
   'save',
   'save-as',
-  'print',
   'export-pdf',
   'export-csv',
   'undo',
@@ -122,6 +122,9 @@ function imageMediaTypeOf(path: string): LocalImageResult['mediaType'] {
  * Every method routes through generated bindings or events.
  */
 export function createDesktopApi(): DesktopApi {
+  // Created eagerly so the headless-ready handshake is emitted as soon as the
+  // renderer runtime starts, before React mounts and the workbook is opened.
+  const headless = headlessExportChannel('sheets')
   return {
     // --- App settings ---
     getLanguage() {
@@ -175,6 +178,11 @@ export function createDesktopApi(): DesktopApi {
     selectWorkbook() {
       // Absent numeric cells arrive as `null` from Go; the shared type marks them optional.
       return wb.SelectWorkbook().then((file) => (file === null ? null : fromWire<WorkbookFile>(file)))
+    },
+    openWorkbookWithPassword(path, password) {
+      return wb.OpenFileWithPassword(path, password).then((file) =>
+        file === null ? null : fromWire<WorkbookFile>(file),
+      )
     },
     selectWorkbooksForMerge() {
       return Promise.resolve(null) // merge workbooks are not supported by the Go engine
@@ -251,17 +259,21 @@ export function createDesktopApi(): DesktopApi {
 
     // --- Export ---
     exportPdf(request) {
+      // Headless export: the CLI already owns the output path, so bypass the
+      // save dialog (WorkbookService.ExportPdf always opens one).
+      const outPath = request.outPath
+      if (outPath) {
+        return exp
+          .ExportPdf(request.html, outPath, request.fileName, 0, 0)
+          .then((result) => {
+            if (!result.ok) throw new Error(result.error || 'export pdf failed')
+            return { canceled: false as const, path: result.path || outPath }
+          })
+      }
       // The Go side lays the page out itself, so only the HTML and a file name cross.
       return wb.ExportPdf(request.fileName, request.html).then((result) =>
         result.canceled ? { canceled: true as const } : { canceled: false as const, path: result.path ?? '' },
       )
-    },
-    printWorkbook() {
-      // No host printing pipeline: surface it so the Print dialog shows the reason.
-      return Promise.reject(new Error('Native printing is not supported; use Export PDF instead.'))
-    },
-    listPrinters() {
-      return wb.ListPrinters()
     },
     exportCsv(request) {
       // The Go exporter writes the bytes and returns the path it used; there is no
@@ -340,10 +352,10 @@ export function createDesktopApi(): DesktopApi {
 
     // --- Headless export ---
     async consumeHeadlessExport() {
-      return null // stub
+      return (await headless.consume())?.outPath ?? null
     },
-    headlessExportDone() {
-      return noop() // stub
+    headlessExportDone(result) {
+      headless.done(result)
     },
 
     // --- User ---
