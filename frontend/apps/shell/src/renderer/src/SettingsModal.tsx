@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { SegmentedControl } from '@yiioffice/ui'
+import { SegmentedControl, useModalDialog } from '@yiioffice/ui'
+import { shellCheckLatestRelease, shellOpenExternal } from '@yiioffice/wails-bridge'
+import type { LatestRelease } from '@yiioffice/wails-bridge'
 import type { FileAssocEntry } from '../../shared/home-api'
-import { useI18n } from './locale'
+import { bridgeErrorText, useI18n } from './locale'
 import type { StringKey } from './locale'
 import type { DocTheme, UiTheme } from '../../shared/home-api'
 import './settings.css'
@@ -15,6 +17,9 @@ const LANG_OPTIONS = [
   { value: 'en', label: 'English' },
   { value: 'zh', label: '简体中文' },
 ] as const
+
+/** client-side guard for a check that never answers (the Go side times out at 15s) */
+const UPDATE_CHECK_TIMEOUT_MS = 20000
 
 // GenMail's option order: follow-system first, then the manual picks
 const THEME_OPTIONS = [
@@ -85,6 +90,13 @@ function SectionIcon({ id }: { id: SectionId }) {
   )
 }
 
+/** absolute time for a release timestamp, or '' when it cannot be parsed */
+function formatReleaseDate(iso: string, locale: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(date)
+}
+
 /** label-over-value field row with an optional right-aligned action */
 function Field({
   label,
@@ -124,7 +136,8 @@ export function SettingsModal({
   onClose,
   target,
 }: SettingsModalProps) {
-  const { lang, setLang, t } = useI18n()
+  const { lang, setLang, t, dateLocale } = useI18n()
+  const modal = useModalDialog(onClose, { restoreFocus: true })
   const [section, setSection] = useState<SectionId>(target?.section ?? 'general')
   useEffect(() => {
     if (target) setSection(target.section)
@@ -137,6 +150,12 @@ export function SettingsModal({
   const [fileAssoc, setFileAssoc] = useState<FileAssocEntry[]>([])
   const [assocBusy, setAssocBusy] = useState<Record<string, boolean>>({})
   const [appVersion, setAppVersion] = useState('')
+  // Manual update check (About pane). `updateCheck` is the last answer; a
+  // transport failure lands in `updateError` because it has no status to show.
+  const [updateCheck, setUpdateCheck] = useState<LatestRelease | null>(null)
+  const [updateError, setUpdateError] = useState<string | null>(null)
+  const [updateBusy, setUpdateBusy] = useState(false)
+  const updateTimer = useRef<number | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -163,14 +182,6 @@ export function SettingsModal({
       alive = false
     }
   }, [])
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [onClose])
 
   const applyTheme = (next: UiTheme) => {
     setTheme(next)
@@ -218,6 +229,75 @@ export function SettingsModal({
     void window.aiOffice.openDefaultAppSettings?.()
   }
 
+  // One read-only feed check per click: the button is disabled while a request
+  // is in flight, and a client-side timeout covers a service that never answers.
+  const runUpdateCheck = async () => {
+    if (updateBusy) return
+    setUpdateBusy(true)
+    setUpdateError(null)
+    const timeout = new Promise<never>((_, reject) => {
+      updateTimer.current = window.setTimeout(
+        () => reject(new Error(t('updateTimeout'))),
+        UPDATE_CHECK_TIMEOUT_MS,
+      )
+    })
+    try {
+      const result = await Promise.race([shellCheckLatestRelease(), timeout])
+      setUpdateCheck(result ?? null)
+    } catch (err) {
+      setUpdateError(err instanceof Error && err.message ? err.message : t('updateFailedUnknown'))
+    } finally {
+      if (updateTimer.current !== null) {
+        window.clearTimeout(updateTimer.current)
+        updateTimer.current = null
+      }
+      setUpdateBusy(false)
+    }
+  }
+
+  const updateVersion = updateCheck
+    ? updateCheck.latestSemver || updateCheck.releaseName || updateCheck.latestVersion || '—'
+    : ''
+  // Backend failures carry a stable code; show the localized copy and keep the
+  // raw text behind a "details" expander instead of echoing Go's English text.
+  const updateFailureRaw =
+    updateError ?? (updateCheck?.status === 'error' ? updateCheck.message ?? '' : '')
+  const updateFailureReason =
+    updateError === t('updateTimeout')
+      ? updateError
+      : updateFailureRaw.trim() !== ''
+        ? bridgeErrorText(updateFailureRaw, t)
+        : t('updateFailedUnknown')
+  const updateFailureDetails =
+    !updateError && updateCheck?.status === 'error' && updateFailureRaw.trim() !== ''
+      ? updateFailureRaw
+      : ''
+  const updateStatusText = updateBusy
+    ? t('updateChecking')
+    : updateError || updateCheck?.status === 'error'
+      ? t('updateFailed', { reason: updateFailureReason })
+      : !updateCheck
+        ? t('updateIdle')
+        : updateCheck.status === 'latest'
+          ? t('updateUpToDate')
+          : updateCheck.status === 'update-available'
+            ? t('updateAvailable', { v: updateVersion })
+            : t('updateIncomparable', { v: updateVersion })
+  const showUpdateRelease =
+    updateCheck !== null &&
+    (updateCheck.status === 'update-available' || updateCheck.status === 'incomparable')
+  const updateReleaseUrl = showUpdateRelease ? (updateCheck.releaseUrl ?? '') : ''
+  // a release we cannot order against the running version: say why in plain
+  // words instead of exposing the tag/version-format internals
+  const updateHint =
+    !updateBusy && !updateError && updateCheck?.status === 'incomparable'
+      ? t('updateIncomparableWhy')
+      : ''
+  const updateDate =
+    showUpdateRelease && updateCheck?.publishedAt
+      ? formatReleaseDate(updateCheck.publishedAt, dateLocale)
+      : ''
+
   return (
     <div
       className="set-overlay"
@@ -225,7 +305,14 @@ export function SettingsModal({
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="set-dialog" role="dialog" aria-modal="true" aria-label={t('settings')}>
+      <div
+        ref={modal.ref}
+        className="set-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('settings')}
+        onKeyDown={modal.onKeyDown}
+      >
         <div className="set-header">
           <h2 className="set-title">{t('settings')}</h2>
           <button className="set-close" onClick={onClose} aria-label={t('cancel')}>
@@ -380,6 +467,56 @@ export function SettingsModal({
               <>
                 <h3 className="set-pane-title">{t('setSecAbout')}</h3>
                 <Field label={t('versionLabel')} value={appVersion || '—'} />
+                <div className="set-update">
+                  <div className="set-update-row">
+                    <div className="set-update-text">
+                      <div className="set-update-status" role="status" aria-live="polite">
+                        {updateStatusText}
+                        {updateHint && <div className="set-update-hint">{updateHint}</div>}
+                        {updateFailureDetails && (
+                          <details className="set-update-notes">
+                            <summary>{t('updateErrorDetails')}</summary>
+                            <div className="set-update-notes-body">{updateFailureDetails}</div>
+                          </details>
+                        )}
+                      </div>
+                      {showUpdateRelease && (
+                        <div className="set-update-meta">
+                          {updateDate
+                            ? t('updatePublished', { date: updateDate })
+                            : t('updatePublishedUnknown')}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      className="set-btn primary"
+                      disabled={updateBusy}
+                      onClick={() => void runUpdateCheck()}
+                    >
+                      {updateBusy ? t('updateChecking') : t('updateCheck')}
+                    </button>
+                  </div>
+                  {showUpdateRelease && (
+                    <div className="set-update-release">
+                      {updateCheck?.notes ? (
+                        <details className="set-update-notes">
+                          <summary>{t('updateNotes')}</summary>
+                          <div className="set-update-notes-body">{updateCheck.notes}</div>
+                        </details>
+                      ) : (
+                        <div className="set-update-meta">{t('updateNoNotes')}</div>
+                      )}
+                      {updateReleaseUrl && (
+                        <button
+                          className="set-btn"
+                          onClick={() => void shellOpenExternal(updateReleaseUrl)}
+                        >
+                          {t('updateOpenRelease')}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </>
             )}
           </div>
