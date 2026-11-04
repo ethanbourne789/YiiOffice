@@ -12,6 +12,8 @@ import type { FileSearchPage } from '../../shared/home-api'
 
 export type SearchViewState =
   | { kind: 'idle' }
+  /** the query is in flight and there is no page to show yet */
+  | { kind: 'loading'; q: string }
   /** the index is open and still catching up with the file system */
   | { kind: 'indexing'; pending: number }
   /** the index is down; `reason` explains why (may be empty) */
@@ -23,11 +25,18 @@ export type SearchViewState =
 
 /** the state the search results area is in, given the last search page */
 export function searchViewState(page: FileSearchPage | null, q: string): SearchViewState {
-  if (!page) return { kind: 'idle' }
+  if (!q.trim()) return { kind: 'idle' }
+  // the previous query's page must not be mistaken for this query's answer
+  if (!page) return { kind: 'loading', q }
   if (page.unavailable) return { kind: 'unavailable', reason: page.unavailable.reason }
-  if (page.index.pending > 0 || page.index.scanning) {
-    return { kind: 'indexing', pending: page.index.pending }
+  // matches outrank the indexing banner: hiding them until the scan finishes
+  // made search look broken on a large, still-indexing library
+  if (page.hits.length > 0) return { kind: 'results', total: page.total }
+  const index = page.index as unknown
+  if (typeof index === 'object' && index !== null) {
+    const pending = Number((index as { pending?: unknown }).pending ?? 0)
+    const scanning = Boolean((index as { scanning?: unknown }).scanning)
+    if (pending > 0 || scanning) return { kind: 'indexing', pending }
   }
-  if (page.hits.length === 0) return { kind: 'no-results', q }
-  return { kind: 'results', total: page.total }
+  return { kind: 'no-results', q }
 }

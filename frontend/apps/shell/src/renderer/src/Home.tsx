@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { DragEvent as ReactDragEvent, ReactElement } from 'react'
+import type { DragEvent as ReactDragEvent, ReactElement, ReactNode } from 'react'
 import brandLogo from './assets/brand-logo.png'
 import iconDocx from './assets/file-docx.svg'
 import iconXlsx from './assets/file-xlsx.svg'
@@ -18,10 +18,10 @@ import type {
   FileSearchPage,
 } from '../../shared/home-api'
 import { markText } from '../../shared/text-marks'
-import { useDismissablePopover, showToast } from '@yiioffice/ui'
+import { useDismissablePopover, showToast, useModalDialog } from '@yiioffice/ui'
 import { fileCountLabel, visiblePageCount } from './counts'
 import { searchViewState } from './search-state'
-import { useI18n } from './locale'
+import { bridgeErrorText, useI18n } from './locale'
 import type { I18n, StringKey } from './locale'
 import { SettingsModal } from './SettingsModal'
 import type { SettingsTarget } from './SettingsModal'
@@ -230,17 +230,27 @@ const FILTERS: { key: string; label: StringKey }[] = [
   { key: 'md', label: 'filterMd' },
 ]
 
-/** sidebar filter keys that stand for a family of extensions (mirrors recent-files.ts) */
+/** sidebar filter keys that stand for a family of extensions (mirrors the bridge + Go side) */
 const FILTER_FAMILY: Record<string, readonly string[]> = {
   docx: ['docx', 'doc'],
   xlsx: ['xlsx', 'xlsm', 'xls', 'csv', 'tsv'],
   pptx: ['pptx', 'ppt'],
-  md: ['md', 'markdown', 'txt', 'json'],
+  md: ['md', 'markdown'],
 }
 
 function matchesFilter(entry: RecentEntry, filter: string): boolean {
   if (filter === 'all') return true
-  return (FILTER_FAMILY[filter] ?? [filter]).includes(entry.ext)
+  return (FILTER_FAMILY[filter] ?? [filter]).includes((entry.ext || '').toLowerCase())
+}
+
+/**
+ * The type filter key → the value the search index expects. The Go side's
+ * family map is keyed by "markdown", so sending the sidebar's "md" key would
+ * only match .md and drop .markdown files that the list view shows.
+ */
+function searchExtOf(filter: string): string | undefined {
+  if (filter === 'all') return undefined
+  return filter === 'md' ? 'markdown' : filter
 }
 
 /** wrap every matched fragment of a name or folder label in the shared search-hit mark */
@@ -319,9 +329,15 @@ function writeTreeState(state: TreeState): void {
  */
 function useFolderListings() {
   const [listings, setListings] = useState<ReadonlyMap<string, FolderListing>>(new Map())
+  // dir → why the last listing failed; cleared on the next success. Without it
+  // a denied/moved folder rendered as "this folder is empty".
+  const [errors, setErrors] = useState<ReadonlyMap<string, string>>(new Map())
   // dir → whether a reload was requested while its request was in flight (the
   // in-flight answer may predate the change, so it is fetched once more)
   const inflight = useRef(new Map<string, boolean>())
+  const { t } = useI18n()
+  const tRef = useRef(t)
+  tRef.current = t
 
   const load = useCallback((dir: string, force = false) => {
     if (inflight.current.has(dir)) {
@@ -335,6 +351,19 @@ function useFolderListings() {
         setListings((prev) => {
           const next = new Map(prev)
           next.set(dir, listing)
+          return next
+        })
+        setErrors((prev) => {
+          if (!prev.has(dir)) return prev
+          const next = new Map(prev)
+          next.delete(dir)
+          return next
+        })
+      })
+      .catch((error: unknown) => {
+        setErrors((prev) => {
+          const next = new Map(prev)
+          next.set(dir, bridgeErrorText(error, tRef.current))
           return next
         })
       })
@@ -360,7 +389,10 @@ function useFolderListings() {
     [load],
   )
 
-  const reset = useCallback(() => setListings(new Map()), [])
+  const reset = useCallback(() => {
+    setListings(new Map())
+    setErrors(new Map())
+  }, [])
 
   /** shown or currently loading: the folders a watch event should refresh */
   const tracked = useCallback(
@@ -368,7 +400,41 @@ function useFolderListings() {
     [listings],
   )
 
-  return { listings, load, invalidate, reset, tracked }
+  return { listings, errors, load, invalidate, reset, tracked }
+}
+
+// ── Shared home modal shell ──────────────────────────────
+
+/** Every Home dialog goes through the shared modal contract: focus in on
+ *  open, Tab trapped, Esc/backdrop close, focus back to the opener, and the
+ *  page behind inert. (The saved-choice buttons keep their `autoFocus`.) */
+function HomeDialog({
+  label,
+  onClose,
+  className,
+  children,
+}: {
+  label: string
+  onClose: () => void
+  className?: string
+  children: ReactNode
+}): ReactElement {
+  const modal = useModalDialog(onClose, { restoreFocus: true })
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div
+        ref={modal.ref}
+        className={`modal${className ? ` ${className}` : ''}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={modal.onKeyDown}
+      >
+        {children}
+      </div>
+    </div>
+  )
 }
 
 // ── Move-to-folder picker ────────────────────────────────
@@ -405,14 +471,6 @@ function FolderPicker({
   useEffect(() => {
     for (const dir of expanded) load(dir)
   }, [expanded, load])
-
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCancel()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onCancel])
 
   const disabledDir = (dir: string) =>
     currentDirs.has(dir) ||
@@ -562,14 +620,7 @@ function FolderPicker({
   }
 
   return (
-    <div className="modal-overlay" onClick={onCancel}>
-      <div
-        className="modal picker-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('moveToFolderTitle')}
-        onClick={(e) => e.stopPropagation()}
-      >
+    <HomeDialog label={t('moveToFolderTitle')} onClose={onCancel} className="picker-modal">
         <h3>{t('moveToFolderTitle')}</h3>
         <input
           className="picker-search"
@@ -612,8 +663,7 @@ function FolderPicker({
             {t('moveCount', { n: count })}
           </button>
         </div>
-      </div>
-    </div>
+    </HomeDialog>
   )
 }
 
@@ -626,22 +676,8 @@ interface ConflictPromptProps {
 
 function ConflictPrompt({ names, onChoose }: ConflictPromptProps) {
   const { t } = useI18n()
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onChoose('skip')
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onChoose])
   return (
-    <div className="modal-overlay" onClick={() => onChoose('skip')}>
-      <div
-        className="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('conflictTitle')}
-        onClick={(e) => e.stopPropagation()}
-      >
+    <HomeDialog label={t('conflictTitle')} onClose={() => onChoose('skip')}>
         <h3>{t('conflictTitle')}</h3>
         <p>
           {names.length === 1
@@ -667,8 +703,7 @@ function ConflictPrompt({ names, onChoose }: ConflictPromptProps) {
             {t('conflictReplace')}
           </button>
         </div>
-      </div>
-    </div>
+    </HomeDialog>
   )
 }
 
@@ -695,14 +730,6 @@ function GroupPicker({ groups, count, onCancel, onPick, onCreate, onRemove }: Gr
   const { t } = useI18n()
   const [name, setName] = useState('')
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCancel()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onCancel])
-
   const create = () => {
     const trimmed = name.trim()
     if (!trimmed) return
@@ -711,14 +738,7 @@ function GroupPicker({ groups, count, onCancel, onPick, onCreate, onRemove }: Gr
   }
 
   return (
-    <div className="modal-overlay" onClick={onCancel}>
-      <div
-        className="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('moveToGroupTitle')}
-        onClick={(e) => e.stopPropagation()}
-      >
+    <HomeDialog label={t('moveToGroupTitle')} onClose={onCancel}>
         <h3>{t('moveToGroupTitle')}</h3>
         <p>{t('selectedCount', { n: count })}</p>
         {groups.length > 0 && (
@@ -763,8 +783,7 @@ function GroupPicker({ groups, count, onCancel, onPick, onCreate, onRemove }: Gr
             {t('cancel')}
           </button>
         </div>
-      </div>
-    </div>
+    </HomeDialog>
   )
 }
 
@@ -846,11 +865,20 @@ function DropToOpenOverlay(): ReactElement | null {
 export function Home({ active = true }: { active?: boolean }) {
   const i18n = useI18n()
   const { t, lang } = i18n
+  // callbacks created once (loadRoot) must not depend on the per-render `t`
+  const tRef = useRef(t)
+  tRef.current = t
   // ── Paged list state (rows loaded for the current view + filter) ──
   const [entries, setEntries] = useState<RecentEntry[]>([])
   /** total count under the current view + filter (not just the loaded rows) */
   const [listTotal, setListTotal] = useState(0)
-  /** sidebar Recent / Starred counts under the active type filter */
+  /** total ignoring the filter/group (tells "no files" apart from "filter hides them") */
+  const [listTotalAll, setListTotalAll] = useState(0)
+  /** the first page is in flight: the empty list is not yet an answer */
+  const [listLoading, setListLoading] = useState(true)
+  /** the last list load failed ('' when the error had no message) */
+  const [listError, setListError] = useState<string | null>(null)
+  /** sidebar Recent / Starred counters: the whole collection, independent of the type filter */
   const [navCounts, setNavCounts] = useState({ recent: 0, starred: 0 })
   const [loadingMore, setLoadingMore] = useState(false)
   const [view, setView] = useState<'recent' | 'starred'>('recent')
@@ -919,6 +947,7 @@ export function Home({ active = true }: { active?: boolean }) {
   const seededRoot = useRef<string | null>(null)
   const {
     listings,
+    errors: folderErrors,
     load: loadFolder,
     invalidate: invalidateFolders,
     reset: resetFolders,
@@ -952,22 +981,33 @@ export function Home({ active = true }: { active?: boolean }) {
   const dragExpandTimer = useRef<number | null>(null)
 
   const loadRoot = useCallback(() => {
-    void window.aiOffice.folderRoots().then((next) => {
-      setRoots((prev) => {
-        if (prev[0] && prev[0].path !== next[0]?.path) {
-          // the default save folder changed in settings: the old tree is meaningless
-          resetFolders()
-          setSelectedFolder(null)
-          setExpanded(new Set(next.map((r) => r.path)))
-        } else if (prev.length > 0) {
-          // a folder just added opens so its contents show right away
-          const known = new Set(prev.map((r) => r.path))
-          const added = next.filter((r) => !known.has(r.path)).map((r) => r.path)
-          if (added.length > 0) setExpanded((e) => new Set([...e, ...added]))
-        }
-        return next
+    void window.aiOffice
+      .folderRoots()
+      .then((next) => {
+        setRoots((prev) => {
+          if (prev[0] && prev[0].path !== next[0]?.path) {
+            // the default save folder changed in settings: the old tree is meaningless
+            resetFolders()
+            setSelectedFolder(null)
+            setExpanded(new Set(next.map((r) => r.path)))
+          } else if (prev.length > 0) {
+            // a folder just added opens so its contents show right away
+            const known = new Set(prev.map((r) => r.path))
+            const added = next.filter((r) => !known.has(r.path)).map((r) => r.path)
+            if (added.length > 0) setExpanded((e) => new Set([...e, ...added]))
+          }
+          return next
+        })
       })
-    })
+      .catch((error: unknown) => {
+        // an empty folder tree reads as "no folders configured"; say why instead
+        showToast(
+          tRef.current('loadFailed', {
+            reason: bridgeErrorText(error, tRef.current),
+          }),
+          'error',
+        )
+      })
   }, [resetFolders])
 
   useEffect(loadRoot, [loadRoot])
@@ -1017,6 +1057,15 @@ export function Home({ active = true }: { active?: boolean }) {
   const requestSeq = useRef(0)
   const entriesLen = useRef(0)
   entriesLen.current = entries.length
+  // the offset the next page starts at; it counts fetched rows (not rendered
+  // ones), so filtering a duplicate never repeats the same page forever
+  const nextOffset = useRef(0)
+  // recents paging resumes after the last row actually returned: an offset
+  // would shift every time another file is opened mid-scroll
+  const nextCursor = useRef('')
+  // a first-page reload owns the list while it is in flight: scroll-triggered
+  // paging must not race it with a page computed from the outgoing filter
+  const listReloading = useRef(false)
 
   /** reload the list; keepCount keeps the loaded row count (refresh), otherwise back to page one */
   const reload = (keepCount: boolean) => {
@@ -1028,33 +1077,82 @@ export function Home({ active = true }: { active?: boolean }) {
     const limit = keepCount ? Math.max(entriesLen.current, PAGE_SIZE) : PAGE_SIZE
     const primary = view === 'recent' ? window.aiOffice.recents : window.aiOffice.starred
     const secondary = view === 'recent' ? window.aiOffice.starred : window.aiOffice.recents
-    void primary({ offset: 0, limit, ext, group }).then((page) => {
-      if (seq !== requestSeq.current) return
-      setEntries(page.entries)
-      setListTotal(page.total)
-      setNavCounts((prev) =>
-        view === 'recent'
-          ? { ...prev, recent: visiblePageCount(page) }
-          : { ...prev, starred: visiblePageCount(page) },
-      )
+    listReloading.current = true
+    // page-one reload for a new view/filter: drop the outgoing rows immediately
+    // so they are never mistaken for the new filter's result
+    if (!keepCount) {
+      setEntries([])
+      setListTotal(0)
+      nextOffset.current = 0
+    }
+    // a first page always starts from the newest record; a keep-count refresh
+    // re-pulls the same prefix, so the cursor it came with must be re-resolved
+    if (view === 'recent') nextCursor.current = ''
+    setListLoading(true)
+    setListError(null)
+    void primary({
+      offset: view === 'starred' ? 0 : undefined,
+      cursor: view === 'recent' ? '' : undefined,
+      limit,
+      ext,
+      group,
     })
-    // The other view fetches only its count under the same active filter.
-    void secondary({ offset: 0, limit: 0, ext }).then((page) => {
-      if (seq !== requestSeq.current) return
-      setNavCounts((prev) =>
-        view === 'recent'
-          ? { ...prev, starred: visiblePageCount(page) }
-          : { ...prev, recent: visiblePageCount(page) },
-      )
-    })
+      .then((page) => {
+        if (seq !== requestSeq.current) return
+        listReloading.current = false
+        setListLoading(false)
+        setListError(null)
+        setEntries(page.entries)
+        nextOffset.current = page.entries.length
+        nextCursor.current = page.nextCursor ?? ''
+        setListTotal(page.total)
+        setListTotalAll(page.totalAll)
+        setNavCounts((prev) =>
+          view === 'recent'
+            ? { ...prev, recent: visiblePageCount(page) }
+            : { ...prev, starred: visiblePageCount(page) },
+        )
+      })
+      .catch((error: unknown) => {
+        if (seq !== requestSeq.current) return
+        // a rejected binding (denied path, unreachable index, host error) used
+        // to leave the list empty, which reads as "there are no files"
+        listReloading.current = false
+        setListLoading(false)
+        setListError(bridgeErrorText(error, t))
+        setEntries([])
+        nextOffset.current = 0
+        nextCursor.current = ''
+        setListTotal(0)
+        setListTotalAll(0)
+      })
+    // The other view fetches only its counter. It deliberately carries no ext:
+    // the sidebar reports the collection size, not the filtered slice.
+    void secondary({ offset: 0, limit: 0 })
+      .then((page) => {
+        if (seq !== requestSeq.current) return
+        setNavCounts((prev) =>
+          view === 'recent'
+            ? { ...prev, starred: visiblePageCount(page) }
+            : { ...prev, recent: visiblePageCount(page) },
+        )
+      })
+      .catch(() => {
+        // a failed counter fetch must not fail the list it accompanies
+      })
     // the group pills live on the renderer, so their list rides along with
     // every reload; a vanished group (last file unstarred/ungrouped) clears
     // the filter instead of showing a silently empty list
-    void window.aiOffice.starredGroups().then((groups) => {
-      if (seq !== requestSeq.current) return
-      setStarredGroups(groups)
-      setGroupFilter((cur) => (cur && !groups.includes(cur) ? null : cur))
-    })
+    void window.aiOffice
+      .starredGroups()
+      .then((groups) => {
+        if (seq !== requestSeq.current) return
+        setStarredGroups(groups)
+        setGroupFilter((cur) => (cur && !groups.includes(cur) ? null : cur))
+      })
+      .catch(() => {
+        // groups are an optional refinement; keep the last known ones
+      })
   }
   const reloadRef = useRef(reload)
   reloadRef.current = reload
@@ -1090,20 +1188,39 @@ export function Home({ active = true }: { active?: boolean }) {
       setSearchPage(null)
       return
     }
+    // the previous query's hits must not stand in for the new query while its
+    // request is still in flight (the heading would report the old total).
+    // The sequence is bumped before the debounce so a late answer to the
+    // previous query is already stale when it lands.
+    const seq = ++searchSeq.current
+    setSearchPage(null)
     let timer = 0
     const run = () => {
       if (composingRef.current) {
         timer = window.setTimeout(run, 150)
         return
       }
-      const seq = ++searchSeq.current
-      const ext = filter === 'all' ? undefined : filter
-      void window.aiOffice.searchFiles({ q, ext, limit: 100 }).then((page) => {
-        if (seq !== searchSeq.current) return
-        setSearchPage(page)
-        // results grow while the background index catches up
-        if (page.index.pending > 0 || page.index.scanning) timer = window.setTimeout(run, 1500)
-      })
+      const ext = searchExtOf(filter)
+      void window.aiOffice
+        .searchFiles({ q, ext, limit: 100 })
+        .then((page) => {
+          if (seq !== searchSeq.current) return
+          setSearchPage(page)
+          // results grow while the background index catches up
+          if (page.index.pending > 0 || page.index.scanning) {
+            timer = window.setTimeout(run, 1500)
+          }
+        })
+        .catch((error: unknown) => {
+          if (seq !== searchSeq.current) return
+          // surface a rejected search instead of leaving "0 results" on screen
+          setSearchPage({
+            hits: [],
+            total: 0,
+            index: { indexed: 0, pending: 0, scanning: false },
+            unavailable: { reason: bridgeErrorText(error, t) },
+          })
+        })
     }
     timer = window.setTimeout(run, 150)
     return () => window.clearTimeout(timer)
@@ -1140,23 +1257,54 @@ export function Home({ active = true }: { active?: boolean }) {
   })
 
   const loadMore = () => {
-    if (loadingMore || !hasMore) return
+    if (loadingMore || !hasMore || listReloading.current) return
+    // recents is cursor paged: once the host reports no token the list is
+    // exhausted, even if a concurrent insert grew the counter past the rows
+    if (view === 'recent' && !nextCursor.current) return
     setLoadingMore(true)
     const seq = requestSeq.current
+    const offset = nextOffset.current
+    const cursor = nextCursor.current
     const ext = filter === 'all' ? undefined : filter
     const api = view === 'recent' ? window.aiOffice.recents : window.aiOffice.starred
-    void api({ offset: entriesLen.current, limit: PAGE_SIZE, ext }).then((page) => {
-      setLoadingMore(false)
-      if (seq !== requestSeq.current) return
-      setEntries((prev) => [...prev, ...page.entries])
-      setListTotal(page.total)
+    // the group pills scope the Starred list; without it, page 2 pulled rows
+    // from every group back into a filtered view
+    const group = view === 'starred' && groupFilter ? groupFilter : undefined
+    void api({
+      offset: view === 'starred' ? offset : undefined,
+      cursor: view === 'recent' ? cursor : undefined,
+      limit: PAGE_SIZE,
+      ext,
+      group,
     })
+      .then((page) => {
+        setLoadingMore(false)
+        if (seq !== requestSeq.current) return
+        nextOffset.current = offset + page.entries.length
+        nextCursor.current = page.nextCursor ?? ''
+        // a page boundary can repeat a path after a rename/move; drop the
+        // duplicates so React never sees two rows with the same key
+        setEntries((prev) => {
+          const seen = new Set(prev.map((e) => e.path))
+          return [...prev, ...page.entries.filter((e) => !seen.has(e.path))]
+        })
+        setListTotal(page.total)
+        setListTotalAll(page.totalAll)
+      })
+      .catch((error: unknown) => {
+        setLoadingMore(false)
+        if (seq !== requestSeq.current) return
+        showToast(
+          t('loadFailed', { reason: bridgeErrorText(error, t) }),
+          'error',
+        )
+      })
   }
   const loadMoreRef = useRef(loadMore)
   loadMoreRef.current = loadMore
 
   // oldest-first over a partially loaded list would miss the tail pages —
-  // keep pulling until the list is complete (backend caps recents at 100)
+  // keep pulling until the list is complete (one page per fetch)
   useEffect(() => {
     if (fileSort === 'oldest' && hasMore) loadMoreRef.current()
   }, [fileSort, hasMore, entries.length])
@@ -1341,20 +1489,47 @@ export function Home({ active = true }: { active?: boolean }) {
   }
 
   const toggleStar = (path: string) => {
-    void window.aiOffice.toggleStar(path).then(refresh)
+    void window.aiOffice
+      .toggleStar(path)
+      .then(refresh)
+      .catch((error: unknown) => {
+        showToast(t('actionFailed', { reason: bridgeErrorText(error, t) }), 'error')
+      })
+  }
+
+  // Paths currently being opened. A double click fires two clicks before the
+  // first open settles, which used to request the same document twice.
+  const opening = useRef(new Set<string>())
+  const openFile = (path: string) => {
+    if (opening.current.has(path)) return
+    opening.current.add(path)
+    void window.aiOffice
+      .openPath(path)
+      .catch((error: unknown) => {
+        // a denied path or a file that vanished used to fail silently
+        showToast(t('openFailed', { reason: bridgeErrorText(error, t) }), 'error')
+      })
+      .finally(() => opening.current.delete(path))
+  }
+
+  /** run a fire-and-forget bridge call and surface its rejection instead of dropping it */
+  const runAction = (action: () => Promise<unknown>) => {
+    void action().catch((error: unknown) => {
+      showToast(t('actionFailed', { reason: bridgeErrorText(error, t) }), 'error')
+    })
   }
 
   const removeRecent = (paths: string[]) => {
     setRowMenu(null)
     setSelected(new Set())
-    void window.aiOffice.removeRecent(paths).then(refresh)
+    runAction(() => window.aiOffice.removeRecent(paths).then(refresh))
   }
 
   /** the Starred view's bulk action: drop the stars, keep the recents entries */
   const unstarSelected = (paths: string[]) => {
     setRowMenu(null)
     setSelected(new Set())
-    void window.aiOffice.unstarPaths(paths).then(refresh)
+    runAction(() => window.aiOffice.unstarPaths(paths).then(refresh))
   }
 
   /** put rows into a group (null = out of their group); the pills list and
@@ -1362,7 +1537,7 @@ export function Home({ active = true }: { active?: boolean }) {
   const assignGroup = (paths: string[], group: string | null) => {
     setGroupPicker(null)
     setRowMenu(null)
-    void window.aiOffice.setStarredGroup(paths, group).then(refresh)
+    runAction(() => window.aiOffice.setStarredGroup(paths, group).then(refresh))
   }
 
   const deleteFiles = (paths: string[]) => {
@@ -1374,12 +1549,28 @@ export function Home({ active = true }: { active?: boolean }) {
     const paths = confirmDelete ?? []
     setConfirmDelete(null)
     setSelected(new Set())
-    void window.aiOffice.deleteFiles(paths).then(refresh)
+    void window.aiOffice
+      .deleteFiles(paths)
+      .then((failed) => {
+        // an occupied/denied file is skipped on the Go side; the list used to
+        // refresh as if every file had been deleted
+        if (failed.length > 0) {
+          showToast(
+            `${t('deleteFailed', { n: failed.length })}${failed[0] ? `：${failed[0]}` : ''}`,
+            'error',
+          )
+        }
+        refresh()
+      })
+      .catch((error: unknown) => {
+        showToast(t('actionFailed', { reason: bridgeErrorText(error, t) }), 'error')
+        refresh()
+      })
   }
 
   const duplicateFile = (path: string) => {
     setRowMenu(null)
-    void window.aiOffice.duplicateFile(path).then(refresh)
+    runAction(() => window.aiOffice.duplicateFile(path).then(refresh))
   }
 
   const startRename = (entry: RecentEntry) => {
@@ -1590,7 +1781,7 @@ export function Home({ active = true }: { active?: boolean }) {
     return (
       <div className="quick-cards">
         {NEW_ITEMS.map((item) => (
-          <button key={item.ext} className="quick-card" onClick={() => void item.action()}>
+          <button key={item.ext} className="quick-card" onClick={() => runAction(item.action)}>
             <FileBadge ext={item.ext} size={30} />
             <span className="quick-text">
               <span className="quick-title-row">
@@ -1602,7 +1793,7 @@ export function Home({ active = true }: { active?: boolean }) {
         ))}
         <button
           className="quick-card"
-          onClick={() => void window.aiOffice.browse()}
+          onClick={() => runAction(() => window.aiOffice.browse())}
           data-tip={OPEN_LOCAL_EXTENSIONS}
         >
           <span className="quick-folder">
@@ -1622,9 +1813,14 @@ export function Home({ active = true }: { active?: boolean }) {
   // ── Sidebar folder tree ──
 
   const addFolderRoot = () => {
-    void window.aiOffice.addFolderRoot().then((added) => {
-      if (added) loadRoot()
-    })
+    void window.aiOffice
+      .addFolderRoot()
+      .then((added) => {
+        if (added) loadRoot()
+      })
+      .catch((error: unknown) => {
+        showToast(t('actionFailed', { reason: bridgeErrorText(error, t) }), 'error')
+      })
   }
 
   /** the folder leaves the list only; whatever it held on disk stays where it is */
@@ -1632,7 +1828,7 @@ export function Home({ active = true }: { active?: boolean }) {
     setFolderMenu(null)
     if (selectedFolder && isUnder(path, selectedFolder)) setSelectedFolder(null)
     setExpanded((prev) => new Set([...prev].filter((dir) => !isUnder(path, dir))))
-    void window.aiOffice.removeFolderRoot(path).then(loadRoot)
+    runAction(() => window.aiOffice.removeFolderRoot(path).then(loadRoot))
   }
 
   // folders dragged in from the OS join the tree in place; documents open as they do anywhere else
@@ -1713,7 +1909,7 @@ export function Home({ active = true }: { active?: boolean }) {
               role="menuitem"
               onClick={() => {
                 setFolderMenu(null)
-                void window.aiOffice.revealPath(entry.path)
+                runAction(() => window.aiOffice.revealPath(entry.path))
               }}
             >
               {t('revealInFolder')}
@@ -1784,9 +1980,9 @@ export function Home({ active = true }: { active?: boolean }) {
           role="treeitem"
           tabIndex={0}
           title={file.name}
-          onClick={() => void window.aiOffice.openPath(file.path)}
+          onClick={() => openFile(file.path)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') void window.aiOffice.openPath(file.path)
+            if (e.key === 'Enter') openFile(file.path)
           }}
         >
           <button
@@ -1995,12 +2191,12 @@ export function Home({ active = true }: { active?: boolean }) {
           onClick={() => {
             if (isRenaming) return
             if (entry.missing) setConfirmMissing(entry)
-            else void window.aiOffice.openPath(entry.path)
+            else openFile(entry.path)
           }}
           onKeyDown={(event) => {
             if (event.key === 'Enter' && event.target === event.currentTarget) {
               if (entry.missing) setConfirmMissing(entry)
-              else void window.aiOffice.openPath(entry.path)
+              else openFile(entry.path)
             }
           }}
         >
@@ -2083,7 +2279,10 @@ export function Home({ active = true }: { active?: boolean }) {
                   role="menuitem"
                   onClick={() => {
                     setRowMenu(null)
-                    void window.aiOffice.openPath(entry.path)
+                    // the row itself refuses to open a missing file; the menu
+                    // used to try anyway and fail without any message
+                    if (entry.missing) setConfirmMissing(entry)
+                    else openFile(entry.path)
                   }}
                 >
                   {t('open')}
@@ -2092,7 +2291,7 @@ export function Home({ active = true }: { active?: boolean }) {
                   role="menuitem"
                   onClick={() => {
                     setRowMenu(null)
-                    void window.aiOffice.revealPath(entry.path)
+                    runAction(() => window.aiOffice.revealPath(entry.path))
                   }}
                 >
                   {t('revealInFolder')}
@@ -2101,7 +2300,7 @@ export function Home({ active = true }: { active?: boolean }) {
                   role="menuitem"
                   onClick={() => {
                     setRowMenu(null)
-                    void navigator.clipboard.writeText(entry.path)
+                    runAction(() => navigator.clipboard.writeText(entry.path))
                   }}
                 >
                   {t('copyPath')}
@@ -2291,7 +2490,7 @@ export function Home({ active = true }: { active?: boolean }) {
                   role="menuitem"
                   onClick={() => {
                     setFolderMenu(null)
-                    void window.aiOffice.revealPath(entry.path)
+                    runAction(() => window.aiOffice.revealPath(entry.path))
                   }}
                 >
                   {t('revealInFolder')}
@@ -2341,6 +2540,26 @@ export function Home({ active = true }: { active?: boolean }) {
         />
       </svg>
       <span className="empty-hint">{hint}</span>
+    </p>
+  )
+
+  /** an in-flight list is not an empty list; say so instead of claiming there are no files */
+  const renderLoading = (label: string) => (
+    <div className="search-status" role="status">
+      <span className="load-more-spinner" />
+      <span>{label}</span>
+    </div>
+  )
+
+  /** a rejected list/folder load must not fall through to the empty state */
+  const renderLoadError = (message: string, retry: () => void) => (
+    <p className="empty proj-empty" role="alert">
+      <span className="empty-hint">
+        {t('loadFailed', { reason: message || t('genericError') })}
+      </span>
+      <button className="btn btn-secondary" onClick={retry}>
+        {t('retry')}
+      </button>
     </p>
   )
 
@@ -2400,9 +2619,9 @@ export function Home({ active = true }: { active?: boolean }) {
       className="search-row"
       role="button"
       tabIndex={0}
-      onClick={() => void window.aiOffice.openPath(hit.path)}
+      onClick={() => openFile(hit.path)}
       onKeyDown={(e) => {
-        if (e.key === 'Enter') void window.aiOffice.openPath(hit.path)
+        if (e.key === 'Enter') openFile(hit.path)
       }}
     >
       <span className="recent-icon">
@@ -2437,6 +2656,12 @@ export function Home({ active = true }: { active?: boolean }) {
     const state = searchViewState(searchPage, q)
     return (
       <div className="search-results" aria-live="polite">
+        {state.kind === 'loading' && (
+          <div className="search-status" role="status">
+            <span className="load-more-spinner" />
+            {t('searching')}
+          </div>
+        )}
         {state.kind === 'indexing' && (
           <div className="search-status">
             <span className="load-more-spinner" />
@@ -2465,6 +2690,22 @@ export function Home({ active = true }: { active?: boolean }) {
 
   const renderSearchHeading = () => {
     const state = searchViewState(searchPage, q)
+    // the request is in flight: reporting "0 results" would be a guess
+    if (state.kind === 'loading') {
+      return (
+        <div className="recents-heading">
+          <span className="file-count">{t('searching')}</span>
+        </div>
+      )
+    }
+    // the index is still scanning: the true count is not known yet either
+    if (state.kind === 'indexing') {
+      return (
+        <div className="recents-heading">
+          <span className="file-count">{t('searchIndexing', { n: state.pending })}</span>
+        </div>
+      )
+    }
     // the index is down: "0 results" would state a fact we do not know
     if (state.kind === 'unavailable') {
       return (
@@ -2486,6 +2727,8 @@ export function Home({ active = true }: { active?: boolean }) {
   function renderFolderContent() {
     if (roots.length === 0) return null
     const total = folderSubfolders.length + folderFiles.length
+    // a denied/moved-out folder has no listing; it must not read as "empty"
+    const folderError = selectedFolder ? folderErrors.get(selectedFolder) : undefined
     const sortedFiles = fileSort === 'oldest' ? [...folderFiles].reverse() : folderFiles
     return (
       <main className="content">
@@ -2544,7 +2787,9 @@ export function Home({ active = true }: { active?: boolean }) {
             ) : (
               <div className="recents-heading folder-heading">
                 <span className="file-count">
-                  {t(total === 1 ? 'itemCountOne' : 'itemCount', { n: total })}
+                  {!folderListing
+                    ? t('loading')
+                    : t(total === 1 ? 'itemCountOne' : 'itemCount', { n: total })}
                 </span>
               </div>
             )}
@@ -2552,6 +2797,14 @@ export function Home({ active = true }: { active?: boolean }) {
 
           {searchActive ? (
             renderSearchResults()
+          ) : !folderListing ? (
+            folderError !== undefined ? (
+              renderLoadError(folderError, () => {
+                if (selectedFolder) loadFolder(selectedFolder, true)
+              })
+            ) : (
+              renderLoading(t('loading'))
+            )
           ) : total === 0 ? (
             renderEmpty(filter === 'all' ? t('emptyFolder') : t('emptyFiltered'))
           ) : (
@@ -2699,7 +2952,11 @@ export function Home({ active = true }: { active?: boolean }) {
                 <span className="section-label">
                   {view === 'recent' ? t('secRecent') : t('secStarred')}
                 </span>
-                <span className="file-count">{fileCountLabel(listTotal, lang, t)}</span>
+                <span className="file-count">
+                  {listLoading && entries.length === 0
+                    ? t('loading')
+                    : fileCountLabel(listTotal, lang, t)}
+                </span>
               </div>
             )}
           </div>
@@ -2707,12 +2964,22 @@ export function Home({ active = true }: { active?: boolean }) {
           {searchActive ? (
             renderSearchResults()
           ) : entries.length === 0 ? (
-            renderEmpty(
-              view === 'starred'
-                ? t('emptyStarred')
-                : navCounts.recent === 0
-                  ? t('emptyRecent')
-                  : t('emptyFiltered'),
+            listLoading ? (
+              renderLoading(t('loading'))
+            ) : listError !== null ? (
+              renderLoadError(listError, () => reloadRef.current(false))
+            ) : (
+              renderEmpty(
+                view === 'starred'
+                  ? // a group/type filter can hide every starred file; "no
+                    // favorites" would then be wrong
+                    (filter !== 'all' || groupFilter !== null) && listTotalAll > 0
+                    ? t('emptyFiltered')
+                    : t('emptyStarred')
+                  : filter !== 'all' && listTotalAll > 0
+                    ? t('emptyFiltered')
+                    : t('emptyRecent'),
+              )
             )
           ) : (
             <div className={`recent-table${selectedPaths.length > 0 ? ' has-selection' : ''}`}>
@@ -2854,14 +3121,7 @@ export function Home({ active = true }: { active?: boolean }) {
         renderGlobalContent()
       )}
       {confirmDelete && (
-        <div className="modal-overlay" onClick={() => setConfirmDelete(null)}>
-          <div
-            className="modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label={t('deleteModalTitle')}
-            onClick={(event) => event.stopPropagation()}
-          >
+        <HomeDialog label={t('deleteModalTitle')} onClose={() => setConfirmDelete(null)}>
             <h3>{t('deleteModalTitle')}</h3>
             <p>
               {confirmDelete.length === 1
@@ -2890,19 +3150,11 @@ export function Home({ active = true }: { active?: boolean }) {
                 {t('delete')}
               </button>
             </div>
-          </div>
-        </div>
+        </HomeDialog>
       )}
 
       {confirmDeleteFolder && (
-        <div className="modal-overlay" onClick={() => setConfirmDeleteFolder(null)}>
-          <div
-            className="modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label={t('deleteFolderTitle')}
-            onClick={(event) => event.stopPropagation()}
-          >
+        <HomeDialog label={t('deleteFolderTitle')} onClose={() => setConfirmDeleteFolder(null)}>
             <h3>{t('deleteFolderTitle')}</h3>
             <p>{t('deleteFolderConfirm', { name: fileName(confirmDeleteFolder) })}</p>
             <div className="modal-buttons">
@@ -2917,19 +3169,11 @@ export function Home({ active = true }: { active?: boolean }) {
                 {t('delete')}
               </button>
             </div>
-          </div>
-        </div>
+        </HomeDialog>
       )}
 
       {confirmMissing && (
-        <div className="modal-overlay" onClick={() => setConfirmMissing(null)}>
-          <div
-            className="modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label={t('missingFileTitle')}
-            onClick={(event) => event.stopPropagation()}
-          >
+        <HomeDialog label={t('missingFileTitle')} onClose={() => setConfirmMissing(null)}>
             <h3>{t('missingFileTitle')}</h3>
             <p>{t('missingFileBody', { name: confirmMissing.name })}</p>
             <div className="modal-buttons">
@@ -2951,8 +3195,7 @@ export function Home({ active = true }: { active?: boolean }) {
                 {t('removeFromList')}
               </button>
             </div>
-          </div>
-        </div>
+        </HomeDialog>
       )}
 
       {movePicker && canMove && (
