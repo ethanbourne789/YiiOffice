@@ -10,7 +10,7 @@ import (
 )
 
 // mockExporter writes a small file to simulate a successful export.
-func mockExporter(_ string, outPath string) error {
+func mockExporter(_, outPath, _ string) error {
 	return os.WriteFile(outPath, []byte("%PDF-mock"), 0o644)
 }
 
@@ -99,7 +99,7 @@ func TestRunHeadlessExportExporterFails(t *testing.T) {
 	os.WriteFile(docxPath, []byte("docx"), 0o644)
 	out := filepath.Join(t.TempDir(), "out.pdf")
 
-	failExporter := func(_, _ string) error {
+	failExporter := func(_, _, _ string) error {
 		return errors.New("render crash")
 	}
 

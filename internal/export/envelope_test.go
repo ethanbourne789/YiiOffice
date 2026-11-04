@@ -69,6 +69,18 @@ func TestHeadlessExitCodeInputError(t *testing.T) {
 	}
 }
 
+func TestHeadlessExitCodeHintOverridesHeuristic(t *testing.T) {
+	// A user path containing "missing"/"bad" must not turn an input failure into
+	// a bad-args code.
+	outcome := HeadlessOutcome{
+		Error:    `input file does not exist: C:\missing\bad report.docx`,
+		ExitHint: ExitInputError,
+	}
+	if got := HeadlessExitCode(outcome); got != ExitInputError {
+		t.Fatalf("got %d, want %d", got, ExitInputError)
+	}
+}
+
 func TestHeadlessExitCodeConversionFailure(t *testing.T) {
 	if got := HeadlessExitCode(HeadlessOutcome{Success: false, Error: "timeout during render"}); got != ExitConversionFailed {
 		t.Fatalf("got %d, want %d", got, ExitConversionFailed)

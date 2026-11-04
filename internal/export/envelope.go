@@ -28,6 +28,10 @@ func HeadlessExitCode(outcome HeadlessOutcome) int {
 		return ExitSuccess
 	}
 
+	if outcome.ExitHint != 0 {
+		return outcome.ExitHint
+	}
+
 	switch {
 	case outcome.Error == "":
 		return ExitConversionFailed

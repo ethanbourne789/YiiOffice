@@ -1,6 +1,36 @@
 package export
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
+
+func TestHeadlessFlagPresent(t *testing.T) {
+	cases := []struct {
+		argv []string
+		want bool
+	}{
+		{[]string{"app.exe"}, false},
+		{[]string{"app.exe", "--json"}, false},
+		{[]string{"app.exe", "--headless-export", "a.docx"}, true},
+		{[]string{"app.exe", "--headless-export=a.docx"}, true},
+	}
+	for _, tt := range cases {
+		if got := HeadlessFlagPresent(tt.argv); got != tt.want {
+			t.Fatalf("HeadlessFlagPresent(%v) = %v, want %v", tt.argv, got, tt.want)
+		}
+	}
+}
+
+func TestParseHeadlessUsageErrorExitCode(t *testing.T) {
+	outcome := ParseHeadlessUsageError()
+	if code := HeadlessExitCode(outcome); code != ExitBadArgs {
+		t.Fatalf("usage error exit code = %d, want %d", code, ExitBadArgs)
+	}
+	if !strings.Contains(outcome.Error, "bad command line") {
+		t.Fatalf("usage error not diagnostic: %s", outcome.Error)
+	}
+}
 
 func TestParseHeadlessExportSuccess(t *testing.T) {
 	req, ok := ParseHeadlessExport([]string{

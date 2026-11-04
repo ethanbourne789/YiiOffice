@@ -9,8 +9,9 @@ import (
 	"time"
 )
 
-// HeadlessExporter maps module name to an export function.
-type HeadlessExporter func(inputPath string, outPath string) error
+// HeadlessExporter maps module name to an export function. The format is the
+// requested `--to` target; modules that only render one format reject the rest.
+type HeadlessExporter func(inputPath string, outPath string, format string) error
 
 // MTIME_SLACK_MS is the tolerance for FAT/exFAT timestamp granularity.
 const mtimeSlackMS = 2000
@@ -18,39 +19,42 @@ const mtimeSlackMS = 2000
 // RunHeadlessExport validates paths and dispatches to the right exporter.
 func RunHeadlessExport(req HeadlessRequest, exporters map[string]HeadlessExporter) HeadlessOutcome {
 	if err := ValidateRequest(req); err != nil {
-		return HeadlessOutcome{Success: false, Error: err.Error()}
+		return HeadlessOutcome{Success: false, Error: err.Error(), ExitHint: ExitBadArgs}
 	}
 
 	if err := validateHeadlessPaths(req); err != nil {
-		return HeadlessOutcome{Success: false, Error: err.Error()}
+		return HeadlessOutcome{Success: false, Error: err.Error(), ExitHint: ExitInputError}
 	}
 
 	module := headlessModuleFor(req.Input)
 	exporter, ok := exporters[module]
 	if !ok {
 		return HeadlessOutcome{
-			Success: false,
-			Error:   fmt.Sprintf("no headless exporter registered for module %q", module),
+			Success:  false,
+			Error:    fmt.Sprintf("no headless exporter registered for module %q", module),
+			ExitHint: ExitBadArgs,
 		}
 	}
 
 	startedAt := time.Now()
 
-	if err := exporter(req.Input, req.Out); err != nil {
+	if err := exporter(req.Input, req.Out, req.To); err != nil {
 		return HeadlessOutcome{
-			Success: false,
-			Error:   err.Error(),
-			Input:   req.Input,
-			Out:     req.Out,
+			Success:  false,
+			Error:    err.Error(),
+			Input:    req.Input,
+			Out:      req.Out,
+			ExitHint: ExitConversionFailed,
 		}
 	}
 
 	if err := verifyOutputFile(req.Out, startedAt); err != nil {
 		return HeadlessOutcome{
-			Success: false,
-			Error:   err.Error(),
-			Input:   req.Input,
-			Out:     req.Out,
+			Success:  false,
+			Error:    err.Error(),
+			Input:    req.Input,
+			Out:      req.Out,
+			ExitHint: ExitConversionFailed,
 		}
 	}
 
@@ -59,6 +63,13 @@ func RunHeadlessExport(req HeadlessRequest, exporters map[string]HeadlessExporte
 		Input:   req.Input,
 		Out:     req.Out,
 	}
+}
+
+// ValidateHeadlessPaths checks that input/output paths are valid before the
+// Wails app is initialised, so a bad path fails fast instead of after loading a
+// WebView. Exported for the CLI entry point, which validates before startup.
+func ValidateHeadlessPaths(req HeadlessRequest) error {
+	return validateHeadlessPaths(req)
 }
 
 // validateHeadlessPaths checks that input/output paths are valid before creating any windows.

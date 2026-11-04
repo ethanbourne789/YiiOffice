@@ -46,6 +46,9 @@ type HeadlessOutcome struct {
 	Error   string `json:"error,omitempty"`
 	Input   string `json:"input,omitempty"`
 	Out     string `json:"out,omitempty"`
+	// ExitHint pins the exit code when the failure phase is known, so a user
+	// path containing a word like "missing" or "bad" cannot skew the code.
+	ExitHint int `json:"-"`
 }
 
 // headlessExportFlag is the CLI flag that triggers headless mode.
@@ -101,6 +104,27 @@ func ParseHeadlessExport(argv []string) (HeadlessRequest, bool) {
 // ShouldRunHeadless checks os.Args for --headless-export.
 func ShouldRunHeadless() (HeadlessRequest, bool) {
 	return ParseHeadlessExport(os.Args)
+}
+
+// HeadlessFlagPresent reports whether the headless flag appears at all. It lets
+// the entry point distinguish "not a headless run" from "headless run with bad
+// arguments" (the latter must exit with the bad-args code, not boot the GUI).
+func HeadlessFlagPresent(argv []string) bool {
+	for _, a := range argv {
+		if a == headlessExportFlag || strings.HasPrefix(a, headlessExportFlag+"=") {
+			return true
+		}
+	}
+	return false
+}
+
+// ParseHeadlessUsageError builds the outcome for a malformed invocation.
+func ParseHeadlessUsageError() HeadlessOutcome {
+	return HeadlessOutcome{
+		Success:  false,
+		Error:    "bad command line: expected --headless-export <path> --to <format> --out <file> [--json]",
+		ExitHint: ExitBadArgs,
+	}
 }
 
 // headlessModuleFor returns the editor module name for a given file extension.
