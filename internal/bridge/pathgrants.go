@@ -2,12 +2,13 @@ package bridge
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 
+	"gitee.com/ethanbourne789/yiioffice/internal/fsutil"
 	"gitee.com/ethanbourne789/yiioffice/internal/host"
 )
 
@@ -44,11 +45,6 @@ type PathGrants struct {
 // worth of opened + picked + exported paths; the oldest entries roll off.
 const maxGrants = 512
 
-// caseInsensitivePath mirrors fsutil: Windows and macOS compare names
-// case-insensitively, so grants must be keyed the same way or a re-opened file
-// with different casing would look ungranted.
-var caseInsensitivePath = runtime.GOOS == "windows" || runtime.GOOS == "darwin"
-
 var globalGrants = NewPathGrants()
 
 // NewPathGrants returns an empty grant set.
@@ -56,12 +52,11 @@ func NewPathGrants() *PathGrants {
 	return &PathGrants{files: map[string]struct{}{}, dirs: map[string]struct{}{}}
 }
 
-func grantKey(path string) string {
-	if caseInsensitivePath {
-		return strings.ToLower(path)
-	}
-	return path
-}
+// grantKey mirrors fsutil.PathKey: the same path written with different casing
+// (Windows/macOS) or a trailing separator must land on the same key, or a
+// re-opened file would look ungranted. Writes and lookups share this one
+// function so the sets can never disagree about what "the same path" means.
+func grantKey(path string) string { return fsutil.PathKey(path) }
 
 // canonicalWritePath turns a renderer-supplied path into a clean absolute path.
 // It rejects empty paths, NUL bytes and relative paths: a write target must be
@@ -263,3 +258,136 @@ func (g *PathGrants) AuthoriseWriteDir(dir string) (string, error) {
 // AuthoriseWriteDir validates a folder write target against the process-wide
 // grant set.
 func AuthoriseWriteDir(dir string) (string, error) { return globalGrants.AuthoriseWriteDir(dir) }
+
+// ── Destructive operations (home file manager) ──
+//
+// The bindings behind the sidebar file manager (rename, duplicate, delete,
+// move, create folder) act on paths the renderer supplies, so they need the
+// same two-policy gate the editor bindings use. A path is acceptable when
+// either:
+//
+//   - the session grant set covers it (it was opened through the app or picked
+//     in a dialog), or
+//   - it sits inside the roots the UI exposes (the sidebar folders plus the
+//     user profile), which is the same set reads are authorised against.
+//
+// Symlinks and junctions are resolved before either check, so a link planted
+// inside an allowed folder cannot redirect the operation to a path the user
+// never exposed. Checks never wrap the path in a fresh grant: rejecting a
+// delete must not make the rejected path writable.
+
+// authoriseDestructive validates an existing source path for a rename, move or
+// delete and returns its symlink-resolved form for the caller's follow-up
+// checks.
+func authoriseDestructive(roots []string, raw string) (string, error) {
+	clean, err := canonicalWritePath(raw)
+	if err != nil {
+		return "", err
+	}
+	resolved, err := fsutil.ResolveExistingPrefix(clean)
+	if err != nil {
+		return "", err
+	}
+	if guard, gerr := fsutil.NewGuard(roots); gerr == nil {
+		if _, aerr := guard.Authorize(clean); aerr == nil {
+			return resolved, nil
+		}
+	}
+	if globalGrants.Allowed(resolved) {
+		return resolved, nil
+	}
+	return "", fmt.Errorf("path not authorised for this session (it is outside the folders the app exposes and was not opened or picked): %s", raw)
+}
+
+// authoriseWriteInRoots validates a write target (which may not exist yet)
+// against the same policy.
+func authoriseWriteInRoots(roots []string, raw string) (string, error) {
+	clean, err := canonicalWritePath(raw)
+	if err != nil {
+		return "", err
+	}
+	resolved, err := fsutil.ResolveExistingPrefix(clean)
+	if err != nil {
+		return "", err
+	}
+	if globalGrants.Allowed(resolved) {
+		return clean, nil
+	}
+	if guard, gerr := fsutil.NewGuard(roots); gerr == nil {
+		if _, aerr := guard.Authorize(clean); aerr == nil {
+			return clean, nil
+		}
+	}
+	return "", fmt.Errorf("write path not authorised for this session (it is outside the folders the app exposes and was not picked): %s", raw)
+}
+
+// authoriseDirInRoots validates an existing directory used as a destination
+// (create-folder parent, move target).
+func authoriseDirInRoots(roots []string, raw string) (string, error) {
+	clean, err := canonicalWritePath(raw)
+	if err != nil {
+		return "", err
+	}
+	info, err := os.Stat(clean)
+	if err != nil {
+		return "", err
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("not a directory: %s", raw)
+	}
+	resolved, err := fsutil.ResolveExistingPrefix(clean)
+	if err != nil {
+		return "", err
+	}
+	if globalGrants.AllowedDir(resolved) {
+		return clean, nil
+	}
+	if guard, gerr := fsutil.NewGuard(roots); gerr == nil {
+		if _, aerr := guard.Authorize(clean); aerr == nil {
+			return clean, nil
+		}
+	}
+	return "", fmt.Errorf("folder not authorised for this session (it is outside the folders the app exposes and was not picked): %s", raw)
+}
+
+// authoriseWriteBeside validates the destination directory of a copy that
+// lands next to its source. An exact file grant on the source is itself proof
+// the folder was chosen by the user, so it is accepted alongside the usual
+// roots.
+func authoriseWriteBeside(roots []string, resolvedSource string, dir string) error {
+	if globalGrants.Allowed(resolvedSource) {
+		return nil
+	}
+	_, err := authoriseDirInRoots(roots, dir)
+	return err
+}
+
+// validateDeleteTree walks the whole subtree about to be removed and rejects
+// the operation when any entry resolves outside the authorised roots. It runs
+// before os.RemoveAll so a rejected delete never executes partially.
+//
+// WalkDir does not follow symlinks, so the walk itself stays inside root; the
+// per-entry authorisation is what catches a link whose target lies outside.
+// A dangling link resolves to its own path (nothing exists beyond it), which
+// is fine: removing the link removes only the link.
+func validateDeleteTree(root string, roots []string) error {
+	guard, gerr := fsutil.NewGuard(roots)
+	return filepath.WalkDir(root, func(p string, _ fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		resolved, rerr := fsutil.ResolveExistingPrefix(p)
+		if rerr != nil {
+			return rerr
+		}
+		if gerr == nil {
+			if _, aerr := guard.Authorize(p); aerr == nil {
+				return nil
+			}
+		}
+		if globalGrants.Allowed(resolved) {
+			return nil
+		}
+		return fmt.Errorf("refusing to delete %s: %s resolves outside the authorised folders", root, p)
+	})
+}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -75,6 +76,70 @@ func TestGrantDirAllowsSubtreeWrites(t *testing.T) {
 	if err != nil || string(data) != "hi" {
 		t.Fatalf("unexpected content %q (err %v)", data, err)
 	}
+}
+
+// A file granted under one spelling must stay writable when the renderer hands
+// back the same path with different casing (Windows/macOS). The grant key and
+// the lookup key come from one function, so they cannot disagree.
+func TestGrantsMatchDifferentCase(t *testing.T) {
+	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
+		t.Skip("case-sensitive filesystem")
+	}
+	dir := outsideProfileDir(t)
+	g := NewPathGrants()
+	g.GrantFile(filepath.Join(dir, "Note.MD"))
+	if _, err := g.AuthoriseWrite(filepath.Join(dir, "note.md")); err != nil {
+		t.Fatalf("case variant of a granted file refused: %v", err)
+	}
+
+	g2 := NewPathGrants()
+	g2.GrantDir(dir)
+	if _, err := g2.AuthoriseWrite(filepath.Join(flipASCIICase(dir), "out.pdf")); err != nil {
+		t.Fatalf("case variant inside a granted folder refused: %v", err)
+	}
+}
+
+// A trailing separator is normalised away before keying, so a picker result
+// with a trailing slash still grants the same directory.
+func TestGrantsIgnoreTrailingSeparator(t *testing.T) {
+	dir := outsideProfileDir(t)
+	g := NewPathGrants()
+	g.GrantDir(dir + string(filepath.Separator))
+	if _, err := g.AuthoriseWrite(filepath.Join(dir, "out.txt")); err != nil {
+		t.Fatalf("grant with trailing separator did not cover %s: %v", dir, err)
+	}
+}
+
+// Folding must not turn a grant into a wildcard: a sibling of a granted folder
+// is still refused, and a .. escape is still refused.
+func TestGrantsStillRejectNeighboursAndEscapes(t *testing.T) {
+	base := outsideProfileDir(t)
+	granted := filepath.Join(base, "Granted")
+	g := NewPathGrants()
+	g.GrantDir(granted)
+
+	if _, err := g.AuthoriseWrite(filepath.Join(base, "Sibling", "x.txt")); err == nil {
+		t.Fatal("a sibling folder of the granted one must not be writable")
+	}
+	if _, err := g.AuthoriseWrite(filepath.Join(granted, "..", "stolen.txt")); err == nil {
+		t.Fatal("a .. escape from the granted folder must not be writable")
+	}
+	if _, err := g.AuthoriseWrite(filepath.Join(granted, "sub", "ok.txt")); err != nil {
+		t.Fatalf("a real descendant must stay writable: %v", err)
+	}
+}
+
+func flipASCIICase(s string) string {
+	b := []byte(s)
+	for i, c := range b {
+		switch {
+		case c >= 'a' && c <= 'z':
+			b[i] = c - 'a' + 'A'
+		case c >= 'A' && c <= 'Z':
+			b[i] = c - 'A' + 'a'
+		}
+	}
+	return string(b)
 }
 
 func TestAuthoriseWriteDirRequiresGrantedFolder(t *testing.T) {
@@ -160,7 +225,7 @@ func TestSaveImageSourceAsRejectsUnauthorisedSource(t *testing.T) {
 		t.Fatalf("write fixture: %v", err)
 	}
 	res := saveImageSourceAs(src, func() []string { return nil }, nil)
-	if res.Error == "" || !strings.Contains(res.Error, "source not authorised") {
+	if res.Error == "" || !strings.Contains(res.Error, ErrOpenPathNotAuthorised) {
 		t.Fatalf("expected an unauthorised-source rejection, got %+v", res)
 	}
 }
