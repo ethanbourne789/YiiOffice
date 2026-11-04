@@ -1,3 +1,6 @@
+// @vitest-environment jsdom
+// localImage reaches the shared locale module, whose bridge import touches
+// `window` at module load.
 import { describe, expect, it } from 'vitest'
 import { LOCAL_ASSET_PATH, resolveImageSrc, unresolveImageSrc } from './localImage'
 
