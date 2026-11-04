@@ -34,7 +34,7 @@ export async function waitForDeckSettled(
   readiness: () => DeckReadiness,
   options: HeadlessWaitOptions = {},
 ): Promise<void> {
-  const { timeoutMs = 180_000, pollMs = 200 } = options
+  const { timeoutMs = 40_000, pollMs = 200 } = options
   const deadline = Date.now() + timeoutMs
   // A corrupt input is answered with a blank untitled deck, not an error;
   // waiting out the full budget for it would only delay the same verdict.

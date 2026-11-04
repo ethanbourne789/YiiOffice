@@ -244,7 +244,7 @@ export const headlessSleep = (ms: number): Promise<void> =>
 export async function pollUntilReady(
   ready: () => boolean,
   stallMessage: string | (() => string),
-  { timeoutMs = 180_000, pollMs = 250 }: HeadlessWaitOptions = {},
+  { timeoutMs = 40_000, pollMs = 250 }: HeadlessWaitOptions = {},
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (!ready()) {
@@ -267,7 +267,7 @@ export async function pollUntilReady(
  * of every main-process program (the argv grammar lives here), and naming the
  * DOM type would make a DOM lib mandatory for the whole main process.
  */
-export function documentFontsSettled(timeoutMs = 30_000): Promise<unknown> {
+export function documentFontsSettled(timeoutMs = 10_000): Promise<unknown> {
   const doc = (
     globalThis as { document?: { fonts?: { ready?: Promise<unknown> } } }
   ).document;

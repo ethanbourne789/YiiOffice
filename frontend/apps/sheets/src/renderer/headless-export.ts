@@ -4,7 +4,7 @@
  */
 
 /** Wait budget for the headless renderer to open its document */
-const HEADLESS_TIMEOUT_MS = 180_000
+const HEADLESS_TIMEOUT_MS = 40_000
 const HEADLESS_POLL_MS = 250
 
 export interface HeadlessExportReport {
