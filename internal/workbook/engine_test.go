@@ -1,8 +1,11 @@
 package workbook
 
 import (
+	"archive/zip"
 	"fmt"
+	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -230,6 +233,368 @@ func TestSaveAppliesEditsAndReloadsMetadata(t *testing.T) {
 	if values["A3"] != "Banana" {
 		t.Errorf("A3 = %#v", values["A3"])
 	}
+}
+
+// TestReloadFailureKeepsSessionUsable: a failed reload must not leave the
+// session with a closed workbook handle.
+func TestReloadFailureKeepsSessionUsable(t *testing.T) {
+	eng := NewEngine()
+	defer eng.CloseAll()
+	path := fixture(t)
+	info, err := eng.Open(path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	s, err := eng.acquire(info.SessionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.mu.Unlock()
+
+	// A file that hashes fine but is not a workbook: the reload parse fails
+	// after hashFile and before the handle would be swapped.
+	bad := filepath.Join(t.TempDir(), "bad.xlsx")
+	if err := os.WriteFile(bad, []byte("not a workbook"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := eng.reloadLocked(s, bad); err == nil {
+		t.Fatal("expected the reload to fail on a non-workbook file")
+	}
+
+	// The original handle must still serve reads.
+	sheet := s.file.GetSheetList()[0]
+	if got, err := s.file.GetCellValue(sheet, "A1"); err != nil || got != "Name" {
+		t.Fatalf("session handle unusable after a failed reload: %q (err %v)", got, err)
+	}
+}
+
+// TestSavePersistsLargeEditSetAcrossReopen covers the renderer's large-paste
+// path: 20,000 cell edits (above the former transfer threshold) must reach the
+// file, survive closing the session, and read back unchanged after a fresh
+// open.
+func TestSavePersistsLargeEditSetAcrossReopen(t *testing.T) {
+	const rows, columns = 200, 100 // 20,000 cells
+	path := filepath.Join(t.TempDir(), "large.xlsx")
+	f := excelize.NewFile()
+	if err := f.SaveAs(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	eng := NewEngine()
+	defer eng.CloseAll()
+	info, err := eng.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sheetID := info.Sheets[0].ID
+	edits := make([]CellEdit, 0, rows*columns)
+	for row := 0; row < rows; row++ {
+		for column := 0; column < columns; column++ {
+			edits = append(edits, CellEdit{
+				SheetID:    sheetID,
+				Row:        row,
+				Column:     column,
+				WriteValue: true,
+				Value:      float64(row*columns + column),
+			})
+		}
+	}
+	saved, err := eng.Save(SaveRequest{SessionID: info.SessionID, Mode: "save", Edits: edits})
+	if err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	if saved.Canceled || saved.File == nil {
+		t.Fatalf("save result = %#v", saved)
+	}
+	if err := eng.Close(info.SessionID); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+
+	reopened, err := eng.Open(saved.File.Path)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	result, err := eng.ReadRange(reopened.SessionID, reopened.Sheets[0].ID, CellArea{
+		StartRow:    0,
+		StartColumn: 0,
+		EndRow:      rows - 1,
+		EndColumn:   columns - 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Cells) != rows*columns {
+		t.Fatalf("reopened cells = %d, want %d", len(result.Cells), rows*columns)
+	}
+	for _, cell := range result.Cells {
+		want := float64(cell.Row*columns + cell.Column)
+		if cell.Value != want {
+			t.Fatalf("cell (%d,%d) = %#v, want %#v", cell.Row, cell.Column, cell.Value, want)
+		}
+	}
+}
+
+// TestSaveAppliesCellEditsToWorkbookWithComments guards the loss-warning
+// boundary: a workbook carrying objects the engine cannot create (here a
+// comment) still saves ordinary cell edits, and the untouched object survives
+// the package rewrite.
+func TestSaveAppliesCellEditsToWorkbookWithComments(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "commented.xlsx")
+	f := excelize.NewFile()
+	sheetName := f.GetSheetName(0)
+	if err := f.SetCellValue(sheetName, "A1", "before"); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.AddComment(sheetName, excelize.Comment{
+		Cell:      "A1",
+		Author:    "YiiOffice",
+		Paragraph: []excelize.RichTextRun{{Text: "keep this note"}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.SaveAs(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	eng := NewEngine()
+	defer eng.CloseAll()
+	info, err := eng.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sheetID := info.Sheets[0].ID
+	saved, err := eng.Save(SaveRequest{
+		SessionID: info.SessionID,
+		Mode:      "save",
+		Edits: []CellEdit{{
+			SheetID: sheetID, Row: 0, Column: 0, WriteValue: true, Value: "after",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	if saved.File == nil {
+		t.Fatalf("save result = %#v", saved)
+	}
+	if err := eng.Close(info.SessionID); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+
+	check, err := excelize.OpenFile(saved.File.Path)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	defer check.Close()
+	value, err := check.GetCellValue(sheetName, "A1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if value != "after" {
+		t.Errorf("A1 = %q, want \"after\"", value)
+	}
+	comments, err := check.GetComments(sheetName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(comments) != 1 {
+		t.Fatalf("comments = %#v", comments)
+	}
+	var text string
+	for _, paragraph := range comments[0].Paragraph {
+		text += paragraph.Text
+	}
+	if text != "keep this note" {
+		t.Errorf("comment text = %q", text)
+	}
+}
+
+// TestSavePreservesExistingChartWhileApplyingCellEdits pins the other half of
+// the loss boundary: workbook parts the engine cannot model (a chart) must
+// survive the save's package rewrite even though only cell edits are applied.
+func TestSavePreservesExistingChartWhileApplyingCellEdits(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "charted.xlsx")
+	f := excelize.NewFile()
+	sheetName := f.GetSheetName(0)
+	for row := 1; row <= 3; row++ {
+		if err := f.SetCellValue(sheetName, fmt.Sprintf("A%d", row), row); err != nil {
+			t.Fatal(err)
+		}
+	}
+	chart := &excelize.Chart{
+		Type: excelize.Col,
+		Series: []excelize.ChartSeries{{
+			Name:       sheetName + "!$A$1",
+			Categories: sheetName + "!$A$1:$A$3",
+			Values:     sheetName + "!$A$1:$A$3",
+		}},
+	}
+	if err := f.AddChart(sheetName, "C1", chart); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.SaveAs(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	before := sheetPackageEntries(t, path)
+	if !slices.Contains(before, "xl/charts/chart1.xml") {
+		t.Fatalf("fixture has no chart part: %v", before)
+	}
+
+	eng := NewEngine()
+	defer eng.CloseAll()
+	info, err := eng.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved, err := eng.Save(SaveRequest{
+		SessionID: info.SessionID,
+		Mode:      "save",
+		Edits: []CellEdit{{
+			SheetID: info.Sheets[0].ID, Row: 1, Column: 0, WriteValue: true, Value: "edited",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	if saved.File == nil {
+		t.Fatalf("save result = %#v", saved)
+	}
+	if err := eng.Close(info.SessionID); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+
+	after := sheetPackageEntries(t, saved.File.Path)
+	if !slices.Contains(after, "xl/charts/chart1.xml") {
+		t.Fatalf("chart part disappeared after save: %v", after)
+	}
+	check, err := excelize.OpenFile(saved.File.Path)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	defer check.Close()
+	value, err := check.GetCellValue(sheetName, "A2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if value != "edited" {
+		t.Errorf("A2 = %q, want \"edited\"", value)
+	}
+}
+
+// TestSavePersistsHyperlinksAcrossReopen covers the three hyperlink shapes the
+// renderer sends: an external URL, a workbook-internal "#Sheet!A1" anchor and a
+// removal (empty target). All three must survive SaveAs plus a fresh open.
+func TestSavePersistsHyperlinksAcrossReopen(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "links.xlsx")
+	f := excelize.NewFile()
+	sheetName := f.GetSheetName(0)
+	// Pre-existing link that the request below removes.
+	if err := f.SetCellHyperLink(sheetName, "C3", "https://old.example.com", "External"); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.SaveAs(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	eng := NewEngine()
+	defer eng.CloseAll()
+	info, err := eng.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sheetID := info.Sheets[0].ID
+	display, tooltip := "Example", "Example site"
+	saved, err := eng.Save(SaveRequest{
+		SessionID: info.SessionID,
+		Mode:      "save",
+		// The value lands first so the link is attached to the final cell.
+		Edits: []CellEdit{{SheetID: sheetID, Row: 0, Column: 0, WriteValue: true, Value: "example"}},
+		HyperlinkEdits: []HyperlinkEdit{
+			{SheetID: sheetID, Row: 0, Column: 0, Target: "https://example.com", Display: &display, Tooltip: &tooltip},
+			{SheetID: sheetID, Row: 1, Column: 1, Target: "#" + sheetName + "!A1"},
+			{SheetID: sheetID, Row: 2, Column: 2},
+		},
+	})
+	if err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	if saved.File == nil {
+		t.Fatalf("save result = %#v", saved)
+	}
+	if err := eng.Close(info.SessionID); err != nil {
+		t.Fatal(err)
+	}
+
+	reopened, err := eng.Open(saved.File.Path)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	check, err := excelize.OpenFile(saved.File.Path)
+	if err != nil {
+		t.Fatalf("open saved: %v", err)
+	}
+	defer check.Close()
+
+	if ok, target, err := check.GetCellHyperLink(sheetName, "A1"); err != nil || !ok || target != "https://example.com" {
+		t.Fatalf("A1 link = (%v, %q, %v)", ok, target, err)
+	}
+	if value, err := check.GetCellValue(sheetName, "A1"); err != nil || value != "example" {
+		t.Fatalf("A1 value = %q (err %v)", value, err)
+	}
+	if ok, location, err := check.GetCellHyperLink(sheetName, "B2"); err != nil || !ok || location != sheetName+"!A1" {
+		t.Fatalf("B2 link = (%v, %q, %v)", ok, location, err)
+	}
+	if ok, target, err := check.GetCellHyperLink(sheetName, "C3"); err != nil || ok || target != "" {
+		t.Fatalf("C3 link not removed: (%v, %q, %v)", ok, target, err)
+	}
+	if cells, err := check.GetHyperLinkCells(sheetName, "External"); err != nil || !slices.Contains(cells, "A1") || slices.Contains(cells, "C3") {
+		t.Fatalf("external cells = %v (err %v)", cells, err)
+	}
+	if cells, err := check.GetHyperLinkCells(sheetName, "Location"); err != nil || !slices.Contains(cells, "B2") {
+		t.Fatalf("location cells = %v (err %v)", cells, err)
+	}
+
+	// The renderer reads internal anchors back with the '#' prefix it sends.
+	result, err := eng.ReadRange(reopened.SessionID, sheetName, CellArea{StartRow: 0, StartColumn: 0, EndRow: 2, EndColumn: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	targets := map[string]string{}
+	for _, link := range result.Hyperlinks {
+		targets[cellRef(link.Row, link.Column)] = link.Target
+	}
+	if targets["A1"] != "https://example.com" || targets["B2"] != "#"+sheetName+"!A1" {
+		t.Fatalf("read-back hyperlinks = %#v", targets)
+	}
+	if _, ok := targets["C3"]; ok {
+		t.Fatalf("C3 still has a link: %#v", targets)
+	}
+}
+
+func sheetPackageEntries(t *testing.T, path string) []string {
+	t.Helper()
+	archive, err := zip.OpenReader(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer archive.Close()
+	names := make([]string, 0, len(archive.File))
+	for _, entry := range archive.File {
+		names = append(names, entry.Name)
+	}
+	return names
 }
 
 func TestRecalcEvaluatesFormulaCells(t *testing.T) {

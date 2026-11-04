@@ -98,26 +98,64 @@ func mergesInArea(f *excelize.File, sheet string, area CellArea) []CellArea {
 	return out
 }
 
-func hyperlinksInArea(f *excelize.File, sheet string, area CellArea) []Hyperlink {
-	cells, err := f.GetHyperLinkCells(sheet, "External")
-	if err != nil {
-		return []Hyperlink{}
+// applyHyperlinkEdit writes one hyperlink change. excelize has no exported
+// delete call (removeHyperLink is private), but SetCellHyperLink's "None"
+// link type routes to it, so removal goes through the same setter.
+func applyHyperlinkEdit(f *excelize.File, edit HyperlinkEdit) error {
+	ref := edit.Cell
+	if ref == "" {
+		ref = cellRef(edit.Row, edit.Column)
 	}
-	out := make([]Hyperlink, 0, len(cells))
-	for _, ref := range cells {
-		col1, row1, err := excelize.CellNameToCoordinates(ref)
+	var opts []excelize.HyperlinkOpts
+	if edit.Display != nil || edit.Tooltip != nil {
+		opts = append(opts, excelize.HyperlinkOpts{Display: edit.Display, Tooltip: edit.Tooltip})
+	}
+	// The renderer marks internal anchors with '#', while OOXML stores the
+	// plain "Sheet!A1" location, so strip the sigil before choosing the type.
+	target := strings.TrimSpace(edit.Target)
+	location := strings.TrimSpace(strings.TrimPrefix(edit.Location, "#"))
+	if location == "" && strings.HasPrefix(target, "#") {
+		location, target = strings.TrimPrefix(target, "#"), ""
+	}
+	switch {
+	case target == "" && location == "":
+		return f.SetCellHyperLink(edit.SheetID, ref, "", "None")
+	case target != "":
+		return f.SetCellHyperLink(edit.SheetID, ref, target, "External", opts...)
+	default:
+		return f.SetCellHyperLink(edit.SheetID, ref, location, "Location", opts...)
+	}
+}
+
+func hyperlinksInArea(f *excelize.File, sheet string, area CellArea) []Hyperlink {
+	// Both link kinds are read: external relationships and workbook-internal
+	// anchors. GetCellHyperLink cannot tell them apart for scheme-less
+	// targets, so the type comes from GetHyperLinkCells and internal anchors
+	// get the renderer's '#' prefix back.
+	out := []Hyperlink{}
+	for _, kind := range []struct {
+		linkType string
+		prefix   string
+	}{{"External", ""}, {"Location", "#"}} {
+		cells, err := f.GetHyperLinkCells(sheet, kind.linkType)
 		if err != nil {
 			continue
 		}
-		row, col := row1-1, col1-1
-		if row < area.StartRow || row > area.EndRow || col < area.StartColumn || col > area.EndColumn {
-			continue
+		for _, ref := range cells {
+			col1, row1, err := excelize.CellNameToCoordinates(ref)
+			if err != nil {
+				continue
+			}
+			row, col := row1-1, col1-1
+			if row < area.StartRow || row > area.EndRow || col < area.StartColumn || col > area.EndColumn {
+				continue
+			}
+			ok, target, err := f.GetCellHyperLink(sheet, ref)
+			if err != nil || !ok || target == "" {
+				continue
+			}
+			out = append(out, Hyperlink{Row: row, Column: col, Target: kind.prefix + target})
 		}
-		ok, target, err := f.GetCellHyperLink(sheet, ref)
-		if err != nil || !ok || target == "" {
-			continue
-		}
-		out = append(out, Hyperlink{Row: row, Column: col, Target: target})
 	}
 	return out
 }
@@ -517,6 +555,14 @@ func (e *Engine) Save(req SaveRequest) (*SaveResult, error) {
 			continue
 		}
 	}
+	// Hyperlinks attach to cells, so they run after the value/fill writes:
+	// a link set before its cell value would otherwise survive an edit that
+	// replaces the cell.
+	for _, link := range req.HyperlinkEdits {
+		if err := applyHyperlinkEdit(s.file, link); err != nil {
+			return nil, err
+		}
+	}
 	target := s.info.Path
 	if req.TargetPath != "" {
 		target = req.TargetPath
@@ -541,8 +587,16 @@ func (e *Engine) reloadLocked(s *session, path string) (*FileInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reload workbook: %w", err)
 	}
-	_ = s.file.Close()
-	f, err := excelize.OpenFile(path)
+	// Open the replacement before closing the current one: a failed parse
+	// must leave the session with its existing, still-usable workbook rather
+	// than a closed handle. An encrypted session must re-supply the key, or
+	// the freshly written (still encrypted) file reads as "not a zip".
+	var f *excelize.File
+	if s.encrypted {
+		f, err = excelize.OpenFile(path, excelize.Options{Password: s.password})
+	} else {
+		f, err = excelize.OpenFile(path)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("reload workbook: %w", err)
 	}
@@ -561,8 +615,12 @@ func (e *Engine) reloadLocked(s *session, path string) (*FileInfo, error) {
 		Visuals:      []any{},
 		DefinedNames: definedNames(f),
 	}
+	old := s.file
 	s.file = f
 	s.info = info
+	if old != nil {
+		_ = old.Close()
+	}
 	return &info, nil
 }
 

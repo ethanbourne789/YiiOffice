@@ -2,9 +2,11 @@ package workbook
 
 import (
 	"archive/zip"
+	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -15,6 +17,20 @@ import (
 
 	"github.com/xuri/excelize/v2"
 )
+
+// Open failures carry stable codes in the message so the renderer can tell an
+// encrypted workbook from a damaged one. ErrPasswordRequired appends the path
+// after a '|' so the retry can reopen the same file without a second picker.
+var (
+	ErrPasswordRequired      = errors.New("workbook_password_required")
+	ErrPasswordIncorrect     = errors.New("workbook_password_incorrect")
+	ErrEncryptionUnsupported = errors.New("workbook_encryption_unsupported")
+	ErrWorkbookCorrupt       = errors.New("workbook_corrupt")
+)
+
+// oleIdentifier is the CFB/OLE signature every encrypted OOXML package starts
+// with (EncryptionInfo + EncryptedPackage streams).
+var oleIdentifier = []byte{0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1}
 
 // Engine owns open workbook sessions. It is safe for concurrent use.
 type Engine struct {
@@ -34,6 +50,13 @@ type session struct {
 	mu   sync.Mutex
 	info FileInfo
 	file *excelize.File
+	// encrypted marks a session whose file is an OOXML encrypted container,
+	// and password is the plaintext key supplied at open. excelize keeps the
+	// key in f.options and re-encrypts every write (file.go:151-158), so a
+	// save of this session stays password-protected instead of silently
+	// writing a decrypted workbook.
+	encrypted bool
+	password  string
 	// closed marks a session whose file has been (or is being) released.
 	// It is only ever set with mu held, so acquire can reject a session
 	// that was closed between the map lookup and the lock acquisition.
@@ -88,34 +111,87 @@ func newUUID() string {
 // its input, reintroducing the extra buffer; countZipEntries only reads the
 // zip central directory.
 func (e *Engine) Open(path string) (*FileInfo, error) {
+	return e.OpenWithPassword(path, "")
+}
+
+// OpenWithPassword opens path, decrypting an OOXML encrypted container when
+// password is non-empty. Failure classification leans on excelize's own
+// signals: a password-supplied decrypt that still fails to parse is reported
+// as ErrWorkbookPassword (excelize.go:217), while a CFB it cannot decrypt at
+// all collapses to ErrWorkbookFileFormat (excelize.go:212).
+func (e *Engine) OpenWithPassword(path, password string) (*FileInfo, error) {
+	encrypted, err := isEncryptedWorkbook(path)
+	if err != nil {
+		return nil, fmt.Errorf("open workbook: %w", err)
+	}
+	// Without a password there is nothing to try: report the requirement
+	// instead of the generic zip error excelize would raise.
+	if encrypted && password == "" {
+		return nil, fmt.Errorf("%w|%s", ErrPasswordRequired, path)
+	}
 	sum, size, err := hashFile(path)
 	if err != nil {
 		return nil, err
 	}
-	f, err := excelize.OpenFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("parse workbook: %w", err)
+	var f *excelize.File
+	if encrypted {
+		f, err = excelize.OpenFile(path, excelize.Options{Password: password})
+		if err != nil {
+			switch {
+			case errors.Is(err, excelize.ErrWorkbookPassword):
+				return nil, ErrPasswordIncorrect
+			case errors.Is(err, excelize.ErrUnknownEncryptMechanism),
+				errors.Is(err, excelize.ErrUnsupportedEncryptMechanism),
+				errors.Is(err, excelize.ErrWorkbookFileFormat):
+				return nil, fmt.Errorf("%w: %v", ErrEncryptionUnsupported, err)
+			default:
+				return nil, fmt.Errorf("%w: %v", ErrWorkbookCorrupt, err)
+			}
+		}
+	} else {
+		f, err = excelize.OpenFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrWorkbookCorrupt, err)
+		}
 	}
 	entryCount := countZipEntries(path)
 	info := FileInfo{
-		SessionID:  newUUID(),
-		Name:       filepath.Base(path),
-		Path:       path,
-		SHA256:     hex.EncodeToString(sum[:]),
-		FileBytes:  size,
-		EntryCount: entryCount,
-		ReadOnly:   isReadOnly(path),
-		Sheets:     sheetMetadata(f),
-		ActiveTab:  clampActiveTab(f.GetActiveSheetIndex(), len(f.GetSheetList())),
-		Styles:     styleTable(f),
-		DxfStyles:  []CellStyle{},
-		Visuals:    []any{},
+		SessionID:    newUUID(),
+		Name:         filepath.Base(path),
+		Path:         path,
+		SHA256:       hex.EncodeToString(sum[:]),
+		FileBytes:    size,
+		EntryCount:   entryCount,
+		ReadOnly:     isReadOnly(path),
+		Sheets:       sheetMetadata(f),
+		ActiveTab:    clampActiveTab(f.GetActiveSheetIndex(), len(f.GetSheetList())),
+		Styles:       styleTable(f),
+		DxfStyles:    []CellStyle{},
+		Visuals:      []any{},
 		DefinedNames: definedNames(f),
 	}
 	e.mu.Lock()
-	e.sessions[info.SessionID] = &session{info: info, file: f}
+	e.sessions[info.SessionID] = &session{info: info, file: f, encrypted: encrypted, password: password}
 	e.mu.Unlock()
 	return &info, nil
+}
+
+// isEncryptedWorkbook sniffs the CFB signature. A password-protected OOXML
+// workbook is a compound file, so a plain .xlsx never matches. A legacy .xls
+// would, but the picker only offers OOXML formats, so that ambiguity cannot
+// reach this path from the UI.
+func isEncryptedWorkbook(path string) (bool, error) {
+	fh, err := os.Open(path)
+	if err != nil {
+		return false, err
+	}
+	defer fh.Close()
+	var head [8]byte
+	n, err := fh.Read(head[:])
+	if err != nil && !errors.Is(err, io.EOF) {
+		return false, err
+	}
+	return n == len(oleIdentifier) && bytes.Equal(head[:], oleIdentifier), nil
 }
 
 // Close drops the session and releases the underlying workbook.

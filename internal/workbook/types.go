@@ -41,6 +41,24 @@ type Hyperlink struct {
 	Target string `json:"target"`
 }
 
+// HyperlinkEdit is one hyperlink change in post-operation coordinates.
+//
+// Target carries the destination: a "#Sheet!A1" value (or an explicit
+// Location) is written as an internal workbook anchor, anything else as an
+// external relationship. An empty Target and Location removes the link.
+// Display and Tooltip are optional <display>/<tooltip> attributes; Display
+// never writes the cell value, only the hyperlink metadata.
+type HyperlinkEdit struct {
+	SheetID  string  `json:"sheetId"`
+	Cell     string  `json:"cell,omitempty"`
+	Row      int     `json:"row"`
+	Column   int     `json:"column"`
+	Target   string  `json:"target,omitempty"`
+	Location string  `json:"location,omitempty"`
+	Display  *string `json:"display,omitempty"`
+	Tooltip  *string `json:"tooltip,omitempty"`
+}
+
 // DataValidation mirrors one <dataValidation> element.
 type DataValidation struct {
 	Ranges           []CellArea `json:"ranges"`
@@ -392,16 +410,17 @@ type BulkFill struct {
 
 // SaveRequest is the payload of a save call.
 type SaveRequest struct {
-	SessionID         string         `json:"sessionId"`
-	Mode              string         `json:"mode"`
-	TargetPath        string         `json:"targetPath,omitempty"`
-	Overwrite         bool           `json:"overwrite,omitempty"`
-	RestoreWriteBack  bool           `json:"restoreWriteBack,omitempty"`
-	Quiet             bool           `json:"quiet,omitempty"`
-	CSVContent        string         `json:"csvContent,omitempty"`
-	Edits             []CellEdit     `json:"edits"`
-	BulkConstantFills []BulkFill     `json:"bulkConstantFills,omitempty"`
-	StructuralOps     []StructuralOp `json:"structuralOps"`
+	SessionID         string          `json:"sessionId"`
+	Mode              string          `json:"mode"`
+	TargetPath        string          `json:"targetPath,omitempty"`
+	Overwrite         bool            `json:"overwrite,omitempty"`
+	RestoreWriteBack  bool            `json:"restoreWriteBack,omitempty"`
+	Quiet             bool            `json:"quiet,omitempty"`
+	CSVContent        string          `json:"csvContent,omitempty"`
+	Edits             []CellEdit      `json:"edits"`
+	BulkConstantFills []BulkFill      `json:"bulkConstantFills,omitempty"`
+	StructuralOps     []StructuralOp  `json:"structuralOps"`
+	HyperlinkEdits    []HyperlinkEdit `json:"hyperlinkEdits,omitempty"`
 }
 
 // SaveResult mirrors the renderer's save envelope.
