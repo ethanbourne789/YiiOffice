@@ -216,12 +216,12 @@ export interface HomeBridge {
 
   // Recent files
   recents(query?: RecentQuery | number, limit?: number): Promise<RecentPage>
-  removeRecent(path: string): Promise<void>
+  removeRecent(paths: string[]): Promise<void>
 
   // Starred files
   starred(query?: RecentQuery): Promise<RecentPage>
   starredGroups(): Promise<string[]>
-  setStarredGroup(path: string, group: string): Promise<void>
+  setStarredGroup(paths: string[], group: string | null): Promise<void>
   toggleStar(path: string): Promise<boolean>
   unstarPaths(paths: string[]): Promise<void>
   statPaths(paths: string[]): Promise<any[]>
@@ -356,8 +356,12 @@ export function createHomeApi(): HomeBridge {
         nextCursor: page?.nextCursor ?? '',
       }
     },
-    async removeRecent(path) {
-      await RemoveRecent(path)
+    async removeRecent(paths) {
+      // The Go side removes one path per call, but every caller here is a bulk
+      // one (row menu, multi-select, the unavailable-file dialog). Passing the
+      // array straight through made the binding reject: Go unmarshals a string
+      // and gets an array, so "remove from list" failed and kept the row.
+      await Promise.all(paths.map((path) => RemoveRecent(path)))
     },
 
     // Starred files
@@ -369,8 +373,10 @@ export function createHomeApi(): HomeBridge {
       const value = await StarredGroups()
       return Array.isArray(value) ? value : []
     },
-    async setStarredGroup(path, group) {
-      await SetStarredGroup(path, group)
+    async setStarredGroup(paths, group) {
+      // Same one-path-per-call constraint as removeRecent; "" clears the group.
+      const label = group ?? ''
+      await Promise.all(paths.map((path) => SetStarredGroup(path, label)))
     },
     async toggleStar(path) {
       return ToggleStar(path)
