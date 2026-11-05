@@ -3,6 +3,10 @@
 > **状态：自动更新当前为暂停开发。** 本清单不是现行发布流程，而是恢复该功能时必须先满足的约定。
 > 当前 `task package:windows` 仍产出 `dist/YiiOffice_<version>_setup.exe`（不含平台/架构，发布后 updater 无法匹配），
 > 也尚未新增 `release:prepare` 任务；下文标「恢复时」的条目均未落地。
+>
+> **已落地（与上文不冲突）：** `.github/workflows/release.yml` 在 `v*` tag 上校验版本槽位、构建安装包与
+> `.sha256` sidecar，并用 `gh release create` 发布。它**没有**改资产命名，所以 updater 的
+> `DefaultAssetMatcher` 依旧匹配不到——第 2 节仍是恢复自动更新前必须完成的唯一硬前置。
 
 应用内更新（`internal/update`）直接消费 Gitee Release 的 tag 与资产文件名。恢复开发时要让完整性校验真正被触发，逐条确认。
 

@@ -40,20 +40,22 @@ Three rules keep it honest:
 
 ## Coverage
 
-70 tests in 11 files, all on the real host (`npx playwright test --project=real --list`):
+79 tests in 13 files, all on the real host (`npx playwright test --project=real --list`):
 
 | spec | tests | journey |
 | --- | --- | --- |
 | `harness.spec.ts` | 3 | the host itself: real backend, isolation, `/health` |
-| `shell.spec.ts` | 10 | open/close/switch tabs, `+` menu, recent list, four "new document" kinds |
-| `home.spec.ts` | 7 | quick-start cards, type filter, starring, reopening from the recent list |
+| `shell.spec.ts` | 7 | open/close/switch tabs, `+` menu, recent list, four "new document" kinds |
+| `home.spec.ts` | 8 | quick-start cards, type filter, starring, reopening from the recent list |
+| `home-recents.spec.ts` | 1 | recent-list paging after the list is cleared |
 | `tabs.spec.ts` | 3 | activation, closing the active tab, closing a background tab |
 | `docs.spec.ts` | 4 | open → edit → save, verified on disk (+1 fixme) |
 | `docs-editing.spec.ts` | 18 | find/replace, bold, undo, word count, zoom, read mode, two docs in parallel |
 | `markdown.spec.ts` | 8 | block and inline markdown rendering |
 | `editors.spec.ts` | 5 | markdown save, pdf assets, cross-editor switching |
 | `pdf.spec.ts` | 8 | 3-page layout, thumbnails, page jump, zoom, fit modes, page indices |
-| `sheets.spec.ts` | 3 | open, save keeps the seeded cell (+1 fixme) |
+| `sheets.spec.ts` | 9 | open, save keeps the seeded cell (+4 fixme) |
+| `sheets-quality.spec.ts` | 4 | render fidelity checks against a seeded workbook |
 | `slides.spec.ts` | 1 | the new-deck boot crash, registered as fixme |
 
 `test.fixme` marks a **confirmed product defect**, not a flaky test: `docs.spec.ts`
