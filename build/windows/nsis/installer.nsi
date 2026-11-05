@@ -45,6 +45,7 @@ InstallDirRegKey HKCU "Software\${APP_NAME}" ""
 !include "LogicLib.nsh"
 !include "StrFunc.nsh"
 ${Using:StrFunc} StrStr
+${Using:StrFunc} UnStrStr
 
 ; Installer/uninstaller icon (setup exe shows the app logo)
 !define MUI_ICON "..\icon.ico"
@@ -210,7 +211,7 @@ un_stop_try:
   nsExec::ExecToStack 'tasklist /FI "IMAGENAME eq ${APP_EXE}" /NH'
   Pop $0
   Pop $1
-  ${StrStr} $0 $1 "${APP_EXE}"
+  ${UnStrStr} $0 $1 "${APP_EXE}"
   StrCmp $0 "" un_stop_done
   Sleep 300
   IntOp $R6 $R6 + 1

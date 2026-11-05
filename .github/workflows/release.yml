@@ -1,0 +1,101 @@
+name: Release
+
+# Tag-driven release gate. The VERSION file is authoritative: a tag that does
+# not match it is rejected before anything is built. The installer and its
+# SHA-256 sidecar are the two assets the in-app updater expects.
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows-installer:
+    name: Build + publish Windows installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Verify version slots and tag
+        shell: pwsh
+        run: |
+          node tools/version.mjs check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($env:GITHUB_REF -like 'refs/tags/*') {
+            node tools/version.mjs check-tag $env:GITHUB_REF_NAME
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          $v = (Get-Content VERSION -Raw).Trim()
+          "APP_VERSION=$v" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Install build tooling
+        shell: pwsh
+        run: |
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
+          choco install nsis -y --no-progress
+          "C:\Program Files (x86)\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build renderer bundles
+        working-directory: frontend
+        run: npm run build
+
+      - name: Generate Windows version resources
+        working-directory: build
+        run: wails3 generate syso -arch amd64 -icon windows/icon.ico -manifest windows/wails.exe.manifest -info windows/info.json -out ../wails_windows_amd64.syso
+
+      - name: Build production binary
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build/bin | Out-Null
+          go build -tags production -trimpath -buildvcs=false `
+            -ldflags="-w -s -H windowsgui -X gitee.com/ethanbourne789/yiioffice/internal/buildinfo.Version=$env:APP_VERSION -X gitee.com/ethanbourne789/yiioffice/internal/buildinfo.isDevStr=0" `
+            -o build/bin/YiiOffice.exe .
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build NSIS installer and SHA-256 sidecar
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          makensis -DAPP_VERSION=$env:APP_VERSION build/windows/nsis/installer.nsi
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $exe = "dist/YiiOffice_$($env:APP_VERSION)_setup.exe"
+          ((Get-FileHash -Algorithm SHA256 $exe).Hash + "  YiiOffice_$($env:APP_VERSION)_setup.exe") |
+            Set-Content -Encoding ascii "$exe.sha256"
+
+      - name: Verify release assets
+        shell: pwsh
+        run: |
+          $name = "YiiOffice_$($env:APP_VERSION)_setup.exe"
+          $exe = "dist/$name"
+          $sidecar = "$exe.sha256"
+          if (-not (Test-Path $exe)) { throw "missing installer: $exe" }
+          if (-not (Test-Path $sidecar)) { throw "missing sidecar: $sidecar" }
+          $expected = ((Get-Content $sidecar -Raw).Trim() -split '\s+')[0]
+          $actual = (Get-FileHash -Algorithm SHA256 $exe).Hash
+          if ($expected -ne $actual) { throw "SHA-256 mismatch: sidecar=$expected actual=$actual" }
+          Write-Host "OK: $name ($actual)"
+
+      - name: Publish release assets
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/YiiOffice_*_setup.exe
+            dist/YiiOffice_*_setup.exe.sha256
+          fail_on_unmatched_files: true

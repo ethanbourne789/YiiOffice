@@ -33,6 +33,12 @@ e2e/test-results/
 e2e/artifacts/
 e2e/playwright-report/
 
+# Test coverage output (`npm run test:coverage` writes one report per workspace)
+frontend/**/coverage/
+
+# Headless export verification output (`--headless-export` smoke runs)
+/build/verification/
+
 # Editor
 .vscode/
 .idea/

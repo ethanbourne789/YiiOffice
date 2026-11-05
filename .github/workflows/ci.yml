@@ -11,10 +11,24 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ['v*.*.*']
   pull_request:
   workflow_dispatch:
 
 jobs:
+  version:
+    name: Version consistency
+    runs-on: ubuntu-latest
+    # A release built from a stale NSIS/info.json/site version is a real
+    # shipping defect; keep this gate independent of the heavy Windows jobs.
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Check all version slots
+        run: node tools/version.mjs check
+
   go:
     name: Go (vet + test + build)
     runs-on: windows-latest
@@ -29,6 +43,13 @@ jobs:
           cache: true
       # Bindings generation is part of the frontend build; verify the tagged
       # production build compiles cleanly so -X version injection is exercised.
+      #
+      # Lint runs on windows-latest, not ubuntu: this codebase is Windows-only
+      # (`//go:build windows`), so a Linux runner would skip most of internal/.
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.15.0
       - name: go vet
         run: go vet ./...
       - name: go test
@@ -128,6 +149,11 @@ jobs:
         run: npm ci
       - name: Typecheck all workspaces
         run: npm run typecheck
+      # ESLint covers the JS/MJS tooling (build scripts, generators). The TS
+      # sources stay on tsc: typescript-eslint 8 refuses TypeScript 7, so a
+      # TS-config lint would mean downgrading the compiler.
+      - name: Lint tool scripts
+        run: npm run lint
       - name: Unit tests (all workspaces)
         run: npm test
       - name: Build all renderers

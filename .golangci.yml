@@ -1,0 +1,54 @@
+version: "2"
+
+# Deliberately small, high-signal gate.
+#
+# Scope: golangci-lint's `standard` set (errcheck, govet, ineffassign,
+# staticcheck, unused). It is intentionally not the "everything" preset — the
+# project has no historical lint baseline, so enabling hundreds of opinionated
+# linters at once would drown the real findings. The list grows one linter at a
+# time, each only after the current set reports zero issues.
+#
+# Not enabled yet, in the order they are worth adding:
+#   - gosec        (security; needs a triage pass over exec/registry/file paths)
+#   - bodyclose    (only meaningful once more HTTP client code lands)
+#   - gofmt/gofumpt as *formatters* — tracked files use CRLF, so gofmt reports
+#     62 files as unformatted purely because of line endings. Normalising the
+#     working tree to LF is a separate, repo-wide decision.
+#
+# Test files: errcheck is off for `_test.go`. Test scaffolding errors surface as
+# failed assertions; forcing `_ = x.Close()` on every helper adds noise without
+# adding signal. Production code is checked in full.
+linters:
+  default: standard
+  settings:
+    errcheck:
+      # `json.Unmarshal` / type assertions in this codebase already branch on
+      # errors explicitly where it matters; the assertion form here would only
+      # flag deliberate `v, _ := m[k].(T)` reads.
+      check-type-assertions: false
+      check-blank: false
+  exclusions:
+    generated: lax
+    # `std-error-handling` is golangci-lint's own standard exclusion set: it
+    # stops errcheck from demanding a check on `fmt.Print*`, `os.Remove(All)`,
+    # `os.Setenv` and `*.Close` — patterns where the error is either
+    # unactionable or already surfaced elsewhere. Without it the first run
+    # reports ~90 findings that are almost entirely `defer fh.Close()`.
+    #
+    # The two places where a Close error *is* actionable (copy destinations and
+    # the atomic writer) check it explicitly in code rather than relying on the
+    # linter, so nothing real is hidden here.
+    presets:
+      - std-error-handling
+      - common-false-positives
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+run:
+  timeout: 5m

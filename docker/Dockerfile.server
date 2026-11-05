@@ -62,7 +62,10 @@ COPY --from=builder /app/frontend/dist /frontend/dist
 # Expose the default port
 EXPOSE 8080
 
-# Bind to all interfaces (required for Docker)
+# The container must listen on all interfaces for the port mapping to work.
+# main.go refuses a non-loopback bind unless YIIOFFICE_ALLOW_REMOTE=1 is set
+# explicitly; `task run:docker` passes it together with a loopback-only host
+# port mapping. Never publish 8080 on 0.0.0.0 without an authenticating proxy.
 # Can be overridden at runtime with -e WAILS_SERVER_HOST=...
 ENV WAILS_SERVER_HOST=0.0.0.0
 

@@ -2,8 +2,10 @@ version: '3'
 
 vars:
   PACKAGE_MANAGER: '{{.PACKAGE_MANAGER | default "npm"}}'
-  # Single source of truth for the compiled-in version. Kept in sync with
-  # config.yml `info.version`, the NSIS script, and frontend/package.json.
+  # VERSION (the root VERSION file) is the single source of truth. Every place
+  # that repeats the number is declared as a slot in tools/version.mjs and
+  # verified by `task version:check` before packaging and in CI. Change it with
+  # `task version:bump NEW_VERSION=x.y.z`, never by hand.
   # Injected into the production binary via -ldflags "-X .../buildinfo.Version".
   VERSION: '{{.VERSION | default "0.13.0"}}'
   BUILDINFO_X: '-X gitee.com/ethanbourne789/yiioffice/internal/buildinfo.Version={{.VERSION}} -X gitee.com/ethanbourne789/yiioffice/internal/buildinfo.isDevStr=0'
@@ -55,6 +57,9 @@ tasks:
     deps:
       - task: build
     cmds:
+      # Fail early on a stale version: the installer, the exe resources and the
+      # site must all advertise exactly the VERSION the binary was linked with.
+      - task: version:check
       # APP_VERSION is threaded through from the same .VERSION the binary is
       # linked with, so the installer never advertises a stale version.
       - makensis -DAPP_VERSION={{.VERSION}} build/windows/nsis/installer.nsi
@@ -328,6 +333,7 @@ tasks:
         vars:
           BUILD_FLAGS: "-tags server,production"
     cmds:
+      - task: version:check
       - >-
         docker build
         --build-arg CGO_ENABLED={{.CGO_ENABLED | default "0"}}
@@ -347,18 +353,20 @@ tasks:
   run:docker:
     summary: Builds and runs the Docker image
     desc: |
-      Builds the Docker image and runs it, exposing port 8080.
+      Builds the Docker image and runs it, exposing port 8080 on 127.0.0.1 only.
       Usage: task run:docker [TAG=myapp:latest] [PORT=8080]
       Note: The internal container port is always 8080. The PORT variable
-      only changes the host port mapping. Ensure your app uses port 8080
-      or modify the Dockerfile to match your ServerOptions.Port setting.
+      only changes the host port mapping. Server mode has no authentication;
+      the host-side bind is loopback-only and YIIOFFICE_ALLOW_REMOTE=1 is
+      passed explicitly because the container itself must listen on 0.0.0.0.
+      Never widen the host mapping to 0.0.0.0 without an authenticating proxy.
     deps:
       - task: build:docker
         vars:
           TAG:
             ref: .TAG
     cmds:
-      - docker run --rm -p {{.PORT | default "8080"}}:8080 {{.TAG | default (printf "%s:latest" .APP_NAME)}}
+      - docker run --rm -e YIIOFFICE_ALLOW_REMOTE=1 -p 127.0.0.1:{{.PORT | default "8080"}}:8080 {{.TAG | default (printf "%s:latest" .APP_NAME)}}
     vars:
       TAG: "{{.TAG}}"
       PORT: "{{.PORT}}"
@@ -400,6 +408,29 @@ tasks:
     internal: true
     cmds:
       - go build -tags server,production -buildvcs=false -o build/bin/YiiOffice-e2e-server.exe .
+
+  # ── Version single source of truth ────────────────────────────────────────
+  version:check:
+    summary: Verifies every declared version slot matches the VERSION file
+    preconditions:
+      - sh: node --version > /dev/null 2>&1
+        msg: "Node.js is required for the version gate (see tools/version.mjs)."
+    cmds:
+      - node tools/version.mjs check
+
+  version:bump:
+    summary: Rewrites every version slot and the npm lockfile in one shot
+    desc: |
+      Usage: task version:bump NEW_VERSION=0.14.0
+      The root VERSION file is the single source of truth; tools/version.mjs
+      owns the authoritative slot list and re-checks after rewriting.
+    vars:
+      NEW_VERSION: '{{.NEW_VERSION | default ""}}'
+    preconditions:
+      - sh: node --version > /dev/null 2>&1
+        msg: "Node.js is required for the version gate (see tools/version.mjs)."
+    cmds:
+      - node tools/version.mjs bump {{.NEW_VERSION}}
 
   e2e:
     summary: Runs the E2E suite against the real Go backend (default)
