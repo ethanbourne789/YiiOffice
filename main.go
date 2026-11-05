@@ -59,12 +59,16 @@ func main() {
 		if os.Getenv("WAILS_TRACE") != "" {
 			traceFile, err := os.Create("trace.out")
 			if err == nil {
-				trace.Start(traceFile)
-				defer func() {
-					trace.Stop()
+				if err := trace.Start(traceFile); err != nil {
+					log.Printf("trace: start failed: %v", err)
 					traceFile.Close()
-					log.Println("trace written to trace.out — open with: go tool trace trace.out")
-				}()
+				} else {
+					defer func() {
+						trace.Stop()
+						traceFile.Close()
+						log.Println("trace written to trace.out — open with: go tool trace trace.out")
+					}()
+				}
 			}
 		}
 	}
@@ -88,6 +92,14 @@ func main() {
 		headlessExit(export.ParseHeadlessUsageError(), false)
 	}
 	if headless {
+		// Resolve relative paths before anything else touches them: the bridge's
+		// write policy only accepts absolute targets, and GrantFile below drops
+		// a relative path silently, which would fail the export at write time.
+		absReq, absErr := export.AbsolutiseRequest(headlessReq)
+		if absErr != nil {
+			headlessExit(export.HeadlessOutcome{Error: absErr.Error(), ExitHint: export.ExitBadArgs}, headlessReq.JSON)
+		}
+		headlessReq = absReq
 		if err := export.ValidateRequest(headlessReq); err != nil {
 			headlessExit(export.HeadlessOutcome{Error: err.Error(), ExitHint: export.ExitBadArgs}, headlessReq.JSON)
 		}
@@ -96,7 +108,8 @@ func main() {
 		}
 		// The CLI picked these paths; the bridge's write policy requires an
 		// explicit grant before the renderer's export may write the output.
-		bridge.GrantFile(headlessReq.Input)
+		// The input is read-only: granting it would let a crafted document
+		// overwrite the very file the user asked to convert.
 		bridge.GrantFile(headlessReq.Out)
 	}
 
@@ -117,7 +130,11 @@ func main() {
 			log.Printf("warning: %v", err)
 			log.Println("WebView2 is required to run YiiOffice.")
 			log.Println("Please install WebView2 from: https://go.microsoft.com/fwlink/p/?LinkId=2124703")
-			exec.Command("cmd", "/c", "start", platform.WebView2InstallURL()).Start()
+			// Best effort: the URL is printed above, so a failed launch only
+			// costs the user one copy-paste.
+			if err := exec.Command("cmd", "/c", "start", platform.WebView2InstallURL()).Start(); err != nil {
+				log.Printf("could not open the WebView2 download page: %v", err)
+			}
 			os.Exit(1)
 		}
 	}
@@ -166,10 +183,24 @@ func main() {
 	// Window close guard (unsaved document protection). The editors report
 	// dirtiness through TabService.SetDirty; GetDirty converts the host view
 	// into the guard's own type and resets the per-attempt user decision.
-	var quitConfirmed *bool
+	//
+	// "Save" cannot be honoured on the spot: the documents live in the renderer.
+	// CloseFlow publishes a request to the shell and refuses that close; the
+	// shell saves every dirty frame and answers, which retries the quit.
+	var quitDecision *platform.CloseDecision
+	closeFlow := host.NewCloseFlow(
+		func(req host.CloseSaveRequest) {
+			platform.Emit("app:close-save-request", req)
+		},
+		func() {
+			if app := platform.App(); app != nil {
+				app.Quit()
+			}
+		},
+	)
 	closeGuard := host.NewCloseGuard(tabHost, &host.CloseGuardConfig{
 		GetDirty: func() []host.DirtyTab {
-			quitConfirmed = nil
+			quitDecision = nil
 			summaries := tabHost.DirtyTabs()
 			out := make([]host.DirtyTab, 0, len(summaries))
 			for _, s := range summaries {
@@ -178,19 +209,26 @@ func main() {
 			return out
 		},
 		PromptSave: func(tab host.DirtyTab) host.SaveChoice {
-			if quitConfirmed == nil {
+			// One prompt per close attempt: the dialog covers every dirty tab,
+			// so asking once per tab would repeat the same question.
+			if quitDecision == nil {
 				titles := make([]string, 0, 4)
 				for _, s := range tabHost.DirtyTabs() {
 					titles = append(titles, s.Title)
 				}
-				answer := platform.ConfirmDiscardChanges(titles)
-				quitConfirmed = &answer
+				decision := platform.ConfirmCloseWithSave(titles)
+				quitDecision = &decision
 			}
-			if !*quitConfirmed {
+			switch *quitDecision {
+			case platform.CloseSave:
+				return host.Save
+			case platform.CloseDiscard:
+				return host.DontSave
+			default:
 				return host.Cancel
 			}
-			return host.DontSave
 		},
+		OnSaveRequested: closeFlow.RequestSave,
 	})
 
 	// Start renderer watchdog with a cancellable context so InternalService
@@ -228,6 +266,10 @@ func main() {
 		buildinfo.Version, store, rm, fm, tabHost, fo, dam, idxLifecycle, openFileFn,
 		platform.RevealPath,
 	)
+	// Save dialogs for new documents start in the user's configured default
+	// save folder. The getter is resolved lazily so a change made in Settings
+	// applies to the next dialog without re-registering anything.
+	bridge.SetDefaultSaveDirProvider(homeSvc.GetDefaultSaveDir)
 
 	// Re-register the extensions the user enabled so a moved/upgraded
 	// executable refreshes its stored open-command path (HKCU, no UAC).
@@ -236,12 +278,16 @@ func main() {
 	// Server mode exposes every bridge binding and authorised local file
 	// read over plain HTTP with no authentication layer. The compiled-in
 	// bind address is loopback-only; WAILS_SERVER_HOST can widen it (the
-	// Docker image deliberately sets 0.0.0.0 for container networking), so
-	// a non-loopback bind is logged loudly at startup rather than silently
-	// honoured. Keep docker/Dockerfile.server and docs/e2e-test-strategy.md
-	// in sync if this behaviour changes.
+	// Docker image deliberately sets 0.0.0.0 for container networking).
+	// A non-loopback bind now requires an explicit opt-in: warning alone left
+	// an unauthenticated file/API surface reachable from the whole network.
+	// Keep docker/Dockerfile.server and docs/e2e-test-strategy.md in sync if
+	// this behaviour changes.
 	if servmode.Enabled {
 		if host := os.Getenv("WAILS_SERVER_HOST"); !servmode.IsLoopbackHost(host) {
+			if os.Getenv("YIIOFFICE_ALLOW_REMOTE") != "1" {
+				log.Fatalf("server mode refuses non-loopback bind %q: set YIIOFFICE_ALLOW_REMOTE=1 only on a trusted network or behind an authenticating reverse proxy", host)
+			}
 			platform.Logger().Warn("SERVER MODE BOUND TO NON-LOOPBACK ADDRESS",
 				"host", host,
 				"port", os.Getenv("WAILS_SERVER_PORT"),
@@ -349,6 +395,16 @@ func main() {
 		},
 	})
 	platform.Set(app)
+
+	// The renderer answers the save-before-close request here. Only a complete,
+	// successful answer retries the quit; anything else leaves the window open
+	// so the edits are never dropped by a half-finished write.
+	platform.OnEvent("app:close-save-result", func(event *application.CustomEvent) {
+		if !closeFlow.Complete(event.Data) {
+			platform.Logger().Warn("close held: documents were not all saved",
+				"payload", event.Data)
+		}
+	})
 
 	// The updater needs the application's host adapter, so it is configured
 	// after application.New and registered as a service for the shell.

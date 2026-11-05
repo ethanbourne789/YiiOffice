@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"gitee.com/ethanbourne789/yiioffice/internal/fsutil"
+	"gitee.com/ethanbourne789/yiioffice/internal/platform"
 )
 
 // FolderRoot is a row of the home sidebar tree. The default save folder is
@@ -78,7 +79,7 @@ func (fm *FolderManager) loadRoots() {
 	raw, err := os.ReadFile(fm.rootsFile)
 	if err == nil {
 		if err := json.Unmarshal(raw, &fm.added); err != nil {
-			fmt.Printf("error unmarshaling folder roots: %v\n", err)
+			platform.Logger().Warn("host: failed to parse folder-roots.json", "error", err)
 		}
 	}
 	if fm.added == nil {
@@ -86,10 +87,8 @@ func (fm *FolderManager) loadRoots() {
 	}
 }
 
-func (fm *FolderManager) saveRoots() {
-	if err := fsutil.WriteJSONAtomic(fm.rootsFile, fm.added, 0o644); err != nil {
-		fmt.Printf("error saving folder roots: %v\n", err)
-	}
+func (fm *FolderManager) saveRoots() error {
+	return fsutil.WriteJSONAtomic(fm.rootsFile, fm.added, 0o644)
 }
 
 // defaultRootPath resolves the default save folder, creating it when the
@@ -173,15 +172,8 @@ func (fm *FolderManager) AddRoot(path string, label string) {
 		label = filepath.Base(path)
 	}
 	fm.added = append(fm.added, folderRootRecord{Path: path, Label: label})
-	fm.saveRoots()
+	reportPersistError("folder-roots.json", fm.saveRoots())
 	fm.mu.Unlock()
-}
-
-// hasPath reports whether path is already the default root or an added root.
-func (fm *FolderManager) hasPath(path string) bool {
-	fm.mu.RLock()
-	defer fm.mu.RUnlock()
-	return fm.hasPathLocked(path)
 }
 
 // hasPathLocked checks if path exists; caller must hold fm.mu.
@@ -229,7 +221,7 @@ func (fm *FolderManager) RemoveRoot(path string) {
 		}
 	}
 	if found {
-		fm.saveRoots()
+		reportPersistError("folder-roots.json", fm.saveRoots())
 	}
 	fm.mu.Unlock()
 }

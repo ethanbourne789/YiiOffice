@@ -2,7 +2,6 @@ package host
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -11,7 +10,17 @@ import (
 	"time"
 
 	"gitee.com/ethanbourne789/yiioffice/internal/fsutil"
+	"gitee.com/ethanbourne789/yiioffice/internal/platform"
 )
+
+// reportPersistError keeps a failed atomic write from being silently lost.
+// Host mutators are bound directly to Wails calls with no error return, so
+// the failure is surfaced through the structured logger instead of fmt.Printf.
+func reportPersistError(what string, err error) {
+	if err != nil {
+		platform.Logger().Warn("host: failed to persist "+what, "error", err)
+	}
+}
 
 const defaultRecentPageSize = 50
 
@@ -74,7 +83,7 @@ func (rm *RecentManager) load() {
 	raw, err := os.ReadFile(rm.recentFile())
 	if err == nil {
 		if err := json.Unmarshal(raw, &rm.recents); err != nil {
-			fmt.Printf("error unmarshaling recent files: %v\n", err)
+			platform.Logger().Warn("host: failed to parse recent.json", "error", err)
 		}
 	}
 	// Load starred
@@ -85,7 +94,7 @@ func (rm *RecentManager) load() {
 	raw, err = os.ReadFile(rm.starredFile())
 	if err == nil {
 		if err := json.Unmarshal(raw, &starredData); err != nil {
-			fmt.Printf("error unmarshaling starred files: %v\n", err)
+			platform.Logger().Warn("host: failed to parse starred.json", "error", err)
 		}
 		rm.starred = starredData.Files
 		if len(starredData.Groups) > 0 {
@@ -94,16 +103,16 @@ func (rm *RecentManager) load() {
 	}
 }
 
-func (rm *RecentManager) saveRecents() {
-	fsutil.WriteJSONAtomic(rm.recentFile(), rm.recents, 0o644)
+func (rm *RecentManager) saveRecents() error {
+	return fsutil.WriteJSONAtomic(rm.recentFile(), rm.recents, 0o644)
 }
 
-func (rm *RecentManager) saveStarred() {
+func (rm *RecentManager) saveStarred() error {
 	data := struct {
 		Groups []string      `json:"groups"`
 		Files  []StarredFile `json:"files"`
 	}{Groups: rm.starredGroups, Files: rm.starred}
-	fsutil.WriteJSONAtomic(rm.starredFile(), data, 0o644)
+	return fsutil.WriteJSONAtomic(rm.starredFile(), data, 0o644)
 }
 
 // AddRecent adds a path to the recent files list. Blank paths and paths that
@@ -127,9 +136,13 @@ func (rm *RecentManager) AddRecent(path string) {
 			break
 		}
 	}
-	rm.recents = append([]RecentEntry{{Path: path, Ts: now}}, rm.recents...)
+	// Shift in place instead of allocating a fresh 2000-element slice on
+	// every open (Go's copy handles the overlapping region like memmove).
+	rm.recents = append(rm.recents, RecentEntry{})
+	copy(rm.recents[1:], rm.recents[:len(rm.recents)-1])
+	rm.recents[0] = RecentEntry{Path: path, Ts: now}
 	rm.trimRecents()
-	rm.saveRecents()
+	reportPersistError("recent.json", rm.saveRecents())
 }
 
 // trimRecents keeps the newest recentSoftCap records plus every starred path.
@@ -214,7 +227,7 @@ func (rm *RecentManager) RemoveRecent(path string) {
 			break
 		}
 	}
-	rm.saveRecents()
+	reportPersistError("recent.json", rm.saveRecents())
 }
 
 // StatPaths stats a list of paths.
@@ -245,13 +258,13 @@ func (rm *RecentManager) ToggleStar(path string) bool {
 					break
 				}
 			}
-			rm.saveStarred()
+			reportPersistError("starred.json", rm.saveStarred())
 			return false
 		}
 	}
 	// Star
 	rm.starred = append(rm.starred, StarredFile{Path: path})
-	rm.saveStarred()
+	reportPersistError("starred.json", rm.saveStarred())
 	return true
 }
 
@@ -275,11 +288,14 @@ func (rm *RecentManager) GetStarred() []DocumentEntry {
 	return result
 }
 
-// GetStarredGroups returns all starred groups.
+// GetStarredGroups returns a copy of the starred groups. Returning the
+// internal slice used to let callers mutate host state without the lock.
 func (rm *RecentManager) GetStarredGroups() []string {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
-	return rm.starredGroups
+	groups := make([]string, len(rm.starredGroups))
+	copy(groups, rm.starredGroups)
+	return groups
 }
 
 // SetStarredGroup sets the group for a starred file.
@@ -292,7 +308,7 @@ func (rm *RecentManager) SetStarredGroup(path, group string) {
 			break
 		}
 	}
-	rm.saveStarred()
+	reportPersistError("starred.json", rm.saveStarred())
 }
 
 // UnstarPaths removes multiple paths from starred files.
@@ -313,7 +329,7 @@ func (rm *RecentManager) UnstarPaths(paths []string) {
 		}
 	}
 	rm.starred = result
-	rm.saveStarred()
+	reportPersistError("starred.json", rm.saveStarred())
 }
 
 // IsStarred reports whether a path is in the starred list.

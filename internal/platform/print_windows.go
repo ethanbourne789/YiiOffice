@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -58,7 +59,7 @@ func PrintHTMLToPdf(html string, outputPath string, opts PrintOptions) error {
 
 	edgePath := findEdgeBrowser()
 	if edgePath == "" {
-		return fmt.Errorf("Edge browser executable not found on this system")
+		return fmt.Errorf("edge browser executable not found on this system")
 	}
 
 	args := buildEdgePrintArgs(htmlPath, outputPath, opts)
@@ -90,27 +91,59 @@ func withPageCSS(html string, opts PrintOptions) string {
 	return rule + html
 }
 
+const (
+	// A hung PowerShell query used to block a synchronous binding forever.
+	printerQueryTimeout = 8 * time.Second
+	// Printers rarely change mid-session; keep the short-lived process spawn
+	// off every dialog open while still picking up new devices promptly.
+	printerCacheTTL = 30 * time.Second
+)
+
+var printerCache struct {
+	sync.Mutex
+	names     []string
+	fetchedAt time.Time
+}
+
 // ListPrinterNames returns the names of the installed printers. An empty slice
 // means none were found or the query failed.
 func ListPrinterNames() []string {
-	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command",
+	printerCache.Lock()
+	if printerCache.names != nil && time.Since(printerCache.fetchedAt) < printerCacheTTL {
+		cached := make([]string, len(printerCache.names))
+		copy(cached, printerCache.names)
+		printerCache.Unlock()
+		return cached
+	}
+	printerCache.Unlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), printerQueryTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "powershell", "-NoProfile", "-NonInteractive", "-Command",
 		"Get-Printer | Select-Object -ExpandProperty Name")
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	out, err := cmd.Output()
 	if err != nil {
+		// A failed or timed-out query is never cached, so a transient
+		// PowerShell hiccup does not hide printers for the whole session.
 		return []string{}
 	}
-	var names []string
+	names := make([]string, 0)
 	for _, line := range strings.Split(string(out), "\n") {
 		name := strings.TrimSpace(line)
 		if name != "" {
 			names = append(names, name)
 		}
 	}
-	if names == nil {
-		return []string{}
-	}
-	return names
+
+	printerCache.Lock()
+	printerCache.names = names
+	printerCache.fetchedAt = time.Now()
+	printerCache.Unlock()
+
+	result := make([]string, len(names))
+	copy(result, names)
+	return result
 }
 
 // buildEdgePrintArgs constructs the command-line arguments for Edge headless PDF export.

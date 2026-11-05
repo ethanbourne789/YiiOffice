@@ -6,6 +6,37 @@ import (
 	"testing"
 )
 
+// TestSettingsSnapshotIsDeepCopy guards V-M1: FileAssocEnabled used to be
+// shared between Snapshot(), update() and the store, so a concurrent
+// RefreshEnabledAssociations range could race with a write, and a failed
+// atomic write still changed the in-memory map.
+func TestSettingsSnapshotIsDeepCopy(t *testing.T) {
+	s, err := NewSettingsStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetFileAssocEnabled(".docx", true); err != nil {
+		t.Fatal(err)
+	}
+
+	snap := s.Snapshot()
+	snap.FileAssocEnabled[".xlsx"] = true
+	if s.Snapshot().FileAssocEnabled[".xlsx"] {
+		t.Fatal("caller mutation of Snapshot leaked into the store")
+	}
+
+	before := s.Snapshot()
+	if err := s.SetFileAssocEnabled(".docx", false); err != nil {
+		t.Fatal(err)
+	}
+	if !before.FileAssocEnabled[".docx"] {
+		t.Fatal("an older snapshot was mutated by a later update")
+	}
+	if s.Snapshot().FileAssocEnabled[".docx"] {
+		t.Fatal("update did not persist the new value")
+	}
+}
+
 func TestSettingsDefaults(t *testing.T) {
 	s, err := NewSettingsStore(t.TempDir())
 	if err != nil {

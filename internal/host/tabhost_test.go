@@ -4,6 +4,40 @@ import (
 	"testing"
 )
 
+// TestTabHostReadersReturnSnapshots guards V-M2: ActiveTab/GetByID used to
+// hand out the internal *Tab, so callers read Kind/Title/Dirty outside the
+// RLock while SetDirty/Activate wrote them.
+func TestTabHostReadersReturnSnapshots(t *testing.T) {
+	h := NewTabHost()
+	id := h.AddTab(TabKindDocs, "Doc", "")
+
+	first := h.GetByID(id)
+	if first == nil {
+		t.Fatal("GetByID returned nil")
+	}
+	first.Title = "mutated"
+	first.Dirty = true
+	if got := h.GetByID(id); got == nil || got.Title != "Doc" || got.Dirty {
+		t.Fatalf("GetByID leaked internal tab state: %+v", got)
+	}
+
+	active := h.ActiveTab()
+	if active == nil {
+		t.Fatal("ActiveTab returned nil")
+	}
+	active.Dirty = true
+	if got := h.GetByID(id); got == nil || got.Dirty {
+		t.Fatalf("ActiveTab leaked internal tab state: %+v", got)
+	}
+
+	if !h.SetDirty(id, true) {
+		t.Fatal("SetDirty returned false")
+	}
+	if got := h.GetByID(id); got == nil || !got.Dirty {
+		t.Fatalf("snapshot did not reflect a real dirty change: %+v", got)
+	}
+}
+
 func TestTabHostStartsWithHome(t *testing.T) {
 	h := NewTabHost()
 	summaries := h.List()

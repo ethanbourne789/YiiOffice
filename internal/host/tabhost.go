@@ -188,25 +188,29 @@ func (h *TabHost) Reorder(from, to int) bool {
 	return true
 }
 
-// ActiveTab returns the currently active tab, or nil.
+// ActiveTab returns a snapshot of the currently active tab, or nil.
+// The returned pointer is owned by the caller: leaking the internal *Tab
+// would let lock-free reads race with SetDirty/Activate/CloseTab.
 func (h *TabHost) ActiveTab() *Tab {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	for _, t := range h.tabs {
 		if t.Active {
-			return t
+			copyOfTab := *t
+			return &copyOfTab
 		}
 	}
 	return nil
 }
 
-// GetByID returns a tab by ID, or nil if not found.
+// GetByID returns a snapshot of a tab by ID, or nil if not found.
 func (h *TabHost) GetByID(id string) *Tab {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	for _, t := range h.tabs {
 		if t.ID == id {
-			return t
+			copyOfTab := *t
+			return &copyOfTab
 		}
 	}
 	return nil

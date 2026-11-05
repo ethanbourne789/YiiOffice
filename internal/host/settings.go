@@ -33,10 +33,25 @@ var (
 )
 
 // SettingsStore serialises reads and writes of settings.json.
+// Settings contains a map, so every copy handed across the lock boundary is
+// deep-copied: a shallow struct copy would keep sharing FileAssocEnabled and
+// let a concurrent RefreshEnabledAssociations range race with a write.
 type SettingsStore struct {
-	mu   sync.Mutex
+	mu   sync.RWMutex
 	path string
 	data Settings
+}
+
+// cloneSettings returns a copy that shares no mutable state with src.
+func cloneSettings(src Settings) Settings {
+	out := src
+	if src.FileAssocEnabled != nil {
+		out.FileAssocEnabled = make(map[string]bool, len(src.FileAssocEnabled))
+		for k, v := range src.FileAssocEnabled {
+			out.FileAssocEnabled[k] = v
+		}
+	}
+	return out
 }
 
 // NewSettingsStore loads (or initialises) settings from dir.
@@ -60,11 +75,12 @@ func NewSettingsStore(dir string) (*SettingsStore, error) {
 	return s, nil
 }
 
-// Snapshot returns a copy of the current settings.
+// Snapshot returns an immutable copy of the current settings. Callers may
+// range over FileAssocEnabled without holding the store lock.
 func (s *SettingsStore) Snapshot() Settings {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.data
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return cloneSettings(s.data)
 }
 
 // SetLanguage validates and persists the UI language.
@@ -117,7 +133,9 @@ func (s *SettingsStore) SetFileAssocEnabled(ext string, enabled bool) error {
 func (s *SettingsStore) update(mutate func(*Settings)) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	next := s.data
+	// Mutate a deep copy: on a write failure the in-memory state must stay
+	// exactly as it was, including the association map.
+	next := cloneSettings(s.data)
 	mutate(&next)
 	if err := fsutil.WriteJSONAtomic(s.path, next, 0o644); err != nil {
 		return err
@@ -144,7 +162,7 @@ func mergeDefaults(loaded Settings) Settings {
 		out.DefaultSaveDir = loaded.DefaultSaveDir
 	}
 	if loaded.FileAssocEnabled != nil {
-		out.FileAssocEnabled = loaded.FileAssocEnabled
+		out.FileAssocEnabled = cloneSettings(loaded).FileAssocEnabled
 	}
 	return out
 }

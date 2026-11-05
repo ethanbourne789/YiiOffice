@@ -12,6 +12,37 @@ import (
 	"gitee.com/ethanbourne789/yiioffice/internal/fsutil"
 )
 
+// TestGetStarredGroupsReturnsCopy guards V-M3: callers used to receive the
+// internal slice and could mutate host state without holding rm.mu.
+func TestGetStarredGroupsReturnsCopy(t *testing.T) {
+	rm := NewRecentManager(t.TempDir())
+	groups := rm.GetStarredGroups()
+	if len(groups) == 0 {
+		t.Fatal("expected default groups")
+	}
+	want := groups[0]
+	groups[0] = "Mutated"
+	if got := rm.GetStarredGroups(); got[0] != want {
+		t.Fatalf("caller mutation leaked into the store: %q", got[0])
+	}
+}
+
+// TestAddRecentKeepsOrderAfterInPlaceShift guards the V-M3 optimisation:
+// prepending without allocating a new slice must keep newest-first and dedupe.
+func TestAddRecentKeepsOrderAfterInPlaceShift(t *testing.T) {
+	rm := NewRecentManager(t.TempDir())
+	rm.AddRecent("a.docx")
+	rm.AddRecent("b.docx")
+	rm.AddRecent("a.docx")
+	snap := rm.RecentsSnapshot()
+	if len(snap) != 2 {
+		t.Fatalf("expected 2 recents after dedupe, got %d: %+v", len(snap), snap)
+	}
+	if snap[0].Path != "a.docx" || snap[1].Path != "b.docx" {
+		t.Fatalf("unexpected order: %+v", snap)
+	}
+}
+
 func testRecentDir(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()

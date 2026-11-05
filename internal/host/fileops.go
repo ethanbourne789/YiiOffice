@@ -50,11 +50,17 @@ func (*FileOps) Duplicate(path string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("create dest: %w", err)
 	}
-	defer dst.Close()
 
 	if _, err := io.Copy(dst, src); err != nil {
+		dst.Close()
 		os.Remove(newPath)
 		return "", fmt.Errorf("copy: %w", err)
+	}
+	// A Close error means the buffered write never reached the disk; reporting
+	// success here would hand back a truncated "Copy of" file.
+	if err := dst.Close(); err != nil {
+		os.Remove(newPath)
+		return "", fmt.Errorf("close dest: %w", err)
 	}
 	return newPath, nil
 }

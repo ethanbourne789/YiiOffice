@@ -182,14 +182,38 @@ func openSingleImageDialog() (string, error) {
 // saveFileDialog shows a native save dialog and returns the chosen path. The
 // chosen path is granted for writes: the user picked that location explicitly,
 // which is exactly what the write whitelist is meant to record.
+// defaultSaveDirFn reports the user's configured "default save folder". It is
+// installed once at startup (see SetDefaultSaveDirProvider); until then Save
+// dialogs fall back to whatever folder the OS last used.
+var defaultSaveDirFn func() string
+
+// SetDefaultSaveDirProvider installs the settings lookup that backs the
+// "default save folder" preference. Every Save dialog for a new document opens
+// there, which is what makes that setting observable — before this, the value
+// was stored, shown in Settings, and used by nothing.
+func SetDefaultSaveDirProvider(fn func() string) { defaultSaveDirFn = fn }
+
+// saveFileDialog asks the user where to put a new file.
 func saveFileDialog(defaultName string) (path string, canceled bool, err error) {
+	return saveFileDialogIn("", defaultName)
+}
+
+// saveFileDialogIn is saveFileDialog with an explicit starting folder. An empty
+// directory means "the document has no home yet", which resolves to the
+// configured default save folder rather than the OS's last-used one.
+func saveFileDialogIn(directory, defaultName string) (path string, canceled bool, err error) {
 	app := platform.App()
 	if app == nil {
 		return "", false, fmt.Errorf("app not available")
 	}
-	path, err = app.Dialog.SaveFile().
-		SetFilename(defaultName).
-		PromptForSingleSelection()
+	if directory == "" && defaultSaveDirFn != nil {
+		directory = defaultSaveDirFn()
+	}
+	dialog := app.Dialog.SaveFile().SetFilename(defaultName)
+	if directory != "" {
+		dialog = dialog.SetDirectory(directory)
+	}
+	path, err = dialog.PromptForSingleSelection()
 	if err != nil {
 		return "", false, err
 	}
