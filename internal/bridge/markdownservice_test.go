@@ -89,6 +89,47 @@ func TestMarkdownServiceSaveWithPlainText(t *testing.T) {
 	}
 }
 
+// TestMarkdownServiceSaveKeepsBase64LookingPlainText guards V-H6: short
+// alphanumeric documents ("test", "2024", "markdown") are themselves valid
+// base64 and used to be silently replaced by decoded binary garbage.
+func TestMarkdownServiceSaveKeepsBase64LookingPlainText(t *testing.T) {
+	tmp := t.TempDir()
+	svc := newTestMarkdownService(t, tmp)
+	for _, content := range []string{"test", "2024", "markdown", "abcd", "YWJj"} {
+		testFile := filepath.Join(tmp, "case.md")
+		if err := svc.Save(testFile, content); err != nil {
+			t.Fatalf("Save(%q): %v", content, err)
+		}
+		data, err := os.ReadFile(testFile)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(data) != content {
+			t.Errorf("Save(%q) wrote %q (content was decoded as base64)", content, string(data))
+		}
+	}
+}
+
+// TestMarkdownServiceSaveDocumentWritesTextVerbatim covers the production save
+// path, which must not pass through the legacy encoding heuristic at all.
+func TestMarkdownServiceSaveDocumentWritesTextVerbatim(t *testing.T) {
+	tmp := t.TempDir()
+	svc := newTestMarkdownService(t, tmp)
+	path := filepath.Join(tmp, "note.md")
+	GrantFile(path)
+	res := svc.SaveDocument("test", path, "", false)
+	if !res.OK {
+		t.Fatalf("SaveDocument failed: %+v", res)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "test" {
+		t.Fatalf("SaveDocument wrote %q, want %q", string(data), "test")
+	}
+}
+
 func TestMarkdownServiceSaveImage(t *testing.T) {
 	tmp := t.TempDir()
 	svc := newTestMarkdownService(t, tmp)

@@ -223,7 +223,13 @@ func (s *DocsService) SaveDocxAs(suggestedName, content, srcPath string) DocxSav
 	if !strings.HasSuffix(strings.ToLower(name), ext) {
 		name += ext
 	}
-	path, canceled, err := saveFileDialog(name)
+	// Save As on an existing document starts where that document lives; a new
+	// document has no home yet, so it opens in the configured default folder.
+	startDir := ""
+	if srcPath != "" {
+		startDir = filepath.Dir(srcPath)
+	}
+	path, canceled, err := saveFileDialogIn(startDir, name)
 	if err != nil {
 		return DocxSaveResult{Error: codedMessage(ErrSaveDialogFailed, err.Error())}
 	}

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"gitee.com/ethanbourne789/yiioffice/internal/host"
 	"gitee.com/ethanbourne789/yiioffice/internal/platform"
@@ -49,7 +50,10 @@ func (s *MarkdownService) SaveDocument(text string, docPath string, suggestedNam
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return SaveDocumentResult{Error: codedMessage(ErrSaveDirectoryFailed, err.Error())}
 	}
-	if err := s.Save(path, base64.StdEncoding.EncodeToString([]byte(text))); err != nil {
+	// Write the editor's text verbatim. Routing it through Save's legacy
+	// base64-or-text heuristic could silently corrupt a document whose text
+	// happens to be a valid base64 literal (e.g. "test" or "2024").
+	if err := s.saveBytes(path, []byte(text)); err != nil {
 		return SaveDocumentResult{Error: err.Error()}
 	}
 	return SaveDocumentResult{OK: true, Path: path}
@@ -123,17 +127,41 @@ func (s *MarkdownService) ReadFile(path string) (string, error) {
 
 // Save atomically writes content (base64 or plain text) to the given path.
 func (s *MarkdownService) Save(path string, content string) error {
-	var data []byte
-	if decoded, err := base64.StdEncoding.DecodeString(content); err == nil {
-		data = decoded
-	} else {
-		data = []byte(content)
+	// A short alphanumeric document ("test", "2024", "markdown") is itself a
+	// valid base64 string. Decoding it unconditionally used to replace the
+	// user's text with a few arbitrary bytes. Only treat content as base64 when
+	// it is long enough to be a real encoded payload AND the decoded bytes look
+	// like a UTF-8 text document; otherwise write the text verbatim.
+	if len(content) >= 8 {
+		if decoded, err := base64.StdEncoding.DecodeString(content); err == nil && isTextDocument(decoded) {
+			return s.saveBytes(path, decoded)
+		}
 	}
+	return s.saveBytes(path, []byte(content))
+}
+
+// saveBytes is the single write path for Markdown documents.
+func (s *MarkdownService) saveBytes(path string, data []byte) error {
 	return atomicSaveBytes(path, data, func() {
 		if s.rm != nil {
 			s.rm.AddRecent(path)
 		}
 	})
+}
+
+// isTextDocument reports whether decoded base64 bytes look like the UTF-8 text
+// documents this binding is for, rather than the random bytes produced by
+// decoding a plain-text word that merely happens to be valid base64.
+func isTextDocument(data []byte) bool {
+	if len(data) == 0 || !utf8.Valid(data) {
+		return false
+	}
+	for _, b := range data {
+		if b < 0x20 && b != '\n' && b != '\r' && b != '\t' {
+			return false
+		}
+	}
+	return true
 }
 
 // SaveImage saves base64-encoded image data to file (atomic) and returns the path.
@@ -261,7 +289,7 @@ func (s *MarkdownService) ExportPdf(html string, suggestedName string, outPath s
 	if !strings.HasSuffix(strings.ToLower(name), ".pdf") {
 		name += ".pdf"
 	}
-	path := outPath
+	var path string
 	if outPath != "" {
 		authorised, err := AuthoriseWrite(outPath)
 		if err != nil {

@@ -102,7 +102,9 @@ func (s *PdfService) ExtractPages(filePath string, selectedPages []int, targetPa
 	if err != nil {
 		return nil, err
 	}
-	return pdfengine.ExtractPages(context.Background(), src, selectedPages, dir)
+	ctx, cancel := context.WithTimeout(context.Background(), pdfOpTimeout)
+	defer cancel()
+	return pdfengine.ExtractPages(ctx, src, selectedPages, dir)
 }
 
 func (s *PdfService) InsertPdf(filePath string, pdf2Path string, page int, position string) (any, error) {
@@ -115,7 +117,9 @@ func (s *PdfService) InsertPdf(filePath string, pdf2Path string, page int, posit
 		return nil, err
 	}
 	GrantFile(derivedSiblingPath(src, "_modified.pdf"))
-	return pdfengine.InsertPdf(context.Background(), src, other, page, position)
+	ctx, cancel := context.WithTimeout(context.Background(), pdfOpTimeout)
+	defer cancel()
+	return pdfengine.InsertPdf(ctx, src, other, page, position)
 }
 
 func (s *PdfService) SplitPdf(filePath string, targetPath string, splitString string) (any, error) {
@@ -127,7 +131,9 @@ func (s *PdfService) SplitPdf(filePath string, targetPath string, splitString st
 	if err != nil {
 		return nil, err
 	}
-	return pdfengine.Split(context.Background(), src, dir, splitString)
+	ctx, cancel := context.WithTimeout(context.Background(), pdfOpTimeout)
+	defer cancel()
+	return pdfengine.Split(ctx, src, dir, splitString)
 }
 
 func (s *PdfService) MergePdf(filePaths []string, targetPath string, outName string) (any, error) {
@@ -147,7 +153,9 @@ func (s *PdfService) MergePdf(filePaths []string, targetPath string, outName str
 	if strings.TrimSpace(name) != "" {
 		name = sanitizeFileName(name)
 	}
-	return pdfengine.Merge(context.Background(), srcs, dir, name)
+	ctx, cancel := context.WithTimeout(context.Background(), pdfOpTimeout)
+	defer cancel()
+	return pdfengine.Merge(ctx, srcs, dir, name)
 }
 
 func (s *PdfService) MergePages(filePath string, selectedPages []int, nupSpan int, targetPath string) (any, error) {
@@ -159,7 +167,9 @@ func (s *PdfService) MergePages(filePath string, selectedPages []int, nupSpan in
 	if err != nil {
 		return nil, err
 	}
-	return pdfengine.NUp(context.Background(), src, selectedPages, nupSpan, dir)
+	ctx, cancel := context.WithTimeout(context.Background(), pdfOpTimeout)
+	defer cancel()
+	return pdfengine.NUp(ctx, src, selectedPages, nupSpan, dir)
 }
 
 func (s *PdfService) ReplacePages(filePath string, replacePath string, page int) (any, error) {
@@ -172,7 +182,9 @@ func (s *PdfService) ReplacePages(filePath string, replacePath string, page int)
 		return nil, err
 	}
 	GrantFile(derivedSiblingPath(src, "_replaced.pdf"))
-	return pdfengine.ReplacePages(context.Background(), src, other, page)
+	ctx, cancel := context.WithTimeout(context.Background(), pdfOpTimeout)
+	defer cancel()
+	return pdfengine.ReplacePages(ctx, src, other, page)
 }
 
 func (s *PdfService) SetPageSize(filePath string, width float64, height float64, selectedPages []int) (any, error) {
@@ -180,7 +192,9 @@ func (s *PdfService) SetPageSize(filePath string, width float64, height float64,
 	if err != nil {
 		return nil, err
 	}
-	return pdfengine.SetPageSize(context.Background(), target, width, height, selectedPages)
+	ctx, cancel := context.WithTimeout(context.Background(), pdfOpTimeout)
+	defer cancel()
+	return pdfengine.SetPageSize(ctx, target, width, height, selectedPages)
 }
 
 func (s *PdfService) SplitPages(filePath string, selectedPages []int, gridRows int, gridCols int, targetPath string) (any, error) {
@@ -192,7 +206,9 @@ func (s *PdfService) SplitPages(filePath string, selectedPages []int, gridRows i
 	if err != nil {
 		return nil, err
 	}
-	return pdfengine.SplitPages(context.Background(), src, selectedPages, gridRows, gridCols, dir)
+	ctx, cancel := context.WithTimeout(context.Background(), pdfOpTimeout)
+	defer cancel()
+	return pdfengine.SplitPages(ctx, src, selectedPages, gridRows, gridCols, dir)
 }
 
 func (s *PdfService) CropPages(filePath string, selectedPages []int, cropArea [4]float64, targetPath string) (any, error) {
@@ -204,7 +220,9 @@ func (s *PdfService) CropPages(filePath string, selectedPages []int, cropArea [4
 	if err != nil {
 		return nil, err
 	}
-	return pdfengine.CropPages(context.Background(), src, selectedPages, cropArea, dir)
+	ctx, cancel := context.WithTimeout(context.Background(), pdfOpTimeout)
+	defer cancel()
+	return pdfengine.CropPages(ctx, src, selectedPages, cropArea, dir)
 }
 
 func (s *PdfService) ExportImages(filePath string, selectedPages []int, targetPath string) (any, error) {
@@ -216,7 +234,9 @@ func (s *PdfService) ExportImages(filePath string, selectedPages []int, targetPa
 	if err != nil {
 		return nil, err
 	}
-	return pdfengine.ExportImages(context.Background(), src, selectedPages, dir)
+	ctx, cancel := context.WithTimeout(context.Background(), pdfOpTimeout)
+	defer cancel()
+	return pdfengine.ExportImages(ctx, src, selectedPages, dir)
 }
 
 func (s *PdfService) ListPageImages(filePath string, pageIndex int) (any, error) {
@@ -224,7 +244,9 @@ func (s *PdfService) ListPageImages(filePath string, pageIndex int) (any, error)
 	if err != nil {
 		return nil, err
 	}
-	return pdfengine.ListPageImages(context.Background(), src, pageIndex)
+	ctx, cancel := context.WithTimeout(context.Background(), pdfOpTimeout)
+	defer cancel()
+	return pdfengine.ListPageImages(ctx, src, pageIndex)
 }
 
 // InsertBlankPage inserts one blank page before `page` (1-based) and returns the
@@ -235,5 +257,7 @@ func (s *PdfService) InsertBlankPage(filePath string, page int) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return pdfengine.InsertBlankPage(context.Background(), target, page)
+	ctx, cancel := context.WithTimeout(context.Background(), pdfOpTimeout)
+	defer cancel()
+	return pdfengine.InsertBlankPage(ctx, target, page)
 }

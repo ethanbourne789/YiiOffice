@@ -411,7 +411,11 @@ func (s *HomeService) DeleteFiles(paths []string) []string {
 }
 
 // OpenTrash opens the system Recycle Bin.
-func (s *HomeService) OpenTrash() { platform.OpenExternal("shell:RecycleBin") }
+func (s *HomeService) OpenTrash() {
+	if err := platform.OpenExternal("shell:RecycleBin"); err != nil {
+		platform.Logger().Warn("open recycle bin", "error", err)
+	}
+}
 
 // --- Folder operations ---
 
@@ -567,7 +571,9 @@ func (s *HomeService) GetDefaultAppStatus() map[string]string { return s.dam.Get
 
 // SetDefaultApp opens the OS page to set the app as default.
 func (s *HomeService) SetDefaultApp() {
-	platform.OpenExternal(s.dam.SetDefaultApp())
+	if err := platform.OpenExternal(s.dam.SetDefaultApp()); err != nil {
+		platform.Logger().Warn("open default-app settings", "error", err)
+	}
 }
 
 // GetFileAssocStatus reports the live per-extension association state, read
@@ -593,7 +599,9 @@ func (s *HomeService) SetFileAssocEnabled(ext string, enabled bool) error {
 // OpenDefaultAppSettings opens the Windows default-apps page; the user must
 // confirm YiiOffice there — no program may write the hash-protected choice.
 func (s *HomeService) OpenDefaultAppSettings() {
-	platform.OpenExternal(s.dam.SetDefaultApp())
+	if err := platform.OpenExternal(s.dam.SetDefaultApp()); err != nil {
+		platform.Logger().Warn("open default-app settings", "error", err)
+	}
 }
 
 // RefreshEnabledAssociations re-registers every extension the user enabled so
@@ -624,6 +632,9 @@ func (s *HomeService) searchIndexInfo() FileSearchIndex {
 	}
 	indexed, err := s.idxLc.Store().CountFiles()
 	if err != nil {
+		// The search page still renders with indexed=0, but a closed/corrupt
+		// store must not look like a genuinely empty index in the logs.
+		platform.Logger().Warn("home: index count failed", "error", err)
 		indexed = 0
 	}
 	pending, scanning := s.idxLc.Indexer().Status()
@@ -664,7 +675,12 @@ func (s *HomeService) SearchFiles(query FileSearchQuery) (*FileSearchPage, error
 
 	hits := make([]SearchHitWithStar, len(result.Hits))
 	for i, h := range result.Hits {
-		body, _ := store.GetBody(h.Path)
+		body, err := store.GetBody(h.Path)
+		if err != nil {
+			// One unreadable body must not fail the whole page: keep the hit
+			// (path/name are still useful) but leave the snippet empty.
+			platform.Logger().Warn("home: search body unavailable", "path", h.Path, "error", err)
+		}
 		var snippet []index.SnippetPart
 		var excerpt string
 		if body != nil {
