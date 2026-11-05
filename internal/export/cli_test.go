@@ -262,3 +262,54 @@ func TestHeadlessTargetsDocsHasHTML(t *testing.T) {
 		t.Fatal("docs module should support html export")
 	}
 }
+
+// TestAbsolutiseRequestResolvesRelativePaths pins the fix for a real bug: a
+// relative --out used to lose its bridge write grant (GrantFile silently drops
+// non-absolute paths), so the export rendered fine and then failed to write,
+// surfacing as "export did not produce a file".
+func TestAbsolutiseRequestResolvesRelativePaths(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+
+	req, err := AbsolutiseRequest(HeadlessRequest{Input: "in.docx", To: "pdf", Out: "nested/out.pdf"})
+	if err != nil {
+		t.Fatalf("AbsolutiseRequest: %v", err)
+	}
+
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(wd, "in.docx"); req.Input != want {
+		t.Errorf("input = %q, want %q", req.Input, want)
+	}
+	if want := filepath.Join(wd, "nested", "out.pdf"); req.Out != want {
+		t.Errorf("out = %q, want %q", req.Out, want)
+	}
+	if !filepath.IsAbs(req.Input) || !filepath.IsAbs(req.Out) {
+		t.Fatal("both paths must be absolute after resolution")
+	}
+	if req.To != "pdf" {
+		t.Errorf("to = %q, want pdf", req.To)
+	}
+}
+
+// TestAbsolutiseRequestIsIdempotent guards the retry path: a caller that
+// resolves twice (CLI entry point, then the runner) must not end up with a
+// path that drifts on the second pass.
+func TestAbsolutiseRequestIsIdempotent(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+
+	first, err := AbsolutiseRequest(HeadlessRequest{Input: "in.docx", To: "pdf", Out: "out.pdf"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := AbsolutiseRequest(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first != second {
+		t.Fatalf("second pass changed the request: %+v → %+v", first, second)
+	}
+}

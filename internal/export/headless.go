@@ -213,7 +213,7 @@ func runEditorExport(opts ExportOptions, module, inputPath, outPath, format stri
 	}
 	app := application.Get()
 	if app == nil {
-		return errors.New("Wails app not initialized (use the headless CLI entry point)")
+		return errors.New("wails app not initialized (use the headless CLI entry point)")
 	}
 
 	tabID := opts.Tabs.AddTab(host.TabKind(module), filepath.Base(inputPath), inputPath)

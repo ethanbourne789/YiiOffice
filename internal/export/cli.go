@@ -11,6 +11,7 @@ package export
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -99,6 +100,34 @@ func ParseHeadlessExport(argv []string) (HeadlessRequest, bool) {
 	}
 
 	return req, true
+}
+
+// AbsolutiseRequest resolves the request's input and output paths against the
+// current working directory.
+//
+// The CLI accepts relative paths — they are the natural thing to type at a
+// shell — but two layers downstream require absolute ones. The bridge's write
+// policy rejects a relative target outright (canonicalWritePath), and the grant
+// that lets the renderer write the output is keyed on the canonical form, so
+// GrantFile drops a relative path *silently*. The export then renders fine and
+// fails at write time with "not authorised", which surfaces to the user as
+// "export did not produce a file". Resolving once at the entry point keeps both
+// layers consistent, and makes the paths in the JSON envelope unambiguous.
+//
+// Callers must run this before ValidateHeadlessPaths, whose checks (output
+// directory exists, input is not a directory) are evaluated per path.
+func AbsolutiseRequest(req HeadlessRequest) (HeadlessRequest, error) {
+	input, err := filepath.Abs(req.Input)
+	if err != nil {
+		return req, fmt.Errorf("resolve input path: %w", err)
+	}
+	out, err := filepath.Abs(req.Out)
+	if err != nil {
+		return req, fmt.Errorf("resolve output path: %w", err)
+	}
+	req.Input = input
+	req.Out = out
+	return req, nil
 }
 
 // ShouldRunHeadless checks os.Args for --headless-export.
