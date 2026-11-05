@@ -260,6 +260,12 @@ func main() {
 
 	// The Sheets editor runs on the in-process pure-Go workbook engine
 	// (excelize); there is no external sidecar process.
+	//
+	// The logger is passed as a function value on purpose: importing
+	// internal/platform from the workbook package would pull wails into it,
+	// and with it the gtk4/webkitgtk cgo dependencies that break
+	// `go test -race ./internal/workbook/` on the Linux CI runner.
+	workbook.SetLoggerProvider(platform.Logger)
 	wbEngine := workbook.NewEngine()
 
 	homeSvc := bridge.NewHomeService(

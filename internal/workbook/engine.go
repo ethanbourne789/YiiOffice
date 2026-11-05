@@ -19,8 +19,6 @@ import (
 	"time"
 
 	"github.com/xuri/excelize/v2"
-
-	"gitee.com/ethanbourne789/yiioffice/internal/platform"
 )
 
 // Open failures carry stable codes in the message so the renderer can tell an
@@ -106,7 +104,7 @@ func (e *Engine) CloseAll() {
 	e.mu.Unlock()
 	for _, s := range sessions {
 		if err := s.release(); err != nil {
-			platform.Logger().Warn("workbook: close session failed", "error", err)
+			logger().Warn("workbook: close session failed", "error", err)
 		}
 	}
 }
@@ -250,7 +248,7 @@ func (e *Engine) OpenContext(ctx context.Context, path, password string) (*FileI
 			}
 			delete(e.sessions, victimID)
 			evicted = append(evicted, victim)
-			platform.Logger().Warn("workbook: session cap reached, evicted least-recently-used session",
+			logger().Warn("workbook: session cap reached, evicted least-recently-used session",
 				"cap", e.maxSessions, "evicted", victimID)
 		}
 	}
@@ -258,7 +256,7 @@ func (e *Engine) OpenContext(ctx context.Context, path, password string) (*FileI
 	e.mu.Unlock()
 	for _, s := range evicted {
 		if err := s.release(); err != nil {
-			platform.Logger().Warn("workbook: evicted session close failed", "error", err)
+			logger().Warn("workbook: evicted session close failed", "error", err)
 		}
 	}
 	return &info, nil
