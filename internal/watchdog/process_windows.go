@@ -77,7 +77,7 @@ func getProcessesByName(targetName string) ([]ProcessMetric, error) {
 	if h == 0 {
 		return nil, fmt.Errorf("CreateToolhelp32Snapshot failed")
 	}
-	defer windows.CloseHandle(windows.Handle(h))
+	defer func() { _ = windows.CloseHandle(windows.Handle(h)) }()
 
 	var entry processEntry32
 	entry.Size = uint32(unsafe.Sizeof(entry))
@@ -130,7 +130,7 @@ func getProcessMetric(pid uint32, name string) (ProcessMetric, error) {
 	if err != nil {
 		return ProcessMetric{}, err
 	}
-	defer windows.CloseHandle(h)
+	defer func() { _ = windows.CloseHandle(h) }()
 
 	// Get memory info
 	var counters processMemoryCounters
@@ -196,7 +196,7 @@ func UpdateCPUPercent(metrics []ProcessMetric) {
 			uintptr(unsafe.Pointer(&kernel)),
 			uintptr(unsafe.Pointer(&user)),
 		)
-		windows.CloseHandle(h)
+		_ = windows.CloseHandle(h)
 
 		if r1 == 0 {
 			continue
