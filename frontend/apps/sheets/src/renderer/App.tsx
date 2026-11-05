@@ -677,7 +677,7 @@ export function App({
       explicitTarget?: { path: string; overwrite: boolean },
     ) => Promise<SaveOutcome>
   >(() => Promise.resolve({ ok: false }))
-  const closeSaveRef = useRef<() => Promise<void>>(() => Promise.resolve())
+  const closeSaveRef = useRef<() => Promise<boolean>>(() => Promise.resolve(true))
   const commitActiveEditor = useCallback(async (): Promise<boolean> => {
     const editor = univerRef.current?.univerAPI.getActiveWorkbook() as
       ActiveCellEditor | null | undefined
@@ -2283,8 +2283,12 @@ export function App({
       (() => undefined)
     // Close guard chose Save: run the journal save and report the outcome.
     const unsubscribeCloseSave =
-      window.desktopApi?.onCloseSaveRequest?.(() => void closeSaveRef.current()) ??
-      (() => undefined)
+      window.desktopApi?.onCloseSaveRequest?.(
+        () =>
+          void closeSaveRef.current().then((ok) => {
+            window.desktopApi?.reportCloseSaveResult?.(ok)
+          }),
+      ) ?? (() => undefined)
     const gridHost = document.getElementById('univer-container')
     const disposePictureTransfer = gridHost
       ? installPictureTransfer(gridHost, {
@@ -3338,24 +3342,28 @@ export function App({
       return handleSaveImpl(saveContext(), mode, quiet, explicitTarget)
     })
   }
-  closeSaveRef.current = async () => {
+  closeSaveRef.current = async (): Promise<boolean> => {
     if (!(await commitActiveEditor())) {
       window.desktopApi?.reportCloseSaveResult?.(false)
-      return
+      return false
     }
     const state = lazyWorkbookRef.current
     if (!state || journalSize(state.editJournal) === 0) {
       window.desktopApi?.reportCloseSaveResult?.(true)
-      return
+      return true
     }
     await handleSave('save')
     // handleSave swallows errors into the status bar; a drained journal
     // (fresh state after openLazyWorkbook) is the success signal.
     const after = lazyWorkbookRef.current
-    window.desktopApi?.reportCloseSaveResult?.(
-      after === null || journalSize(after.editJournal) === 0,
-    )
+    const ok = after === null || journalSize(after.editJournal) === 0
+    window.desktopApi?.reportCloseSaveResult?.(ok)
+    return ok
   }
+  // Direct call from the shell's close-save fan-out (same-origin iframe).
+  ;(
+    window as unknown as { __yiiofficeCloseSave?: () => Promise<boolean> }
+  ).__yiiofficeCloseSave = () => closeSaveRef.current()
   function sortColumnOptions(): { label: string; colIndex: number }[] {
     const range = univerRef.current?.univerAPI.getActiveWorkbook()?.getActiveRange()
     if (!range) return []

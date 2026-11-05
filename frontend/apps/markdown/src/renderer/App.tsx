@@ -869,24 +869,26 @@ export default function App() {
         })
       }
     })
+    // A close-save arriving during an in-flight autosave must wait for it
+    // instead of failing (the old immediate `false` from `savingRef` made
+    // "Save and close" silently give up during a blur autosave — the same bug
+    // the docs app fixed with its save serializer).
+    const runCloseSave = async (): Promise<boolean> => {
+      while (savingRef.current) {
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      }
+      // The in-flight save may have already persisted everything.
+      if (!dirtyRef.current) return true
+      return doSave('save')
+    }
     const offClose = window.markdownApi.onCloseSaveRequest(() => {
-      void (async () => {
-        // A close-save arriving during an in-flight autosave must wait for it
-        // instead of failing (the old immediate `false` from `savingRef` made
-        // "Save and close" silently give up during a blur autosave — the same
-        // bug the docs app fixed with its save serializer).
-        while (savingRef.current) {
-          await new Promise((resolve) => setTimeout(resolve, 50))
-        }
-        // The in-flight save may have already persisted everything.
-        if (!dirtyRef.current) {
-          window.markdownApi.sendCloseSaveResult(true)
-          return
-        }
-        const ok = await doSave('save')
-        window.markdownApi.sendCloseSaveResult(ok)
-      })()
+      void runCloseSave().then((ok) => window.markdownApi.sendCloseSaveResult(ok))
     })
+    // Direct call from the shell's close-save fan-out (same-origin iframe).
+    const closeSaveHost = window as unknown as {
+      __yiiofficeCloseSave?: () => Promise<boolean>
+    }
+    closeSaveHost.__yiiofficeCloseSave = runCloseSave
     const offRenamed = window.markdownApi.onFileRenamed((newPath) => {
       // A rename that changes the extension changes what the file is, so the
       // open document has to follow it onto the matching surface. Reloading
@@ -951,6 +953,7 @@ export default function App() {
       offReadText()
       offClose()
       offRenamed()
+      delete closeSaveHost.__yiiofficeCloseSave
       window.removeEventListener('keydown', onKeyDown, true)
     }
   }, [doSave, printDoc, zoomIn, zoomOut, openFind, toggleSource, loadFromPath, t])

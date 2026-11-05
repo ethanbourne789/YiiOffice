@@ -5823,16 +5823,30 @@ export function App() {
     inside: () => [convertWrapRef.current],
   })
 
-  // Main process picked "Save" in the close prompt → save and report the result
+  // Close prompt picked "Save" → save and report the result
   useEffect(() => {
-    return window.pdfApi.onCloseSaveRequest(() => {
+    const runCloseSave = (): Promise<boolean> => {
       if (redactions.length > 0) {
         showNotice(t('redactSaveAsHint'))
-        window.pdfApi.sendCloseSaveResult(false)
-        return
+        return Promise.resolve(false)
       }
-      void save().then((ok) => window.pdfApi.sendCloseSaveResult(ok))
+      return save().then(
+        (ok) => ok === true,
+        () => false,
+      )
+    }
+    const off = window.pdfApi.onCloseSaveRequest(() => {
+      void runCloseSave().then((ok) => window.pdfApi.sendCloseSaveResult(ok))
     })
+    // Direct call from the shell's close-save fan-out (same-origin iframe).
+    const closeSaveHost = window as unknown as {
+      __yiiofficeCloseSave?: () => Promise<boolean>
+    }
+    closeSaveHost.__yiiofficeCloseSave = runCloseSave
+    return () => {
+      off?.()
+      delete closeSaveHost.__yiiofficeCloseSave
+    }
   })
 
   // Shell menu Save As → write pending edits to the picked path only; the original file is never mutated

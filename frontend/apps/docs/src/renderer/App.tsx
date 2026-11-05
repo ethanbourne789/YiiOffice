@@ -14,6 +14,7 @@ import type { CSSProperties, MouseEvent as ReactMouseEvent, SetStateAction } fro
 import { EditorContent, useEditor } from '@tiptap/react'
 import type { Editor } from '@tiptap/core'
 import { handleDocsControl, type ControlRequest } from './control'
+import { debugHooksEnabled, installDebugGlobal } from './debug-hooks'
 import { DOMParser as PmDOMParser, type Mark as PmMark, Slice as PmSlice } from '@tiptap/pm/model'
 import { NodeSelection, TextSelection, type Command, type Transaction } from '@tiptap/pm/state'
 import {
@@ -348,6 +349,15 @@ import {
   singleInlineEditIndex,
   type FastPassBlock,
 } from './editor/pagination-fast-path'
+
+/**
+ * `__pageDebug.slices` is a functional contract, not a debug nicety: headless
+ * export polls it to tell when pagination has settled, and that path runs a
+ * production build. Every other field on that object is diagnostics about
+ * internals (reject reasons, column specs, per-stage timings) and is therefore
+ * gated behind the same opt-in as the other automation globals.
+ */
+const PAGE_DEBUG_DIAG = debugHooksEnabled()
 
 /** min gap between whole-document pagination passes while a phased open streams its tail */
 const STREAMING_PASS_GAP_MS = 1500
@@ -2480,12 +2490,18 @@ export function App() {
   const exportImages = useCallback(() => exportImagesImpl(fileCtxRef.current), [])
   const printDoc = useCallback(() => printDocImpl(fileCtxRef.current), [])
 
-  // for real-device verification: trigger export directly via CDP (same as __pageDebug)
+  // for real-device verification: trigger export directly via CDP (same as __pageDebug).
+  // Gated: a shipped build must not expose save/export to any same-origin script.
   useEffect(() => {
-    ;(window as unknown as Record<string, unknown>).__exportPdf = exportPdf
-    ;(window as unknown as Record<string, unknown>).__exportImages = exportImages
-    ;(window as unknown as Record<string, unknown>).__openPagePreview = () =>
-      setShowPagePreview(true)
+    if (!debugHooksEnabled()) return
+    const offPdf = installDebugGlobal('__exportPdf', exportPdf)
+    const offImages = installDebugGlobal('__exportImages', exportImages)
+    const offPreview = installDebugGlobal('__openPagePreview', () => setShowPagePreview(true))
+    return () => {
+      offPdf()
+      offImages()
+      offPreview()
+    }
   }, [exportPdf, exportImages])
 
   // Headless export mode (--headless-export): this renderer lives in a hidden
@@ -3557,7 +3573,7 @@ export function App() {
         if (edited && edited.size > 0 && tryFastPass(edited)) {
           fastPasses++
           const dbg = (window as unknown as Record<string, Record<string, unknown>>).__pageDebug
-          if (dbg) dbg.fastPasses = fastPasses
+          if (dbg && PAGE_DEBUG_DIAG) dbg.fastPasses = fastPasses
           locate()
           return
         }
@@ -4653,8 +4669,8 @@ export function App() {
               )
             : null,
         )
-        // for real-device verification/troubleshooting: current slices and block geometry (read-only snapshot, no functional dependency)
-        ;(window as unknown as Record<string, unknown>).__pageDebug = {
+        // read-only snapshot; `slices` is always published, the rest is gated
+        const pageDiag = PAGE_DEBUG_DIAG ? {
           slices,
           fastPasses,
           fastReject,
@@ -4709,12 +4725,13 @@ export function App() {
           syncMs,
           gapsBuildMs: tGapsBuild,
           setGapsMs: tSetGaps,
-        }
+        } : { slices }
+        ;(window as unknown as Record<string, unknown>).__pageDebug = pageDiag
         requestAnimationFrame(() => {
           const tf = performance.now()
           requestAnimationFrame(() => {
             const dbg = (window as unknown as Record<string, Record<string, unknown>>).__pageDebug
-            if (dbg) dbg.frameMs = performance.now() - tf
+            if (dbg && PAGE_DEBUG_DIAG) dbg.frameMs = performance.now() - tf
           })
         })
         setGapNoteIds((prev) => {
@@ -4977,24 +4994,33 @@ export function App() {
         filePath: doc?.filePath ?? null,
       })
     })
-    const offSave = window.desktop.onCloseSaveRequest?.(() => {
-      // Closing must not report success while edits are still unpersisted, so a
-      // save that raced with typing is retried until the file catches up.
-      // save(false) never prompts — a pathless first save lands silently in the
-      // default folder — so retrying is always safe; reporting "persisted" just
-      // because the snapshot had no path yet would close over mid-save edits.
-      void saveUntilPersisted({
+    // Closing must not report success while edits are still unpersisted, so a
+    // save that raced with typing is retried until the file catches up.
+    // A document with no path yet goes through the Save As dialog on the first
+    // pass; that pass also records the chosen path, so the retry below writes
+    // straight to it instead of prompting again.
+    const runCloseSave = (): Promise<boolean> =>
+      saveUntilPersisted({
         save: () => save(false),
         wasIncomplete: () => saveIncompleteRef.current,
         hasPath: () => true,
       }).then(
-        (ok) => window.desktop.reportCloseSaveResult(ok === true),
-        () => window.desktop.reportCloseSaveResult(false),
+        (ok) => ok === true,
+        () => false,
       )
+    const offSave = window.desktop.onCloseSaveRequest?.(() => {
+      void runCloseSave().then((ok) => window.desktop.reportCloseSaveResult(ok))
     })
+    // The shell's close-save fan-out calls this directly; the event above stays
+    // for a window that is not hosted by the shell.
+    const closeSaveHost = window as unknown as {
+      __yiiofficeCloseSave?: () => Promise<boolean>
+    }
+    closeSaveHost.__yiiofficeCloseSave = runCloseSave
     return () => {
       offCheck?.()
       offSave?.()
+      delete closeSaveHost.__yiiofficeCloseSave
     }
   }, [doc, save, autoSave])
 
@@ -5829,16 +5855,18 @@ export function App() {
 
   useEffect(() => (editor ? installSelectionBar(editor) : undefined), [editor])
 
-  // e2e/automation hook: lets tests drive open/edit/save without native dialogs
+  // e2e/automation hook: lets tests drive open/edit/save without native dialogs.
+  // Gated (see debug-hooks.ts): production builds leave it undefined.
   useEffect(() => {
-    ;(window as unknown as Record<string, unknown>).__aidocs = {
+    if (!debugHooksEnabled()) return
+    return installDebugGlobal('__aidocs', {
       editor,
       openPath: (path: string) => openRecent(path),
       save: () => save(false),
       getStatus: () => status,
       exportPdfTo: (path: string) => exportPdf(path),
       exportHtmlTo: (path: string) => exportHtml(path),
-    }
+    })
   }, [editor, openRecent, save, status, exportPdf, exportHtml])
 
   // Pending style definitions (Styles pane / AI define_style) show before the

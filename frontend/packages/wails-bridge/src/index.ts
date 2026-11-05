@@ -22,7 +22,7 @@ import type { DesktopApi, MarkdownApi } from './editor-api'
 import type { SlidesDesktopApi } from './slides-bridge'
 import type { WindowControlsApi } from './window-bridge'
 
-export { on, runtime } from './transport'
+export { on, emit, runtime } from './transport'
 export { headlessExportChannel } from './headless-export-bridge'
 export type {
   HeadlessExportRequest,

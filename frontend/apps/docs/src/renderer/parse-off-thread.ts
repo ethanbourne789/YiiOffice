@@ -1,4 +1,5 @@
 import { parseDocx } from '@yiioffice/docx-engine'
+import { debugHooksEnabled } from './debug-hooks'
 
 type Parsed = Awaited<ReturnType<typeof parseDocx>>
 
@@ -89,6 +90,6 @@ export async function parseDocxOffThread(
   parseStats.inline++
   return parseDocx(new Uint8Array(response.bytes))
 }
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && debugHooksEnabled()) {
   ;(window as unknown as Record<string, unknown>).__docsParseStats = parseStats
 }

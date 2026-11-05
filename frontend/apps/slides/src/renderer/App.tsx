@@ -913,12 +913,23 @@ export function App() {
 
   // Close guard (closing tab/window) chose "Save": run the full save flow and report the result
   useEffect(() => {
-    return window.desktop.onCloseSaveRequest?.(() => {
-      void save().then(
-        (ok) => window.desktop.reportCloseSaveResult(ok),
-        () => window.desktop.reportCloseSaveResult(false),
+    const runCloseSave = (): Promise<boolean> =>
+      save().then(
+        (ok) => ok === true,
+        () => false,
       )
+    const off = window.desktop.onCloseSaveRequest?.(() => {
+      void runCloseSave().then((ok) => window.desktop.reportCloseSaveResult(ok))
     })
+    // Direct call from the shell's close-save fan-out (same-origin iframe).
+    const closeSaveHost = window as unknown as {
+      __yiiofficeCloseSave?: () => Promise<boolean>
+    }
+    closeSaveHost.__yiiofficeCloseSave = runCloseSave
+    return () => {
+      off?.()
+      delete closeSaveHost.__yiiofficeCloseSave
+    }
   }, [save])
 
   // Undo/redo stack occupancy pushed by the main process: the QAT buttons grey out when empty

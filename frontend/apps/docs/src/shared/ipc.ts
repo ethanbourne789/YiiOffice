@@ -318,7 +318,7 @@ export interface DesktopApi {
     passwordIntentPending?: boolean
     dataUrl?: string
   }>
-  /** first save of a new document: silently writes into the default folder, no dialog */
+  /** first save of a new document: opens the native Save As dialog (no source path) */
   saveDocxNew(
     defaultName: string,
     data: ArrayBuffer,

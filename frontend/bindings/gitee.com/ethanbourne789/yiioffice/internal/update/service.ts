@@ -59,6 +59,8 @@ export function DownloadAndInstall(): $CancellablePromise<void> {
 
 /**
  * RestartApp swaps the staged update in and relaunches the application.
+ * Wails v3.1.0's Updater.Restart ignores its context argument entirely, so
+ * wrapping it in a deadline would only give a false sense of safety.
  */
 export function RestartApp(): $CancellablePromise<void> {
     return $Call.ByID(2970405675);

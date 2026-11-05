@@ -2,7 +2,7 @@
 // Run from frontend/ with: node generate-templates.mjs
 import JSZip from 'jszip'
 import { writeFileSync, mkdirSync } from 'fs'
-import { fileURLToPath, pathToFileURL } from 'url'
+import { fileURLToPath } from 'url'
 import { dirname, resolve } from 'path'
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')

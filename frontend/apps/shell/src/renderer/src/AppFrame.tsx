@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { TabSummary } from '../../shared/tabs-api'
+import { installCloseSaveBridge } from './close-save'
 import { ErrorBoundary } from './error-boundary'
 import { Home } from './Home'
 import { TabBar } from './TabBar'
@@ -35,6 +36,10 @@ export function AppFrame() {
     void window.aiOfficeTabs.list().then(applyTabs)
     return window.aiOfficeTabs.onChanged(applyTabs)
   }, [])
+
+  // "Save" in the Go close prompt lands here: fan the request out to the dirty
+  // editor frames and report back so Go can retry the quit.
+  useEffect(() => installCloseSaveBridge(), [])
 
   const switchTab = useCallback((delta: number) => {
     const list = tabsRef.current

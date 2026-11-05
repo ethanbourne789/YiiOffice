@@ -1055,7 +1055,7 @@ export function wordArtSvgMarkup(img: HfImage): string {
   const wa = img.wordArt
   const w = img.widthPx ?? 0
   const h = img.heightPx ?? 0
-  if (!wa || w <= 0 || h <= 0) return ''
+  if (!wa || !Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return ''
   if (inkCtx === undefined) inkCtx = document.createElement('canvas').getContext('2d')
   if (!inkCtx || typeof inkCtx.measureText !== 'function') return ''
   const family = wa.fontFamily ? `"${wa.fontFamily.replace(/"/g, '')}", sans-serif` : 'sans-serif'
@@ -1071,11 +1071,19 @@ export function wordArtSvgMarkup(img: HfImage): string {
   const r = (v: number) => Math.round(v * 1000) / 1000
   const esc = (t: string) =>
     t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+  // colorHex / opacity come from the OOXML document and land in an attribute
+  // that is later injected with dangerouslySetInnerHTML. Whitelist the hex
+  // value and clamp the numeric one so a crafted .docx cannot close the
+  // attribute and inject arbitrary markup.
+  const colorHex = /^[0-9a-fA-F]{3,8}$/.test(wa.colorHex ?? '') ? wa.colorHex : '000000'
+  const opacity = Number.isFinite(wa.opacity)
+    ? String(Math.min(1, Math.max(0, wa.opacity)))
+    : '1'
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
     `<text transform="scale(${r(w / inkW)} ${r(h / inkH)}) translate(${r(left)} ${r(ascent)})"` +
     ` font-family=${JSON.stringify(esc(family))} font-size="100" font-weight="${weight}" font-style="${styleKw}"` +
-    ` fill="#${wa.colorHex}" fill-opacity="${wa.opacity}" xml:space="preserve">${esc(wa.text)}</text></svg>`
+    ` fill="#${colorHex}" fill-opacity="${opacity}" xml:space="preserve">${esc(wa.text)}</text></svg>`
   )
 }
 

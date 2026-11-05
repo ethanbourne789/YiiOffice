@@ -773,10 +773,11 @@ export async function buildDocBytes(ctx: FileActionContext): Promise<Uint8Array 
  * bytes to the main process, which stores them under userData. Best-effort —
  * a failure only means this tick's copy is skipped.
  *
- * A dirty document that never got a path can't have a recovery copy (the main
- * process only accepts allowlisted paths), so it is silently persisted into the
- * default folder first (same save-new path as the first manual save); every
- * later tick then covers it like any opened file.
+ * Only documents that already have a path get a copy. A never-saved document
+ * cannot be covered without first choosing a destination — and the only way to
+ * do that is the Save As dialog, which must never open itself from a background
+ * timer. Such a document stays uncovered until its first explicit save (manual
+ * save or the close guard's "Save" answer); that gap is deliberate.
  */
 export async function writeRecoveryCopy(ctx: FileActionContext): Promise<void> {
   const { doc, editor } = ctx
@@ -785,14 +786,7 @@ export async function writeRecoveryCopy(ctx: FileActionContext): Promise<void> {
   // still streaming: a snapshot now would persist a truncated document. The
   // next tick covers it.
   if (isPhasedContentPending()) return
-  if (!doc.filePath) {
-    if (doc.isBlank) return
-    if (editor.view.composing) return
-    const active = document.activeElement as HTMLElement | null
-    if (active?.closest('td[contenteditable], .doc-textbox')) return
-    await save(ctx, false, true)
-    return
-  }
+  if (!doc.filePath) return
   try {
     const bytes = await buildDocBytes(ctx)
     if (!bytes) return
@@ -809,10 +803,11 @@ export async function writeRecoveryCopy(ctx: FileActionContext): Promise<void> {
 const runSerializedSave = createSaveSerializer()
 
 /**
- * Path assigned by the first save of a still-pathless document (silent save-new
- * or Save As). A queued save whose ctx snapshot predates that first save still
- * sees `doc.filePath === null`; without this it would re-run the save-new path
- * and create a duplicate file. Reset whenever a different document is loaded.
+ * Path assigned by the first save of a still-pathless document: the native Save
+ * As dialog opened by save-new / save-as. A queued save whose ctx snapshot
+ * predates that first save still sees `doc.filePath === null`; without this it
+ * would re-open the dialog and create a duplicate file. Reset whenever a
+ * different document is loaded.
  */
 let pathlessDocSavedPath: string | null = null
 
@@ -970,8 +965,11 @@ async function saveOnce(
       // A never-saved document still called "Untitled" gets a name derived from its first heading
       const autoName =
         !doc.filePath && doc.fileName === t('appUntitledDocx') ? deriveAutoFileName(editor) : null
-      // Save As keeps the dialog; a new document's first save lands silently in the default
-      // folder. The source path identifies the desired password state to snapshot.
+      // Both branches open the native Save As dialog, so a new document's first
+      // save is never silent. Save As passes the source path: the host uses it
+      // both for the dialog's starting folder and to snapshot the password
+      // state; save-new passes none, so the dialog starts in the configured
+      // default save folder.
       const result = saveAs
         ? await window.desktop.saveDocxAs(autoName ?? doc.fileName, buffer, doc.filePath)
         : await window.desktop.saveDocxNew(newDocName ?? autoName ?? doc.fileName, buffer)
