@@ -3,6 +3,7 @@ package index
 import (
 	"fmt"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"gitee.com/ethanbourne789/yiioffice/internal/platform"
@@ -18,6 +19,13 @@ type Lifecycle struct {
 	store   *FileIndexStore
 	indexer *FileIndexer
 	watcher *Watcher
+
+	// mu serialises the indexer/watcher root changes as one unit and keeps
+	// them from racing with Shutdown. Wails bindings can call SyncRoots from
+	// several goroutines at once.
+	mu       sync.Mutex
+	scanWG   sync.WaitGroup
+	shutdown bool
 }
 
 // Init creates the store and indexer for the given data directory and folder
@@ -51,7 +59,16 @@ func Init(dataDir string, rootPaths []string) (*Lifecycle, error) {
 	// returned would let search run against an empty or half-built index.
 	// If shutdown wins the race, done closes and we leave the status at
 	// "initializing" instead of ever reporting Ready.
+	lc.scanWG.Add(1)
 	go func() {
+		defer lc.scanWG.Done()
+		// A panic here used to kill a detached goroutine silently and leave
+		// the index stuck at "initializing" forever.
+		defer func() {
+			if r := recover(); r != nil {
+				platform.Logger().Error("index: initial scan panicked", "panic", fmt.Sprint(r))
+			}
+		}()
 		indexer.Refresh()
 		select {
 		case <-indexer.FirstScanDone():
@@ -66,10 +83,15 @@ func Init(dataDir string, rootPaths []string) (*Lifecycle, error) {
 // SyncRoots updates the watched directories after sidebar roots change and
 // schedules a rescan, so files that already exist under a newly added root
 // enter the index and ghost rows under a removed root are cleaned up.
-// Safe to call at any time; a no-op when the watcher failed to start.
-// Concurrent binding calls may interleave the indexer/watcher steps; that is
-// a low-probability, self-healing risk because the next sync realigns both.
+// Safe to call at any time; a no-op when the watcher failed to start or
+// after Shutdown. The three steps run as one serialised unit so concurrent
+// binding calls cannot interleave two different root sets.
 func (lc *Lifecycle) SyncRoots(roots []string) {
+	lc.mu.Lock()
+	defer lc.mu.Unlock()
+	if lc.shutdown {
+		return
+	}
 	lc.indexer.SetRoots(roots)
 	if lc.watcher != nil {
 		lc.watcher.SyncRoots(roots)
@@ -85,14 +107,30 @@ func (lc *Lifecycle) Indexer() *FileIndexer { return lc.indexer }
 
 // Refresh triggers a full re-index.
 func (lc *Lifecycle) Refresh() {
+	lc.mu.Lock()
+	defer lc.mu.Unlock()
+	if lc.shutdown {
+		return
+	}
 	lc.indexer.Refresh()
 }
 
-// Shutdown stops the watcher and indexer, then closes the store.
+// Shutdown stops the watcher and indexer, then closes the store. It waits for
+// the initial-scan goroutine before closing the DB and is safe to call more
+// than once (only the first call owns the close).
 func (lc *Lifecycle) Shutdown() error {
+	lc.mu.Lock()
+	if lc.shutdown {
+		lc.mu.Unlock()
+		return nil
+	}
+	lc.shutdown = true
+	lc.mu.Unlock()
+
 	if lc.watcher != nil {
 		lc.watcher.Stop()
 	}
 	lc.indexer.Stop()
+	lc.scanWG.Wait()
 	return lc.store.Close()
 }

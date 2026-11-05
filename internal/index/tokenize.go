@@ -183,8 +183,7 @@ func ParseQuery(input string) []QueryTerm {
 // bigramSafe checks if a term is safe for bigram column search.
 // CJK single characters and short terms should use unigram column.
 func bigramSafe(term string) bool {
-	runes := []rune(term)
-	for _, r := range runes {
+	for _, r := range term {
 		if isCJK(r) {
 			return false
 		}

@@ -248,6 +248,41 @@ func TestGetIndexedFiles(t *testing.T) {
 }
 
 // TestEmptySearch verifies that an empty query returns no results.
+// TestSearchBindsQueryAsLiteralPhrase guards the old
+// fmt.Sprintf("... MATCH %s", escapeFTS(query)) construction: quotes and FTS5
+// operators in the search box must never change the SQL or bypass Ext filters.
+func TestSearchBindsQueryAsLiteralPhrase(t *testing.T) {
+	s := newTestStore(t)
+	mustUpsert(t, s, "/docs/report.txt", "report.txt", "txt", 1000, 10, IndexOK, "quarterly report")
+	mustUpsert(t, s, "/docs/secret.pdf", "secret.pdf", "pdf", 1000, 10, IndexOK, "secret")
+
+	// A normal phrase still matches.
+	res, err := s.Search("report", SearchOptions{Ext: []string{"txt"}})
+	if err != nil {
+		t.Fatalf("literal search failed: %v", err)
+	}
+	if res.Total != 1 {
+		t.Fatalf("expected 1 hit for a literal phrase, got %d", res.Total)
+	}
+
+	for _, q := range []string{
+		`' OR 1=1 --`,
+		`report' OR f.ext='pdf`,
+		`" OR file_fts MATCH "secret`,
+		`secret" OR "report`,
+		`report') UNION SELECT`,
+	} {
+		got, err := s.Search(q, SearchOptions{Ext: []string{"txt"}})
+		if err != nil {
+			t.Errorf("query %q returned an error: %v", q, err)
+			continue
+		}
+		if got.Total != 0 {
+			t.Errorf("query %q bypassed the WHERE clause: %d hits", q, got.Total)
+		}
+	}
+}
+
 func TestEmptySearch(t *testing.T) {
 	s := newTestStore(t)
 	mustUpsert(t, s, "/docs/a.txt", "a.txt", "txt", 1000, 10, IndexOK, "")

@@ -149,28 +149,50 @@ func findTextRanges(text string, needles []string) []textRange {
 }
 
 // findTextRangesInRunes finds all occurrences of needles in runes.
+//
+// Both sides are searched in rune space with a first-rune skip. The previous
+// implementation walked the text byte by byte and converted every hit back to a
+// rune index with len([]rune(text[:i])) — that made the cost O(n²) whenever a
+// needle was common in a large document (every hit rescanned the prefix).
 func findTextRangesInRunes(text []rune, needles []string) []textRange {
-	textStr := string(text)
-	textLower := strings.ToLower(textStr)
 	var result []textRange
 	for _, needle := range needles {
-		needleLower := strings.ToLower(needle)
-		needleRunes := []rune(needleLower)
-		n := len(needleRunes)
-		if n == 0 {
+		needleRunes := []rune(strings.ToLower(needle))
+		if len(needleRunes) == 0 || len(needleRunes) > len(text) {
 			continue
 		}
-		for i := 0; i <= len(textLower)-len(needleLower); i++ {
-			// Check at rune boundary
-			if textLower[i:i+len(needleLower)] == needleLower {
-				// Convert byte index to rune index
-				runeIdx := len([]rune(textLower[:i]))
-				result = append(result, textRange{Start: runeIdx, End: runeIdx + n})
-				i += len(needleLower) - 1
+		for from := 0; from <= len(text)-len(needleRunes); {
+			idx := indexRunes(text, needleRunes, from)
+			if idx < 0 {
+				break
 			}
+			result = append(result, textRange{Start: idx, End: idx + len(needleRunes)})
+			from = idx + len(needleRunes)
 		}
 	}
 	return result
+}
+
+// indexRunes returns the first rune index at or after from where needle occurs,
+// or -1. Literal comparison: callers lower-case both sides first.
+func indexRunes(hay, needle []rune, from int) int {
+	last := len(hay) - len(needle)
+	for i := from; i <= last; i++ {
+		if hay[i] != needle[0] {
+			continue
+		}
+		match := true
+		for j := 1; j < len(needle); j++ {
+			if hay[i+j] != needle[j] {
+				match = false
+				break
+			}
+		}
+		if match {
+			return i
+		}
+	}
+	return -1
 }
 
 func clamp(v, lo, hi int) int {

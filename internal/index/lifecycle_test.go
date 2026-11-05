@@ -3,9 +3,56 @@ package index
 import (
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 )
+
+// TestLifecycleConcurrentSyncAndShutdown guards F-02: SyncRoots used to run
+// SetRoots/watcher.SyncRoots/Refresh without serialisation, and Shutdown
+// closed the store without waiting for the initial-scan goroutine.
+func TestLifecycleConcurrentSyncAndShutdown(t *testing.T) {
+	dir := t.TempDir()
+	dataDir := filepath.Join(dir, "data")
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	lc, err := Init(dataDir, []string{dir})
+	if err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			lc.SyncRoots([]string{dir})
+			lc.Refresh()
+		}()
+	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		_ = lc.Shutdown()
+		// Idempotent: the second call must not close the store twice.
+		_ = lc.Shutdown()
+	}()
+
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(15 * time.Second):
+		t.Fatal("concurrent SyncRoots/Shutdown blocked")
+	}
+	// Calls after shutdown must be safe no-ops.
+	lc.SyncRoots(nil)
+	lc.Refresh()
+}
 
 func TestLifecycleSyncRootsIsNilSafe(t *testing.T) {
 	dir := t.TempDir()

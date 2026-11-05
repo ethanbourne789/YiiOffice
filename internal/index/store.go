@@ -183,16 +183,89 @@ func (s *FileIndexStore) Close() error {
 	return s.db.Close()
 }
 
+// IndexRow is one file's index payload: the metadata row plus the token sets
+// for both FTS columns. It exists so the scan can build payloads without
+// touching the database, and write them in batches.
+type IndexRow struct {
+	Path      string
+	Name      string
+	Ext       string
+	MtimeMs   int64
+	SizeBytes int64
+	Status    IndexStatus
+	Body      *string
+	NameBi    []string
+	PathBi    []string
+	BodyBi    []string
+	NameUni   []string
+	PathUni   []string
+	BodyUni   []string
+}
+
 // Upsert inserts or replaces a file entry and its FTS rows.
+//
+// Each call is its own transaction. That is right for the incremental path (one
+// changed file at a time, where an fsync is a rounding error) and wrong for a
+// first scan, which is why UpsertBatch exists: measured over 200 files, the
+// per-row transaction cost was 45% of the whole scan, of which the commit alone
+// was 28%.
 func (s *FileIndexStore) Upsert(path, name, ext string, mtimeMs int64, sizeBytes int64, status IndexStatus, body *string, nameTokens, pathTokens, bodyTokens []string, nameUTokens, pathUTokens, bodyUTokens []string) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
+	if err := upsertRow(tx, IndexRow{
+		Path:      path,
+		Name:      name,
+		Ext:       ext,
+		MtimeMs:   mtimeMs,
+		SizeBytes: sizeBytes,
+		Status:    status,
+		Body:      body,
+		NameBi:    nameTokens,
+		PathBi:    pathTokens,
+		BodyBi:    bodyTokens,
+		NameUni:   nameUTokens,
+		PathUni:   pathUTokens,
+		BodyUni:   bodyUTokens,
+	}); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// UpsertBatch writes many rows in a single transaction.
+//
+// All-or-nothing: a failure rolls back the whole batch. Callers that want
+// per-row error isolation should retry the batch one row at a time, which is
+// what the scan does — the batch is the fast path, not the contract.
+func (s *FileIndexStore) UpsertBatch(rows []IndexRow) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	for _, row := range rows {
+		if err := upsertRow(tx, row); err != nil {
+			return fmt.Errorf("upsert %s: %w", row.Path, err)
+		}
+	}
+	return tx.Commit()
+}
+
+// upsertRow writes one row inside an existing transaction: the metadata row
+// first, then its FTS entry (delete-then-insert, so an updated file cannot keep
+// stale tokens).
+func upsertRow(tx *sql.Tx, row IndexRow) error {
 	// Upsert the metadata row.
-	_, err = tx.Exec(`
+	_, err := tx.Exec(`
 		INSERT INTO files (path, name, ext, mtime_ms, size_bytes, status, body)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(path) DO UPDATE SET
@@ -202,28 +275,28 @@ func (s *FileIndexStore) Upsert(path, name, ext string, mtimeMs int64, sizeBytes
 			size_bytes = excluded.size_bytes,
 			status = excluded.status,
 			body = excluded.body
-	`, path, name, ext, mtimeMs, sizeBytes, string(status), body)
+	`, row.Path, row.Name, row.Ext, row.MtimeMs, row.SizeBytes, string(row.Status), row.Body)
 	if err != nil {
 		return fmt.Errorf("upsert file: %w", err)
 	}
 
 	// Delete any existing FTS row for this path, then insert fresh.
-	if _, err := tx.Exec("DELETE FROM file_fts WHERE file_path = ?", path); err != nil {
+	if _, err := tx.Exec("DELETE FROM file_fts WHERE file_path = ?", row.Path); err != nil {
 		return fmt.Errorf("delete fts: %w", err)
 	}
 
 	_, err = tx.Exec(`
 		INSERT INTO file_fts (name, path, body, file_path)
 		VALUES (?, ?, ?, ?)
-	`, strings.Join(nameTokens, " "),
-		strings.Join(pathTokens, " "),
-		joinOrEmpty(bodyTokens),
-		path)
+	`, strings.Join(row.NameBi, " "),
+		strings.Join(row.PathBi, " "),
+		joinOrEmpty(row.BodyBi),
+		row.Path)
 	if err != nil {
 		return fmt.Errorf("insert fts: %w", err)
 	}
 
-	return tx.Commit()
+	return nil
 }
 
 func joinOrEmpty(tokens []string) string {
@@ -244,7 +317,10 @@ func (s *FileIndexStore) Search(query string, opts SearchOptions) (*SearchResult
 		return &SearchResult{}, nil
 	}
 
-	matchExpr := escapeFTS(query)
+	// Bind the whole query as one FTS5 phrase parameter. Splicing user input
+	// into the SQL string let a stray quote (or an FTS5 OR expression) close
+	// the literal and extend the WHERE clause, bypassing the extension filter.
+	matchParam := ftsPhraseQuery(query)
 
 	var extFilter string
 	var extArgs []any
@@ -257,13 +333,16 @@ func (s *FileIndexStore) Search(query string, opts SearchOptions) (*SearchResult
 		extFilter = fmt.Sprintf(" AND f.ext IN (%s)", strings.Join(placeholders, ","))
 	}
 
-	// Count query.
+	// Count query. The MATCH operand is a bound parameter, never SQL text.
 	countSQL := fmt.Sprintf(
-		"SELECT COUNT(*) FROM file_fts t JOIN files f ON f.path = t.file_path WHERE file_fts MATCH %s%s",
-		matchExpr, extFilter,
+		"SELECT COUNT(*) FROM file_fts t JOIN files f ON f.path = t.file_path WHERE file_fts MATCH ?%s",
+		extFilter,
 	)
+	countArgs := make([]any, 0, 1+len(extArgs))
+	countArgs = append(countArgs, matchParam)
+	countArgs = append(countArgs, extArgs...)
 	var total int
-	if err := s.db.QueryRow(countSQL, extArgs...).Scan(&total); err != nil {
+	if err := s.db.QueryRow(countSQL, countArgs...).Scan(&total); err != nil {
 		return nil, fmt.Errorf("count: %w", err)
 	}
 
@@ -272,12 +351,14 @@ func (s *FileIndexStore) Search(query string, opts SearchOptions) (*SearchResult
 		SELECT f.path, f.name, f.ext, f.mtime_ms, f.size_bytes, f.body
 		FROM file_fts t
 		JOIN files f ON f.path = t.file_path
-		WHERE file_fts MATCH %s%s
+		WHERE file_fts MATCH ?%s
 		ORDER BY rank, f.mtime_ms DESC
 		LIMIT ? OFFSET ?
-	`, matchExpr, extFilter)
+	`, extFilter)
 
-	searchArgs := append(append(extArgs, int64(opts.Limit)), int64(opts.Offset))
+	searchArgs := make([]any, 0, len(countArgs)+2)
+	searchArgs = append(searchArgs, countArgs...)
+	searchArgs = append(searchArgs, int64(opts.Limit), int64(opts.Offset))
 
 	rows, err := s.db.Query(searchSQL, searchArgs...)
 	if err != nil {
@@ -299,13 +380,19 @@ func (s *FileIndexStore) Search(query string, opts SearchOptions) (*SearchResult
 		h.SizeBytes = int64(size)
 		hits = append(hits, h)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate search rows: %w", err)
+	}
 
 	return &SearchResult{Hits: hits, Total: total}, nil
 }
 
-// escapeFTS wraps a query in FTS5-safe quotes.
-func escapeFTS(s string) string {
-	return "'" + strings.NewReplacer("\\", "\\\\", "'", "\\'").Replace(s) + "'"
+// ftsPhraseQuery turns user input into a single FTS5 phrase. The caller binds
+// it as a parameter (MATCH ?), so neither SQL quotes nor FTS5 operators in the
+// query can change the statement. Doubling a double quote is the FTS5 escape
+// for a literal quote inside a quoted string.
+func ftsPhraseQuery(s string) string {
+	return `"` + strings.ReplaceAll(s, `"`, `""`) + `"`
 }
 
 // Remove deletes file entries by path.
@@ -314,7 +401,7 @@ func (s *FileIndexStore) Remove(paths []string) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	for _, p := range paths {
 		if _, err := tx.Exec("DELETE FROM file_fts WHERE file_path = ?", p); err != nil {
@@ -371,6 +458,9 @@ func (s *FileIndexStore) GetIndexedFiles() ([]IndexedFile, error) {
 		f.MtimeMs = int64(mtime)
 		f.SizeBytes = int64(size)
 		files = append(files, f)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate indexed files: %w", err)
 	}
 	return files, nil
 }

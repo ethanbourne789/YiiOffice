@@ -58,3 +58,29 @@ func TestRunIndexesAllSubdirsParity(t *testing.T) {
 		}
 	}
 }
+
+// TestRunIndexesFilesSpanningMultipleWriteBatches covers the batch boundary the
+// scan now writes through: rows are flushed every 64 files, so a corpus larger
+// than one batch must still be indexed completely — including the partial tail
+// batch that only the final flush sends.
+func TestRunIndexesFilesSpanningMultipleWriteBatches(t *testing.T) {
+	ix, store, dir := newTestIndexer(t)
+
+	const files = 70 // one full batch (64) plus a partial tail (6)
+	for i := 0; i < files; i++ {
+		fp := filepath.Join(dir, fmt.Sprintf("batch-%03d.txt", i))
+		body := fmt.Sprintf("batchtoken entry %d", i)
+		if err := os.WriteFile(fp, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	ix.RunOnce()
+
+	if got := searchTotal(t, store, "batchtoken"); got != files {
+		t.Fatalf("expected %d indexed files across two batches, got %d", files, got)
+	}
+	if pending, scanning := ix.Status(); pending != 0 || scanning {
+		t.Fatalf("scan finished dirty: pending=%d scanning=%v", pending, scanning)
+	}
+}
