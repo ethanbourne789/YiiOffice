@@ -1,17 +1,25 @@
 package bridge
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"os"
 	"os/user"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"gitee.com/ethanbourne789/yiioffice/internal/host"
 	"gitee.com/ethanbourne789/yiioffice/internal/platform"
 	"gitee.com/ethanbourne789/yiioffice/internal/workbook"
 )
+
+// workbookOpenTimeout bounds how long the renderer waits on one open before it
+// receives a retryable timeout instead of a spinner that never resolves. It is
+// a safety net for pathological inputs, not a performance target: a healthy
+// 200 MB workbook opens well inside it.
+const workbookOpenTimeout = 120 * time.Second
 
 // WorkbookService exposes the Sheets/Workbook editor operations as an official
 // Wails V3 binding service. All workbook parsing and writing runs in-process
@@ -93,7 +101,9 @@ func (s *WorkbookService) OpenFile(path string) (*workbook.FileInfo, error) {
 	if err != nil {
 		return nil, codedError(ErrOpenPathNotAuthorised, err)
 	}
-	info, err := s.eng.Open(authorised)
+	ctx, cancel := context.WithTimeout(context.Background(), workbookOpenTimeout)
+	defer cancel()
+	info, err := s.eng.OpenContext(ctx, authorised, "")
 	if err != nil {
 		return nil, codedError(ErrOpenReadFailed, err)
 	}
@@ -111,7 +121,9 @@ func (s *WorkbookService) OpenFileWithPassword(path, password string) (*workbook
 	if err != nil {
 		return nil, codedError(ErrOpenPathNotAuthorised, err)
 	}
-	info, err := s.eng.OpenWithPassword(authorised, password)
+	ctx, cancel := context.WithTimeout(context.Background(), workbookOpenTimeout)
+	defer cancel()
+	info, err := s.eng.OpenContext(ctx, authorised, password)
 	if err != nil {
 		return nil, codedError(ErrOpenReadFailed, err)
 	}

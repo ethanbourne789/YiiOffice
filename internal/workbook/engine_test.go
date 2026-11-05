@@ -2,6 +2,9 @@ package workbook
 
 import (
 	"archive/zip"
+	"context"
+	"crypto/sha256"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/xuri/excelize/v2"
 )
@@ -817,5 +821,105 @@ func TestCloseDropsSession(t *testing.T) {
 	eng.CloseAll()
 	if eng.SessionCount() != 0 {
 		t.Fatalf("sessions after close = %d", eng.SessionCount())
+	}
+}
+
+// TestHashAndCountMatchesSplitImplementation pins the merged single-pass helper
+// to the two calls it replaced: same digest, same byte count, same entry count.
+// The entry count is the part worth guarding — a zip that fails to open must
+// still yield a digest, because the caller records SHA256 for every file it
+// can read, zip or not.
+func TestHashAndCountMatchesSplitImplementation(t *testing.T) {
+	path := fixture(t)
+
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantSum := sha256.Sum256(raw)
+	zr, err := zip.OpenReader(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantEntries := len(zr.File)
+	zr.Close() //nolint:errcheck // read-only fixture handle
+
+	sum, size, entries, err := hashAndCount(context.Background(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sum != wantSum {
+		t.Errorf("digest = %x, want %x", sum, wantSum)
+	}
+	if size != int64(len(raw)) {
+		t.Errorf("size = %d, want %d", size, len(raw))
+	}
+	if entries != wantEntries {
+		t.Errorf("entries = %d, want %d", entries, wantEntries)
+	}
+}
+
+func TestHashAndCountNonZipDegradesToZeroEntries(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "plain.csv")
+	const body = "a,b\n1,2\n"
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	sum, size, entries, err := hashAndCount(context.Background(), path)
+	if err != nil {
+		t.Fatalf("a non-zip must not fail the digest: %v", err)
+	}
+	if want := sha256.Sum256([]byte(body)); sum != want {
+		t.Errorf("digest = %x, want %x", sum, want)
+	}
+	if size != int64(len(body)) {
+		t.Errorf("size = %d, want %d", size, len(body))
+	}
+	if entries != 0 {
+		t.Errorf("entries = %d, want 0", entries)
+	}
+}
+
+func TestOpenContextHonoursDeadline(t *testing.T) {
+	eng := NewEngine()
+	defer eng.CloseAll()
+	path := fixture(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if _, err := eng.OpenContext(ctx, path, ""); !errors.Is(err, ErrOpenTimeout) {
+		t.Fatalf("err = %v, want ErrOpenTimeout", err)
+	}
+	if eng.SessionCount() != 0 {
+		t.Fatalf("a timed-out open must not leave a session behind: %d", eng.SessionCount())
+	}
+}
+
+func TestOpenContextWithoutDeadlineOpens(t *testing.T) {
+	eng := NewEngine()
+	defer eng.CloseAll()
+	path := fixture(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	info, err := eng.OpenContext(ctx, path, "")
+	if err != nil {
+		t.Fatalf("open with a live deadline: %v", err)
+	}
+	if info == nil || len(info.Sheets) == 0 {
+		t.Fatal("expected sheet metadata")
+	}
+}
+
+func TestHashAndCountStopsOnCancelledContext(t *testing.T) {
+	path := fixture(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if _, _, _, err := hashAndCount(ctx, path); !errors.Is(err, ErrOpenTimeout) {
+		t.Fatalf("err = %v, want ErrOpenTimeout", err)
 	}
 }

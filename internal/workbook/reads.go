@@ -2,6 +2,7 @@ package workbook
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
@@ -551,8 +552,8 @@ func (e *Engine) Save(req SaveRequest) (*SaveResult, error) {
 		}
 	}
 	for _, fill := range req.BulkConstantFills {
-		if !fillValue(s.file, fill) {
-			continue
+		if err := fillValue(s.file, fill); err != nil {
+			return nil, fmt.Errorf("bulk fill: %w", err)
 		}
 	}
 	// Hyperlinks attach to cells, so they run after the value/fill writes:
@@ -583,7 +584,10 @@ func (e *Engine) Save(req SaveRequest) (*SaveResult, error) {
 func (e *Engine) reloadLocked(s *session, path string) (*FileInfo, error) {
 	// Stream the hash (see Engine.Open) so the reload does not hold a
 	// second full copy of the workbook alongside excelize's parse.
-	sum, size, err := hashFile(path)
+	// A save is a short, user-initiated write; it runs without a deadline so a
+	// slow-but-healthy disk is never reported as a failure. The bridge bounds
+	// the whole call, not this stage.
+	sum, size, entryCount, err := hashAndCount(context.Background(), path)
 	if err != nil {
 		return nil, fmt.Errorf("reload workbook: %w", err)
 	}
@@ -593,7 +597,7 @@ func (e *Engine) reloadLocked(s *session, path string) (*FileInfo, error) {
 	// the freshly written (still encrypted) file reads as "not a zip".
 	var f *excelize.File
 	if s.encrypted {
-		f, err = excelize.OpenFile(path, excelize.Options{Password: s.password})
+		f, err = excelize.OpenFile(path, excelize.Options{Password: string(s.password)})
 	} else {
 		f, err = excelize.OpenFile(path)
 	}
@@ -606,9 +610,9 @@ func (e *Engine) reloadLocked(s *session, path string) (*FileInfo, error) {
 		Path:         path,
 		SHA256:       hex.EncodeToString(sum[:]),
 		FileBytes:    size,
-		EntryCount:   countZipEntries(path),
+		EntryCount:   entryCount,
 		ReadOnly:     isReadOnly(path),
-		Sheets:       sheetMetadata(f),
+		Sheets:       sheetMetadata(f, path),
 		ActiveTab:    clampActiveTab(f.GetActiveSheetIndex(), len(f.GetSheetList())),
 		Styles:       styleTable(f),
 		DxfStyles:    []CellStyle{},
@@ -735,24 +739,34 @@ func areaEndRef(area CellArea) string {
 	return cellRef(area.EndRow, area.EndColumn)
 }
 
-func fillValue(f *excelize.File, fill BulkFill) bool {
+// fillValue writes a constant into a rectangular range. Every SetCell*
+// result is checked now: silently dropping them used to produce a workbook
+// that looked saved but was missing part of the fill.
+func fillValue(f *excelize.File, fill BulkFill) error {
 	if _, err := f.GetSheetIndex(fill.SheetID); err != nil {
-		return false
+		// Preserve the historical behaviour: an unknown sheet is skipped
+		// rather than failing the whole save.
+		return nil
 	}
+	var firstErr error
 	for row := fill.StartRow; row <= fill.EndRow; row++ {
 		for col := fill.StartColumn; col <= fill.EndColumn; col++ {
 			ref := cellRef(row, col)
+			var err error
 			switch v := fill.Value.(type) {
 			case nil:
-				f.SetCellStr(fill.SheetID, ref, "")
+				err = f.SetCellStr(fill.SheetID, ref, "")
 			case float64:
-				f.SetCellFloat(fill.SheetID, ref, v, -1, 64)
+				err = f.SetCellFloat(fill.SheetID, ref, v, -1, 64)
 			case bool:
-				f.SetCellBool(fill.SheetID, ref, v)
+				err = f.SetCellBool(fill.SheetID, ref, v)
 			default:
-				f.SetCellStr(fill.SheetID, ref, fmt.Sprint(v))
+				err = f.SetCellStr(fill.SheetID, ref, fmt.Sprint(v))
+			}
+			if err != nil && firstErr == nil {
+				firstErr = fmt.Errorf("%s!%s: %w", fill.SheetID, ref, err)
 			}
 		}
 	}
-	return true
+	return firstErr
 }
