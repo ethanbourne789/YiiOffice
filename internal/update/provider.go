@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 
@@ -29,6 +30,10 @@ type checksumProvider struct {
 	*github.Provider
 
 	client *http.Client
+	// base is the release API URL this provider was configured with. Asset
+	// URLs in the feed are untrusted input and are pinned to this host/scheme
+	// (or to the official release hosts over https).
+	base string
 
 	// checkMu serialises Check so the captured asset list cannot be
 	// overwritten by a second call before this one reads it.
@@ -68,6 +73,23 @@ func matchInstallerAsset(req updater.CheckRequest, assets []github.ReleaseAsset)
 	return -1
 }
 
+// assetURLAllowed reports whether an asset URL taken from the untrusted
+// release feed may be fetched. Assets must stay on the same host and scheme
+// as the configured release API (Gitee/GitHub feed and its downloads), or on
+// an official release host over https. A tampered feed must not be able to
+// point the checksum sidecar or the installer at an arbitrary host.
+func (p *checksumProvider) assetURLAllowed(raw string) bool {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u.Scheme == "" || u.Host == "" || u.User != nil {
+		return false
+	}
+	if base, berr := url.Parse(p.base); berr == nil &&
+		strings.EqualFold(u.Host, base.Host) && u.Scheme == base.Scheme {
+		return true
+	}
+	return u.Scheme == "https" && allowedReleaseHost(u.Hostname())
+}
+
 // Check resolves the release and attaches the publisher's SHA-256 digest when
 // a sidecar is present.
 //
@@ -87,6 +109,14 @@ func (p *checksumProvider) Check(ctx context.Context, req updater.CheckRequest) 
 	rel, err := p.Provider.Check(ctx, req)
 	if err != nil || rel == nil {
 		return rel, err
+	}
+
+	// The feed is untrusted: reject the whole release when any asset points
+	// off-platform, before either the sidecar fetch or the upstream download.
+	for _, a := range p.assets.last {
+		if a.URL != "" && !p.assetURLAllowed(a.URL) {
+			return nil, fmt.Errorf("release asset %q points to a host outside the release allowlist", a.Name)
+		}
 	}
 
 	digest, err := p.checksum(ctx, rel.Artifact.Filename)
@@ -119,6 +149,9 @@ func (p *checksumProvider) checksum(ctx context.Context, target string) ([]byte,
 	}
 	if asset.URL == "" {
 		return nil, fmt.Errorf("checksum sidecar %q has no download URL", asset.Name)
+	}
+	if !p.assetURLAllowed(asset.URL) {
+		return nil, fmt.Errorf("checksum sidecar %q has a URL outside the release host allowlist", asset.Name)
 	}
 	body, err := fetchChecksum(ctx, p.client, asset.URL)
 	if err != nil {

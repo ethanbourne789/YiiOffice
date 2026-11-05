@@ -13,6 +13,49 @@ import (
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 )
 
+// TestSanitizeImageName guards against PDF-supplied resource names escaping
+// the export folder (V-H4).
+func TestSanitizeImageName(t *testing.T) {
+	cases := []struct {
+		raw  string
+		want string
+	}{
+		{"normal.png", "normal.png"},
+		{"../../Windows/evil.png", "evil.png"},
+		{`C:\Windows\evil.png`, "evil.png"},
+		{"a/b/c", "c"},
+		{"..", "12"},
+		{"", "12"},
+	}
+	for _, c := range cases {
+		if got := sanitizeImageName(c.raw, 12); got != c.want {
+			t.Errorf("sanitizeImageName(%q) = %q, want %q", c.raw, got, c.want)
+		}
+	}
+	long := ""
+	for i := 0; i < 300; i++ {
+		long += "a"
+	}
+	if got := sanitizeImageName(long, 12); len(got) != 128 {
+		t.Errorf("long image name not bounded: %d", len(got))
+	}
+}
+
+func TestImageExtWhitelist(t *testing.T) {
+	cases := map[string]string{
+		"jpeg":        ".jpg",
+		"PNG":         ".png",
+		"":            "",
+		"../../evil": ".bin",
+		"svg":         ".bin",
+	}
+	for in, want := range cases {
+		if got := imageExt(in); got != want {
+			t.Errorf("imageExt(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
 // seedPDF builds a deterministic N-page PDF by importing solid-color PNGs.
 func seedPDF(t *testing.T, dir string, label string, pages int) string {
 	t.Helper()

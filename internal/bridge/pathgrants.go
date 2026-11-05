@@ -210,8 +210,11 @@ func InitManagedGrants() error {
 	for _, sub := range []string{"exports", "documents", "documents/recovery", "temp"} {
 		GrantDir(filepath.Join(dataDir, sub))
 	}
-	// The system temp dir backs RenderPdfBase64 / MergePdfParts scratch files.
-	GrantDir(os.TempDir())
+	// Scratch files under the system temp dir are written by Go-side helpers
+	// that never go through AuthoriseWrite; the single renderer-visible temp
+	// path (PickExportFolder's PdfPath) is granted explicitly via GrantFile.
+	// Granting os.TempDir() itself would make every path in the system temp
+	// directory writable from the renderer, defeating the whitelist.
 	return nil
 }
 

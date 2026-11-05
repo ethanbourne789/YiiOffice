@@ -19,6 +19,11 @@ const (
 	// works against Gitee's API v5 once the base URL is swapped.
 	giteeAPIBase = "https://gitee.com/api/v5"
 	repository   = "ethanbourne789/yiioffice"
+
+	// The HTTP client's 30s timeout only bounds individual requests; these
+	// bound the whole check / download+verify+stage operation.
+	updateCheckTimeout   = 45 * time.Second
+	updateInstallTimeout = 10 * time.Minute
 )
 
 // Status is the outcome of a manual update check.
@@ -66,7 +71,7 @@ func newProvider(base string) (*checksumProvider, error) {
 		Timeout:   30 * time.Second,
 		Transport: giteeCompatTransport{base: http.DefaultTransport},
 	}
-	p := &checksumProvider{client: client}
+	p := &checksumProvider{client: client, base: base}
 	inner, err := github.New(github.Config{
 		Repository:   repository,
 		BaseURL:      base,
@@ -108,7 +113,9 @@ func New(app *application.App, currentVersion string) (*Service, error) {
 // starts a download; callers decide after showing the notes.
 func (s *Service) CheckForUpdate() (*Status, error) {
 	status := &Status{CurrentVersion: s.updater.CurrentVersion()}
-	rel, err := s.updater.Check(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), updateCheckTimeout)
+	defer cancel()
+	rel, err := s.updater.Check(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -133,13 +140,17 @@ func (s *Service) CheckForUpdate() (*Status, error) {
 // restart. A mismatch aborts the install and the staged bytes are discarded;
 // progress arrives on the updater's own events.
 func (s *Service) DownloadAndInstall() error {
-	if err := s.updater.DownloadAndInstall(context.Background()); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), updateInstallTimeout)
+	defer cancel()
+	if err := s.updater.DownloadAndInstall(ctx); err != nil {
 		return fmt.Errorf("update aborted: %w", err)
 	}
 	return nil
 }
 
 // RestartApp swaps the staged update in and relaunches the application.
+// Wails v3.1.0's Updater.Restart ignores its context argument entirely, so
+// wrapping it in a deadline would only give a false sense of safety.
 func (s *Service) RestartApp() error {
 	return s.updater.Restart(context.Background())
 }

@@ -11,13 +11,15 @@ import (
 	"gitee.com/ethanbourne789/yiioffice/internal/platform"
 )
 
-// TestMain mirrors main.go's startup: the app-managed directories (and the
-// system temp dir that backs t.TempDir) are granted for the session, so
-// legitimate test writes pass the write whitelist exactly like a real run.
+// TestMain mirrors main.go's startup, with one deliberate extra grant: tests
+// write into t.TempDir(), which production no longer authorises (the real app
+// grants its own temp paths individually). Widen the whitelist for the test
+// process only, so production behaviour stays covered by the tests below.
 func TestMain(m *testing.M) {
 	if err := InitManagedGrants(); err != nil {
 		fmt.Fprintf(os.Stderr, "InitManagedGrants: %v\n", err)
 	}
+	GrantDir(os.TempDir())
 	os.Exit(m.Run())
 }
 

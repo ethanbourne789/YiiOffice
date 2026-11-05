@@ -432,16 +432,45 @@ func boxSpec(a, b, c, d float64) string {
 	return fmt.Sprintf("%.2f %.2f %.2f %.2f", a, b, c, d)
 }
 
-// imageExt returns a filesystem extension for an extracted image.
+// imageExt returns a filesystem extension for an extracted image. The file
+// type comes out of the PDF itself, so only known extensions are emitted: an
+// arbitrary string must not become a path suffix (or a traversal component).
 func imageExt(fileType string) string {
-	switch strings.ToLower(fileType) {
+	switch strings.ToLower(strings.TrimSpace(fileType)) {
 	case "jpeg":
 		return ".jpg"
+	case "jpg", "png", "gif", "tiff", "tif", "bmp", "webp":
+		return "." + strings.ToLower(strings.TrimSpace(fileType))
 	case "":
 		return ""
 	default:
-		return "." + strings.ToLower(fileType)
+		return ".bin"
 	}
+}
+
+// sanitizeImageName reduces a PDF-supplied image resource name to one safe
+// filename component. pdfcpu derives img.Name from names inside the document;
+// without this, "../../..." or "C:\\..." could escape targetPath in the
+// filepath.Join below and overwrite a file the user never chose.
+func sanitizeImageName(raw string, objNr int) string {
+	base := filepath.Base(strings.ReplaceAll(raw, "\\", "/"))
+	var b strings.Builder
+	for _, r := range base {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
+			(r >= '0' && r <= '9') || r == '-' || r == '_' || r == '.' {
+			if b.Len() >= 128 {
+				break
+			}
+			b.WriteRune(r)
+		} else {
+			b.WriteByte('_')
+		}
+	}
+	clean := strings.Trim(b.String(), ".")
+	if clean == "" {
+		clean = strconv.Itoa(objNr)
+	}
+	return clean
 }
 
 // ExportImages extracts image resources from the selected pages of filePath
@@ -450,7 +479,8 @@ func ExportImages(ctx context.Context, filePath string, selectedPages []int, tar
 	if err := requireFile(filePath); err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(targetPath, 0o755); err != nil {
+	target := filepath.Clean(targetPath)
+	if err := os.MkdirAll(target, 0o755); err != nil {
 		return nil, fmt.Errorf("create target dir: %w", err)
 	}
 	in, err := os.Open(filePath)
@@ -471,14 +501,16 @@ func ExportImages(ctx context.Context, filePath string, selectedPages []int, tar
 			if err != nil {
 				continue
 			}
-			name := strings.ReplaceAll(img.Name, " ", "_")
-			if name == "" {
-				name = strconv.Itoa(img.ObjNr)
-			}
+			name := sanitizeImageName(img.Name, img.ObjNr)
 			outFile := filepath.Join(
-				targetPath,
+				target,
 				fmt.Sprintf("image_%d_%s%s", img.PageNr, name, imageExt(img.FileType)),
 			)
+			// Defence in depth: the name is already a single safe component,
+			// but never write outside the folder the user picked.
+			if filepath.Dir(outFile) != target {
+				return nil, fmt.Errorf("refusing image output outside the target folder")
+			}
 			if err := os.WriteFile(outFile, data, 0o644); err != nil {
 				return nil, fmt.Errorf("write image: %w", err)
 			}

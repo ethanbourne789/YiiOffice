@@ -47,7 +47,7 @@ func TestCheckFindsNewerRelease(t *testing.T) {
 		"tag_name":"v0.14.0",
 		"name":"YiiOffice 0.14.0",
 		"body":"Release notes",
-		"assets":[{"name":"YiiOffice_0.14.0_windows_amd64_setup.exe","size":1024,"browser_download_url":"https://example.com/setup.exe"}]
+		"assets":[{"name":"YiiOffice_0.14.0_windows_amd64_setup.exe","size":1024,"browser_download_url":"https://gitee.com/setup.exe"}]
 	}`)
 
 	rel, err := check(t, server.URL, "0.13.0")
@@ -63,7 +63,7 @@ func TestCheckFindsNewerRelease(t *testing.T) {
 	if rel.Notes != "Release notes" {
 		t.Errorf("notes = %q", rel.Notes)
 	}
-	if got, want := rel.Metadata["github.asset.url"], "https://example.com/setup.exe"; got != want {
+	if got, want := rel.Metadata["github.asset.url"], "https://gitee.com/setup.exe"; got != want {
 		t.Errorf("asset url = %v, want %s", got, want)
 	}
 }
@@ -111,7 +111,7 @@ func TestCheckFindsReleaseWithLegacyAssetName(t *testing.T) {
 		"tag_name":"v0.14.0",
 		"name":"YiiOffice 0.14.0",
 		"body":"notes",
-		"assets":[{"name":"YiiOffice_0.14.0_setup.exe","browser_download_url":"https://example.com/setup.exe"}]
+		"assets":[{"name":"YiiOffice_0.14.0_setup.exe","browser_download_url":"https://gitee.com/setup.exe"}]
 	}`)
 
 	rel, err := check(t, server.URL, "0.13.0")
@@ -132,7 +132,7 @@ func TestCheckFindsReleaseWithLegacyAssetName(t *testing.T) {
 func TestCheckTreatsNonSemverTagAsUpToDate(t *testing.T) {
 	server := releaseServer(t, `{
 		"tag_name":"YiiOffice",
-		"assets":[{"name":"YiiOffice_0.13.0_setup.exe","browser_download_url":"https://example.com/setup.exe"}]
+		"assets":[{"name":"YiiOffice_0.13.0_setup.exe","browser_download_url":"https://gitee.com/setup.exe"}]
 	}`)
 
 	rel, err := check(t, server.URL, "0.13.0")
